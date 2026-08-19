@@ -51,8 +51,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +82,13 @@ fun PlayerArea(
     val playbackState = MusicPanelStateHolder.state
     var playlistVisible by remember { mutableStateOf(false) }
 
+    // 歌词区固定高度 = 5 行歌词（含顶部 4dp、每行上下 2dp 内边距与行间距），避免随歌词内容变化而跳动
+    val textMeasurer = rememberTextMeasurer()
+    val lyricLineHeight = with(LocalDensity.current) {
+        textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = 16.sp)).size.height.toDp()
+    }
+    val lyricsAreaHeight = 5 * (lyricLineHeight + 4.dp) + 4 * 2.dp + 4.dp
+
     Box(modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -98,11 +109,11 @@ fun PlayerArea(
                 )
             }
             Spacer(Modifier.height(24.dp))
-            // 歌词：占据中间完整高度
+            // 歌词：固定为 5 行歌词高度
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .height(lyricsAreaHeight),
                 contentAlignment = Alignment.Center,
             ) {
                 if (playbackState.currentTrack != null) {
