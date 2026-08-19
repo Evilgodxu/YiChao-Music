@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.screens.settings.settings_assembly
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -16,6 +17,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,6 +53,8 @@ fun SettingsAssembly(
     var showLanguageDialog by remember { mutableStateOf(false) }
     var pendingLanguage by remember { mutableStateOf<AppLanguage?>(null) }
     var pendingThemeClickPosition by remember { mutableStateOf(Offset.Zero) }
+    // 返回按钮防抖，避免快速连点重复出栈导致崩溃
+    var lastBackClickAt by remember { mutableLongStateOf(0L) }
 
     // 先关闭对话框，下一帧再切语言，避免切换瞬间闪现旧语言
     LaunchedEffect(pendingLanguage) {
@@ -65,7 +69,13 @@ fun SettingsAssembly(
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - lastBackClickAt > 400L) {
+                            lastBackClickAt = now
+                            onBack()
+                        }
+                    }) {
                         Icon(painterResource(R.drawable.ic_chevron_left), stringResource(R.string.back))
                     }
                 },

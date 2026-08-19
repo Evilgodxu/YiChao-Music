@@ -98,9 +98,11 @@ fun PlayerArea(
                 )
             }
             Spacer(Modifier.height(24.dp))
-            // 歌词
+            // 歌词：占据中间完整高度
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
                 if (playbackState.currentTrack != null) {
@@ -155,7 +157,6 @@ fun PlayerArea(
                 playbackState = playbackState,
                 onPlaylistClick = { playlistVisible = !playlistVisible },
             )
-            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(16.dp))
         }
 
