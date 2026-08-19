@@ -107,6 +107,7 @@ fun PlayerArea(
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Spacer(Modifier.height(16.dp))
             // 旋转专辑封面
