@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">忆潮音乐</string>
+
+    <!-- 主页 -->
+    <string name="home_title">首页</string>
+    <string name="home_greeting">欢迎使用忆潮音乐</string>
+    <string name="home_welcome_title">欢迎</string>
+    <string name="home_welcome_message">这是一个开箱即用的 Android 应用模板，已搭建好工程骨架与常用能力，可直接在此基础上开发业务功能。</string>
+    <string name="home_about_title">项目简介</string>
+    <string name="home_about_message">基于单 Activity 与 Jetpack Compose 构建，采用 MVVM 架构，内置 Koin 依赖注入、DataStore 持久化、深浅色主题与多语言支持，并遵循分区架构组织代码。</string>
+
+    <!-- 设置页 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_theme_title">主题</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_section_appearance">外观</string>
+    <string name="settings_section_language">语言</string>
+    <string name="settings_theme_dialog_title">选择主题</string>
+    <string name="settings_language_dialog_title">选择语言</string>
+
+    <!-- 主题选项 -->
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">始终浅色</string>
+    <string name="theme_dark">始终深色</string>
+
+    <!-- 语言选项 -->
+    <string name="language_system">跟随系统</string>
+    <string name="language_chinese">简体中文</string>
+    <string name="language_english">English</string>
+
+    <!-- 通用 -->
+    <string name="back">返回</string>
+    <string name="settings_version">版本 %1$s</string>
+</resources>

@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">YiChao Music</string>
+
+    <!-- Home -->
+    <string name="home_title">Home</string>
+    <string name="home_greeting">Welcome to YiChao Music</string>
+    <string name="home_welcome_title">Welcome</string>
+    <string name="home_welcome_message">An out-of-the-box Android app template with a ready-to-use project skeleton and common capabilities, ready for your own features.</string>
+    <string name="home_about_title">About</string>
+    <string name="home_about_message">Built on a single-activity architecture with Jetpack Compose, featuring MVVM, Koin DI, DataStore persistence, light/dark themes, multi-language support, and zone-based code organization.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_language">Language</string>
+    <string name="settings_theme_dialog_title">Select Theme</string>
+    <string name="settings_language_dialog_title">Language</string>
+
+    <!-- Theme options -->
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- Language options -->
+    <string name="language_system">System</string>
+    <string name="language_chinese">简体中文</string>
+    <string name="language_english">English</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="settings_version">Version %1$s</string>
+</resources>

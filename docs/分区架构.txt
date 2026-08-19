@@ -1,0 +1,66 @@
+## 顶层包结构
+
+```
+com.{app}.{dev}/
+├── data/                    # 全局共享数据层
+├── domain/                  # 全局领域层
+├── di/                      # 依赖注入
+├── navigation/              # 页面路由
+├── log/                     # 日志系统
+├── update/                  # 检查更新
+├── overlay/                 # 悬浮窗
+├── service/                 # 后台服务
+├── dialog/                  # 全局弹窗
+├── ui/                      # 全局共享 UI 组件
+├── screens/                 # 页面模块
+├── theme/                   # 主题配置
+├── {App}Activity.kt         # 单 Activity 入口
+├── {App}Application.kt      # Application 入口
+└── {App}ActivityViewModel.kt# Activity 级 ViewModel
+```
+
+## 页面结构
+
+```
+screens/home/
+├── data/                    # 页面数据层
+├── domain/                  # 页面领域层
+├── overlay/                 # 悬浮窗
+├── service/                 # 后台服务
+├── dialog/                  # 弹窗
+├── home_assembly/          # 首页UI
+│   └── HomeAssembly.kt  # 首页分区组装器，编排分区。
+│        ├── title_area/         # 标题分区
+│        │    └── TitleArea.kt        # 顶部标题
+│        ├── welcome_area/         # 欢迎分区
+│        │    └── WelcomeArea.kt        # 欢迎卡片
+│        └── about_area/         # 关于分区
+│              └── AboutArea.kt        # 关于卡片
+├── {ScreenName}Screen.kt    # 页面入口
+├── {ScreenName}UiState.kt   # 页面级 UI 状态
+└── {ScreenName}ViewModel.kt # 页面级 ViewModel
+```
+
+数据流：
+单向数据流（Unidirectional Data Flow）：状态自上而下流动，事件自下而上传递。
+
+代码组织：
+通用上提，专用下沉
+若  overlay/ 、 service/ 、 dialog/ 、 domain/ 、 ui/  等模块被 两个及以上页面复用，则上提至顶层；
+若 仅单个页面使用，则保留在该页面目录内。
+
+主题与资源：
+文案：统一通过  stringResource  引用，禁止硬编码。
+颜色与主题：统一通过  theme  系统管理，禁止硬编码。
+
+命名规范：
+分区命名 = 语义 + Area
+按界面功能语义命名分区，例如首页顶部标题区命名为  TitleArea 。
+
+依赖管理：
+显式声明：所有依赖必须显式声明，禁止隐式依赖。
+完整限定导入：所有导入须使用完整限定名，禁止通配符（ * ）导入。
+
+目录管理：
+职责分层：须按功能职责划分子目录，禁止所有文件平铺于同一层级。目录命名同类名。
+结构清晰：确保目录树反映模块边界与依赖关系。
