@@ -277,7 +277,7 @@ internal suspend fun cacheToDownloads(
         val contentValues = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, fileName)
             put(MediaStore.Downloads.MIME_TYPE, "audio/mpeg")
-            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/EdgeGesture")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Memory Meets Tomorrow")
         }
         val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
         if (uri != null) {
@@ -349,7 +349,7 @@ internal suspend fun findExistingDownload(
         val projection = arrayOf(MediaStore.Downloads._ID)
         val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ? AND " +
                 "${MediaStore.Downloads.RELATIVE_PATH} = ?"
-        val args = arrayOf(fileName, Environment.DIRECTORY_DOWNLOADS + "/EdgeGesture/")
+        val args = arrayOf(fileName, Environment.DIRECTORY_DOWNLOADS + "/Memory Meets Tomorrow/")
         context.contentResolver.query(collection, projection, selection, args, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val id = cursor.getLong(0)
