@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -144,11 +145,20 @@ private fun MetadataAxis(
             } else 0f
         }
     }
-    Box(modifier = modifier.padding(vertical = 24.dp)) {
+    // 标题、进度条、艺术家横排紧贴：标题置顶、艺术家沉底
+    Row(
+        modifier = modifier.padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 标题：左上角竖排文字
+        VerticalLabel(
+            text = playbackState.currentTrack?.title.orEmpty(),
+            modifier = Modifier.align(Alignment.Top),
+        )
         // 进度条：居中竖线，从底部向上填充
         Box(
             modifier = Modifier
-                .align(Alignment.Center)
                 .fillMaxHeight(0.72f)
                 .width(3.dp)
                 .clip(RoundedCornerShape(2.dp))
@@ -162,19 +172,10 @@ private fun MetadataAxis(
                     .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
             )
         }
-        // 标题：左上角竖排文字
-        VerticalLabel(
-            text = playbackState.currentTrack?.title.orEmpty(),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 6.dp, top = 44.dp),
-        )
         // 艺术家：右下角竖排文字
         VerticalLabel(
             text = playbackState.currentTrack?.artist.orEmpty(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 6.dp, bottom = 44.dp),
+            modifier = Modifier.align(Alignment.Bottom),
         )
     }
 }
