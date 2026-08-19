@@ -30,11 +30,13 @@ import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,10 +65,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.DiscArt
+import com.yichao.evilgodxu.musicpanel.HeaderIconButton
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.PlayMode
+import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
 import com.yichao.evilgodxu.musicpanel.PlaylistRow
 import com.yichao.evilgodxu.musicpanel.ProgressSection
 import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
@@ -97,7 +101,7 @@ fun PlayerArea(
     val lyricLineHeight = with(LocalDensity.current) {
         textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = 16.sp)).size.height.toDp()
     }
-    val lyricsAreaHeight = 5 * (lyricLineHeight + 4.dp) + 4 * 2.dp + 4.dp
+    val lyricsAreaHeight = (lyricLineHeight + 4.dp) * 5 + 2.dp * 4 + 4.dp
 
     Box(modifier = modifier) {
         Column(
@@ -341,6 +345,18 @@ private fun PlaylistSheet(
                             fontSize = 12.sp,
                             modifier = Modifier.padding(end = 4.dp),
                         )
+                        HeaderIconButton(
+                            icon = Icons.Default.Refresh,
+                            onClick = {
+                                if (!playbackState.isScanning) {
+                                    scope.launch {
+                                        PlaylistRefresher.refresh(context, playbackState, restoreCurrent = true)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(28.dp),
+                            enabled = !playbackState.isScanning,
+                        )
                         IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -351,7 +367,14 @@ private fun PlaylistSheet(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                if (playbackState.playlist.isEmpty()) {
+                if (playbackState.isScanning) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                } else if (playbackState.playlist.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,

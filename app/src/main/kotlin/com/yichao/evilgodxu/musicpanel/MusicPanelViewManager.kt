@@ -131,7 +131,6 @@ class MusicPanelViewManager(
         }
     )
     private val externalTrackMutex = Mutex()
-    private val scanMutex = Mutex()
     // 封面/歌词后台提取的互斥锁：show / 刷新扫描 / 媒体变更三个入口都会并发触发 enrich，
     // 不加锁会导致在线封面在本地封面尚未提交时抢先匹配，把有内嵌封面的歌永久变成在线封面
     private val enrichMutex = Mutex()
@@ -339,44 +338,10 @@ class MusicPanelViewManager(
         }
     }
 
-    private suspend fun refreshPlaylist() = scanMutex.withLock {
-        val started = withContext(Dispatchers.Main) {
-            if (playbackState.isScanning) false else {
-                playbackState.isScanning = true
-                true
-            }
-        }
-        if (!started) return@withLock
-        try {
-            val tracks = MusicScanner.scan(context)
-            val externalTracks = withContext(Dispatchers.Main) {
-                playbackState.playlist.filter { it.path.isBlank() }
-            }
-            val mergedTracks = mergeTrackMetadata(deduplicateTracks(tracks + externalTracks))
-            withContext(Dispatchers.Main) {
-                playbackState.setSortedPlaylist(mergedTracks)
-                playbackState.persistPlaylist()
-            }
+    private suspend fun refreshPlaylist() {
+        PlaylistRefresher.refresh(context, playbackState, restoreCurrent = false) {
             // 刷新后后台加载封面与歌词，完成合并后再清理孤立缓存
             managerScope.launch { enrichAndCleanupMetadata() }
-        } finally {
-            withContext(Dispatchers.Main + kotlinx.coroutines.NonCancellable) {
-                playbackState.isScanning = false
-            }
-        }
-    }
-
-    private fun mergeTrackMetadata(tracks: List<MusicTrack>): List<MusicTrack> {
-        val previous = playbackState.playlist.associateBy { normalizedAudioUri(it.audioUri) }
-        return tracks.map { track ->
-            val cached = previous[normalizedAudioUri(track.audioUri)] ?: return@map track
-            track.copy(
-                neteaseId = cached.neteaseId,
-                neteaseCoverUrl = cached.neteaseCoverUrl,
-                coverCachePath = cached.coverCachePath,
-                lyricCachePath = cached.lyricCachePath,
-                lyricLines = cached.lyricLines
-            )
         }
     }
 
@@ -420,30 +385,10 @@ class MusicPanelViewManager(
         }
     }
 
-    private suspend fun scanAndPlay() = scanMutex.withLock {
-        val started = withContext(Dispatchers.Main) {
-            if (playbackState.isScanning) false else {
-                playbackState.isScanning = true
-                true
-            }
-        }
-        if (!started) return@withLock
-        try {
-            val tracks = MusicScanner.scan(context)
-            withContext(Dispatchers.Main) {
-                val externalTracks = playbackState.playlist.filter { it.path.isBlank() }
-                val mergedTracks = mergeTrackMetadata(deduplicateTracks(tracks + externalTracks))
-                playbackState.setSortedPlaylist(mergedTracks)
-                playbackState.persistPlaylist()
-                restoreCurrentTrack()
-            }
+    private suspend fun scanAndPlay() {
+        PlaylistRefresher.refresh(context, playbackState, restoreCurrent = true) {
             // 封面后台加载，不阻塞 isScanning 重置
             managerScope.launch { enrichAndCleanupMetadata() }
-        } finally {
-            // 使用非取消式上下文确保 isScanning 一定被重置（防止竟态导致卡死）
-            withContext(Dispatchers.Main + kotlinx.coroutines.NonCancellable) {
-                playbackState.isScanning = false
-            }
         }
     }
 

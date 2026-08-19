@@ -11,6 +11,9 @@ import android.util.Size
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // 本地音乐扫描器（基于 MediaStore）
@@ -199,5 +202,76 @@ object MusicScanner {
                 CrashLogManager.logException("MusicScanner", "释放元数据读取器失败", e)
             }
         }
+    }
+}
+
+// 播放列表刷新器：首页与音乐面板共用扫描入口，串行执行避免并发重复扫描
+object PlaylistRefresher {
+    private val scanMutex = Mutex()
+
+    // 扫描本地音乐并与外部曲目合并；restoreCurrent 控制扫描后是否恢复当前播放曲目
+    suspend fun refresh(
+        context: Context,
+        state: MusicPlaybackState,
+        restoreCurrent: Boolean,
+        afterMerge: suspend () -> Unit = {},
+    ) {
+        scanMutex.withLock {
+            val started = withContext(Dispatchers.Main) {
+                if (state.isScanning) {
+                    false
+                } else {
+                    state.isScanning = true
+                    true
+                }
+            }
+            if (!started) return@withLock
+            try {
+                val tracks = MusicScanner.scan(context)
+                withContext(Dispatchers.Main) {
+                    val externalTracks = state.playlist.filter { it.path.isBlank() }
+                    val previous = state.playlist.associateBy { normalizedUri(it.audioUri) }
+                    val mergedTracks = (tracks + externalTracks)
+                        .distinctBy { normalizedUri(it.audioUri) }
+                        .map { track ->
+                            val cached = previous[normalizedUri(track.audioUri)] ?: return@map track
+                            track.copy(
+                                neteaseId = cached.neteaseId,
+                                neteaseCoverUrl = cached.neteaseCoverUrl,
+                                coverCachePath = cached.coverCachePath,
+                                lyricCachePath = cached.lyricCachePath,
+                                lyricLines = cached.lyricLines
+                            )
+                        }
+                    state.setSortedPlaylist(mergedTracks)
+                    state.persistPlaylist()
+                    if (restoreCurrent) restoreCurrentTrack(state)
+                }
+                afterMerge()
+            } finally {
+                withContext(Dispatchers.Main + NonCancellable) {
+                    state.isScanning = false
+                }
+            }
+        }
+    }
+
+    private fun normalizedUri(audioUri: String): String =
+        Uri.parse(audioUri)
+            .normalizeScheme()
+            .buildUpon()
+            .clearQuery()
+            .fragment(null)
+            .build()
+            .toString()
+
+    private fun restoreCurrentTrack(state: MusicPlaybackState) {
+        if (state.playlist.isEmpty() || state.currentTrack != null) return
+        val savedUri = state.pendingSavedUri
+        val index = savedUri?.let { uri -> state.playlist.indexOfFirst { it.audioUri == uri } }
+            ?.takeIf { it >= 0 }
+            ?: 0
+        state.currentIndex = index
+        state.currentTrack = state.playlist[index]
     }
 }
