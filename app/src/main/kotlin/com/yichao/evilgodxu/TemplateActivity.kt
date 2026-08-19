@@ -22,6 +22,7 @@ import com.yichao.evilgodxu.musicpanel.LocalMusicPanelController
 import com.yichao.evilgodxu.musicpanel.MusicPanelController
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
+import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.utils.localization.toLocale
@@ -65,7 +66,9 @@ class TemplateActivity : ComponentActivity() {
         setContent {
             ProvideLocalizedContext(localizationManager) {
                 CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
-                    TemplateContent()
+                    ProvideWindowSizeClass {
+                        TemplateContent()
+                    }
                 }
             }
         }

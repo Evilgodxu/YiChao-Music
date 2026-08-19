@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Process
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
@@ -38,10 +39,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -72,20 +73,20 @@ fun HomeAssembly(
 ) {
     val playbackState = MusicPanelStateHolder.state
     var showTimer by remember { mutableStateOf(false) }
-    var isLandscapeMode by rememberSaveable { mutableStateOf(false) }
     // 横屏下标题栏与控制栏的统一显隐状态
     var landscapeChromeVisible by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
+    // 横屏模式以实际窗口方向为准，旋转未生效时 UI 不会与设备方向脱节
+    val isLandscapeMode = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val currentTrackId = playbackState.currentTrack?.id
     val isLiked = currentTrackId?.let { playbackState.likedIds.contains(it) } ?: false
 
     // 横屏模式：切换三栏布局并强制设备横屏，退出时恢复系统默认方向
     fun toggleLandscapeMode() {
-        isLandscapeMode = !isLandscapeMode
         activity?.requestedOrientation = if (isLandscapeMode) {
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        } else {
             ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }
     }
 
