@@ -64,6 +64,7 @@ import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.PlayMode
 import com.yichao.evilgodxu.musicpanel.PlaylistRow
+import com.yichao.evilgodxu.musicpanel.ProgressSection
 import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.togglePlayPause
@@ -82,10 +83,10 @@ fun PlayerArea(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 旋转专辑封面
+            // 旋转专辑封面：占据上方剩余空间，封面贴近下方歌词
             Box(
                 modifier = Modifier
-                    .weight(1.1f)
+                    .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.BottomCenter,
             ) {
@@ -100,10 +101,8 @@ fun PlayerArea(
             Spacer(Modifier.height(8.dp))
             // 歌词
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.TopCenter,
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
                 if (playbackState.currentTrack != null) {
                     LyricsPanel(
@@ -121,6 +120,7 @@ fun PlayerArea(
                     )
                 }
             }
+            Spacer(Modifier.height(8.dp))
             // 标题与艺术家
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -144,7 +144,10 @@ fun PlayerArea(
                     )
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(4.dp))
+            // 律动与进度条（与音乐面板一致）
+            ProgressSection(playbackState = playbackState)
+            Spacer(Modifier.height(4.dp))
             PlayerControls(
                 playbackState = playbackState,
                 onPlaylistClick = { playlistVisible = !playlistVisible },
