@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area
 
+import android.app.Activity
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,7 +59,10 @@ fun AppInfoArea(version: String) {
             Row(
                 modifier = Modifier
                     .clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, GITHUB_URL.toUri()))
+                        val intent = Intent(Intent.ACTION_VIEW, GITHUB_URL.toUri())
+                        // LocalContext 为本地化包装 context，非 Activity 时需加 NEW_TASK
+                        if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
                     }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,

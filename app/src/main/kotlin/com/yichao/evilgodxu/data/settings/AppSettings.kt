@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 // 设置 DataStore
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -36,3 +38,11 @@ enum class AppLanguage(val languageTag: String?) {
 data class SettingsState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
+
+// 设置状态流：悬浮窗等非 Compose 宿主读取主题模式
+fun Context.settingsFlow(): Flow<SettingsState> =
+    settingsDataStore.data.map { preferences ->
+        SettingsState(
+            themeMode = ThemeMode.fromValue(preferences[SettingsKeys.THEME_MODE] ?: ThemeMode.SYSTEM.value),
+        )
+    }

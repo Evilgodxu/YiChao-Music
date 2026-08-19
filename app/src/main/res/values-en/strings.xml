@@ -3,11 +3,6 @@
 
     <!-- Home -->
     <string name="home_title">Home</string>
-    <string name="home_greeting">Welcome to YiChao Music</string>
-    <string name="home_welcome_title">Welcome</string>
-    <string name="home_welcome_message">An out-of-the-box Android app template with a ready-to-use project skeleton and common capabilities, ready for your own features.</string>
-    <string name="home_about_title">About</string>
-    <string name="home_about_message">Built on a single-activity architecture with Jetpack Compose, featuring MVVM, Koin DI, DataStore persistence, light/dark themes, multi-language support, and zone-based code organization.</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -31,4 +26,132 @@
     <!-- Common -->
     <string name="back">Back</string>
     <string name="settings_version">Version %1$s</string>
+
+    <!-- Permissions -->
+    <string name="home_permission_title">Permissions</string>
+    <string name="permission_granted">Granted</string>
+    <string name="permission_request">Grant</string>
+    <string name="permission_overlay_title">Display over other apps</string>
+    <string name="permission_overlay_desc">Show the mini player above other apps</string>
+    <string name="permission_all_files_title">All files access</string>
+    <string name="permission_all_files_desc">Access local music files to import and manage your library</string>
+    <string name="permission_music_title">Music access</string>
+    <string name="permission_music_desc">Read device music media to play local tracks</string>
+    <string name="permission_bluetooth_title">Bluetooth</string>
+    <string name="permission_bluetooth_desc">Connect Bluetooth headphones to control playback</string>
+
+    <!-- Music panel -->
+    <string name="music_panel_empty">No local music</string>
+    <string name="music_panel_scanning">Scanning music…</string>
+    <string name="music_panel_playlist_title">Playlist</string>
+    <string name="music_panel_timer_title">Sleep timer</string>
+    <string name="music_panel_timer_minutes">minutes</string>
+    <string name="music_panel_timer_confirm">OK</string>
+    <string name="music_panel_timer_cancel">Cancel</string>
+    <string name="music_panel_search_placeholder">Search songs</string>
+    <string name="music_panel_search_title">Search online</string>
+    <string name="music_panel_delete_title">Delete this song?</string>
+    <string name="music_panel_delete_cancel">Cancel</string>
+    <string name="music_panel_delete_confirm">Delete</string>
+    <string name="music_panel_no_lyrics">No lyrics</string>
+    <string name="music_panel_track_count">%d tracks</string>
+    <string name="music_panel_search_history">Search history</string>
+    <string name="music_panel_search_history_clear">Clear history</string>
+    <string name="music_panel_search_history_delete">Delete</string>
+    <string name="music_panel_search_no_results">No songs found</string>
+    <string name="music_panel_search_source">Netease</string>
+    <string name="music_panel_search_source_jamendo">Jamendo</string>
+    <string name="music_panel_search_source_qq">QQ Music</string>
+    <string name="music_panel_search_source_kugou">Kugou</string>
+    <string name="music_panel_playback_settings">Playback settings</string>
+    <string name="music_panel_usb_exclusive">USB audio exclusive</string>
+    <string name="music_panel_usb_enabled">Enabled: %s</string>
+    <string name="music_panel_usb_connected_not_enabled">Connected but exclusive not enabled</string>
+    <string name="music_panel_usb_not_detected">No USB audio device detected</string>
+    <string name="music_panel_sound_effects_title">Sound effects</string>
+    <string name="music_panel_sound_effects_enter">Open</string>
+    <string name="music_panel_sound_effects_not_implemented">Not implemented</string>
+    <string name="music_panel_play_error">This song cannot be played (maybe VIP only)</string>
+    <string name="music_panel_play_failed">Playback failed</string>
+    <string name="music_panel_copy">Copy</string>
+    <string name="music_panel_rename">Rename</string>
+    <string name="music_panel_refresh_cover">Refresh cover</string>
+    <string name="music_panel_online_cover">Online cover</string>
+    <string name="music_panel_local_cover">Local cover</string>
+    <string name="music_panel_refresh_lyrics">Refresh lyrics</string>
+    <string name="music_panel_lyrics_no_candidates">No matching lyrics</string>
+    <string name="music_panel_lyrics_refresh_failed">Lyrics refresh failed, try again</string>
+    <string name="music_panel_cover_no_candidates">No cover available</string>
+    <string name="music_panel_cover_replace_title">Replace with new cover?</string>
+    <string name="music_panel_cover_save_failed">Cover save failed, try again</string>
+    <string name="music_panel_rename_title">Rename song title</string>
+    <string name="music_panel_rename_artist">Rename artist</string>
+    <string name="music_panel_rename_confirm">OK</string>
+    <string name="music_panel_rename_cancel">Cancel</string>
+    <string name="music_panel_lyrics_short">Lyrics</string>
+    <string name="music_panel_play_mode">Play mode</string>
+    <string name="music_panel_previous_track">Previous</string>
+    <string name="music_panel_next_track">Next</string>
+    <string name="music_panel_playlist">Playlist</string>
+    <string name="music_panel_play">Play</string>
+    <string name="music_panel_pause">Pause</string>
+    <string name="music_panel_mini_mode">Mini mode</string>
+    <string name="music_panel_mini_mode_desc">Show mini player after closing the music panel</string>
+    <string name="music_panel_favorite">Favorite</string>
+    <string name="music_panel_bluetooth_device">Bluetooth device</string>
+    <string name="music_panel_usb_device">USB device</string>
+
+    <!-- Music scanner -->
+    <string name="music_scanner_external_music">External music</string>
+    <string name="music_scanner_unknown_artist">Unknown artist</string>
+    <string name="music_scanner_unknown_song">Unknown song</string>
+
+    <!-- USB device fallback name -->
+    <string name="usb_audio_default_name">USB audio device</string>
+
+    <!-- Audio signal path -->
+    <string name="signal_path_title">Audio path</string>
+    <string name="signal_path_format">Format</string>
+    <string name="signal_path_sample_rate">Source rate</string>
+    <string name="signal_path_output_rate">Output rate</string>
+    <string name="signal_path_bit_depth">Bit depth</string>
+    <string name="signal_path_channels">Channels</string>
+    <string name="signal_path_output_strategy">Output strategy</string>
+    <string name="signal_path_output_device">Output device</string>
+    <string name="signal_path_route">Audio route</string>
+    <string name="signal_path_dsd_mode">DSD mode</string>
+    <string name="signal_path_direct">Direct</string>
+    <string name="signal_path_mixer">Mixer</string>
+    <string name="signal_path_system">System</string>
+    <string name="signal_path_mono">Mono</string>
+    <string name="signal_path_stereo">Stereo</string>
+    <string name="signal_path_channels_value">%d channels</string>
+    <string name="signal_path_bit_value">%d-bit</string>
+    <string name="signal_path_khz">%.1f kHz</string>
+    <string name="signal_path_hz">%d Hz</string>
+    <string name="signal_path_speaker">Speaker</string>
+    <string name="signal_path_bluetooth">Bluetooth</string>
+    <string name="signal_path_dash">-</string>
+
+    <!-- Mini player -->
+    <string name="mini_player_expand_panel">Expand music panel</string>
+    <string name="mini_player_cover">Album cover</string>
+    <string name="mini_player_track_info">Song title + artist, current lyrics</string>
+    <string name="mini_player_previous">Previous</string>
+    <string name="mini_player_next">Next</string>
+    <string name="mini_player_playlist">Playlist</string>
+    <string name="mini_player_no_lyrics">No lyrics</string>
+    <string name="mini_player_playlist_title">Playlist</string>
+
+    <!-- Home player -->
+    <string name="home_player_title">Player</string>
+    <string name="home_player_play">Play</string>
+    <string name="home_player_pause">Pause</string>
+    <string name="home_player_previous">Previous</string>
+    <string name="home_player_next">Next</string>
+    <string name="home_player_open_panel">Open music panel</string>
+    <string name="home_player_empty">No local music. Grant music access to continue.</string>
+    <string name="settings_section_player">Playback</string>
+    <string name="settings_mini_player_title">Floating player</string>
+    <string name="settings_mini_player_desc">Show mini player during background playback</string>
 </resources>

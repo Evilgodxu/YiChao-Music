@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.ThemeMode
+import com.yichao.evilgodxu.musicpanel.miniPlayerEnabledFlow
+import com.yichao.evilgodxu.musicpanel.saveMiniPlayerEnabled
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +38,18 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(language = settingsRepository.getAppLanguage()) }
+        }
+        viewModelScope.launch {
+            context.miniPlayerEnabledFlow().collect { enabled ->
+                _uiState.update { it.copy(miniPlayerEnabled = enabled) }
+            }
+        }
+    }
+
+    fun setMiniPlayerEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(miniPlayerEnabled = enabled) }
+        viewModelScope.launch {
+            context.saveMiniPlayerEnabled(enabled)
         }
     }
 

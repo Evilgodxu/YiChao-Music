@@ -125,6 +125,7 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
@@ -147,6 +148,20 @@ dependencies {
 
     // Kotlin Serialization
     implementation(libs.kotlinx.serialization.json)
+
+    // 协程 Guava 桥接（MediaController buildAsync）
+    implementation(libs.kotlinx.coroutines.guava)
+
+    // Coil 图片加载
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+
+    // Media3 ExoPlayer
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
+
+    // 在线音乐搜索网络请求
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

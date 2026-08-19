@@ -45,7 +45,10 @@ val LocalThemeTransitionController = androidx.compose.runtime.staticCompositionL
     error("ThemeTransitionController is not provided")
 }
 
-private val LightColorScheme = lightColorScheme(
+// 成功态配色（随主题切换）
+val LocalSuccessColor = androidx.compose.runtime.staticCompositionLocalOf { md_theme_light_success }
+
+val LightColorScheme = lightColorScheme(
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
     primaryContainer = md_theme_light_primaryContainer,
@@ -84,7 +87,7 @@ private val LightColorScheme = lightColorScheme(
     scrim = md_theme_light_scrim,
 )
 
-private val DarkColorScheme = darkColorScheme(
+val DarkColorScheme = darkColorScheme(
     primary = md_theme_dark_primary,
     onPrimary = md_theme_dark_onPrimary,
     primaryContainer = md_theme_dark_primaryContainer,
@@ -170,7 +173,10 @@ fun MyApplicationTheme(
         }
     }
 
-    CompositionLocalProvider(LocalThemeTransitionController provides transitionController) {
+    CompositionLocalProvider(
+        LocalThemeTransitionController provides transitionController,
+        LocalSuccessColor provides if (isDarkTheme) md_theme_dark_success else md_theme_light_success,
+    ) {
         MaterialTheme(
             colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,
             typography = Typography,

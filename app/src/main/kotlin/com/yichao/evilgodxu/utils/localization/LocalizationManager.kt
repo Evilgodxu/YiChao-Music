@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.LocaleList
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -81,7 +82,12 @@ fun ProvideLocalizedContext(
         initial = LocalLocale.current.platformLocale,
     )
     val localizedContext = localizationManager.createLocalizedContext(locale)
-    CompositionLocalProvider(LocalContext provides localizedContext) {
+    // 替换 LocalContext 后其不再能解析到宿主 Activity，需显式保留 ActivityResultRegistryOwner
+    val registryOwner = LocalActivityResultRegistryOwner.current
+    CompositionLocalProvider(
+        LocalContext provides localizedContext,
+        LocalActivityResultRegistryOwner provides registryOwner!!,
+    ) {
         content()
     }
 }

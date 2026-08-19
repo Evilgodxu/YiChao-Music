@@ -33,6 +33,7 @@ import com.yichao.evilgodxu.screens.settings.dialog.ThemeSelectionDialog
 import com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area.AppInfoArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area.AppearanceArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.language_area.LanguageArea
+import com.yichao.evilgodxu.screens.settings.settings_assembly.player_area.PlayerArea
 
 // 设置页分区组装器：编排外观、语言与关于分区
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +44,7 @@ fun SettingsAssembly(
     onThemeSelected: (ThemeMode) -> Unit,
     onLanguageSelected: (AppLanguage) -> Unit,
     onThemeClick: (Offset) -> Unit,
+    onMiniPlayerEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -87,6 +89,10 @@ fun SettingsAssembly(
                 },
             )
             LanguageArea(uiState.language, onLanguageSelected, onShowDialog = { showLanguageDialog = true })
+            PlayerArea(
+                miniPlayerEnabled = uiState.miniPlayerEnabled,
+                onMiniPlayerEnabledChange = onMiniPlayerEnabledChange,
+            )
             AppInfoArea(uiState.version)
         }
     }

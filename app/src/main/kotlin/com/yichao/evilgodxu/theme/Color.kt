@@ -38,6 +38,10 @@ val md_theme_light_inverseSurface = Color(0xFF30363D)
 val md_theme_light_inverseOnSurface = Color(0xFFF0F6FC)
 val md_theme_light_inversePrimary = Color(0xFFB1B8DF)
 
+// 成功态配色（如权限已授予状态标签）
+val md_theme_light_success = Color(0xFF3FB950)
+val md_theme_dark_success = Color(0xFF56D364)
+
 val md_theme_light_surfaceTint = Color(0xFF3F51B5)
 val md_theme_light_surfaceDim = Color(0xFFE8ECF0)
 val md_theme_light_surfaceBright = Color(0xFFFFFFFF)

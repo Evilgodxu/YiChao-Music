@@ -19,15 +19,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.home_assembly.about_area.AboutArea
-import com.yichao.evilgodxu.screens.home.home_assembly.welcome_area.WelcomeArea
+import com.yichao.evilgodxu.screens.home.HomeUiState
+import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionArea
+import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 
-// 首页分区组装器：编排欢迎与简介分区
+// 首页分区组装器：编排权限状态与播放器分区
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeAssembly(
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit = {},
+    uiState: HomeUiState = HomeUiState(),
+    onRefreshPermissions: () -> Unit = {},
+    onOpenMusicPanel: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -54,8 +58,8 @@ fun HomeAssembly(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            WelcomeArea()
-            AboutArea()
+            PermissionArea(uiState = uiState, onRefresh = onRefreshPermissions)
+            PlayerArea(onOpenMusicPanel = onOpenMusicPanel)
         }
     }
 }

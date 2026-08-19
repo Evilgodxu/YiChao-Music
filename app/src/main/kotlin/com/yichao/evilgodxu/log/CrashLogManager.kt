@@ -26,7 +26,7 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
     private const val LOG_DIR_NAME = "logs"
 
     /** 日志文件名前缀 */
-    private const val LOG_FILE_PREFIX = "crash_"
+    private const val LOG_FILE_PREFIX = "YiChaoMusic_"
 
     /** 日志保留天数 */
     private const val KEEP_DAYS = 3L

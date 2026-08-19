@@ -24,6 +24,7 @@ fun SettingsScreen(
         onThemeSelected = viewModel::setThemeMode,
         onLanguageSelected = viewModel::setLanguage,
         onThemeClick = onThemeClick,
+        onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
         modifier = modifier,
     )
 }
