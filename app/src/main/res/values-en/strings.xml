@@ -29,6 +29,7 @@
 
     <!-- Permissions -->
     <string name="home_permission_title">Permissions</string>
+    <string name="home_permission_hint">This page closes automatically once all permissions are granted</string>
     <string name="permission_granted">Granted</string>
     <string name="permission_request">Grant</string>
     <string name="permission_overlay_title">Display over other apps</string>
@@ -144,13 +145,12 @@
     <string name="mini_player_playlist_title">Playlist</string>
 
     <!-- Home player -->
-    <string name="home_player_title">Player</string>
     <string name="home_player_play">Play</string>
     <string name="home_player_pause">Pause</string>
     <string name="home_player_previous">Previous</string>
     <string name="home_player_next">Next</string>
-    <string name="home_player_open_panel">Open music panel</string>
     <string name="home_player_empty">No local music. Grant music access to continue.</string>
+    <string name="home_player_close_playlist">Close playlist</string>
     <string name="settings_section_player">Playback</string>
     <string name="settings_mini_player_title">Floating player</string>
     <string name="settings_mini_player_desc">Show mini player during background playback</string>

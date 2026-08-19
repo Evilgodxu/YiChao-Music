@@ -48,6 +48,7 @@ internal fun LyricsPanel(
     playbackState: MusicPlaybackState,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    fontSize: TextUnit = 12.sp,
 ) {
     var lyricPosition by remember { mutableLongStateOf(playbackState.currentPosition) }
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
@@ -119,7 +120,7 @@ internal fun LyricsPanel(
                             nextTimeMs = nextTimeMs,
                             positionMs = lyricPosition,
                             isCurrent = isCurrent,
-                            fontSize = 12.sp,
+                            fontSize = fontSize,
                             fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
                             modifier = Modifier
                                 .fillMaxWidth()

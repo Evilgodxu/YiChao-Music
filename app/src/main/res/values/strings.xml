@@ -29,6 +29,7 @@
 
     <!-- 权限状态 -->
     <string name="home_permission_title">权限状态</string>
+    <string name="home_permission_hint">授予全部权限后此页面将自动关闭</string>
     <string name="permission_granted">已授权</string>
     <string name="permission_request">去授权</string>
     <string name="permission_overlay_title">悬浮窗</string>
@@ -144,13 +145,12 @@
     <string name="mini_player_playlist_title">播放列表</string>
 
     <!-- 首页播放器 -->
-    <string name="home_player_title">播放器</string>
     <string name="home_player_play">播放</string>
     <string name="home_player_pause">暂停</string>
     <string name="home_player_previous">上一首</string>
     <string name="home_player_next">下一首</string>
-    <string name="home_player_open_panel">打开音乐面板</string>
     <string name="home_player_empty">暂无本地音乐，请先授权音乐访问权限</string>
+    <string name="home_player_close_playlist">关闭播放列表</string>
     <string name="settings_section_player">播放</string>
     <string name="settings_mini_player_title">悬浮播放</string>
     <string name="settings_mini_player_desc">后台播放时显示迷你播放器</string>
