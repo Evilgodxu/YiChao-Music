@@ -195,7 +195,7 @@ fun PlayerArea(
 
 // 底部控制栏：与迷你播放器控件布局一致（播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表）
 @Composable
-private fun PlayerControls(
+internal fun PlayerControls(
     playbackState: MusicPlaybackState,
     onPlaylistClick: () -> Unit,
 ) {
@@ -285,7 +285,7 @@ private fun PlayerControlButton(
 
 // 播放列表面板：点击遮罩或关闭按钮收起
 @Composable
-private fun PlaylistSheet(
+internal fun PlaylistSheet(
     visible: Boolean,
     playbackState: MusicPlaybackState,
     onDismiss: () -> Unit,

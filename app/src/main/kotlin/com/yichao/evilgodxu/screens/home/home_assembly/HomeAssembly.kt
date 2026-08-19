@@ -3,7 +3,15 @@ package com.yichao.evilgodxu.screens.home.home_assembly
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Process
+import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +54,7 @@ import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.TimerOverlay
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
+import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -62,14 +72,42 @@ fun HomeAssembly(
 ) {
     val playbackState = MusicPanelStateHolder.state
     var showTimer by remember { mutableStateOf(false) }
+    var isLandscapeMode by rememberSaveable { mutableStateOf(false) }
+    // 横屏下标题栏与控制栏的统一显隐状态
+    var landscapeChromeVisible by remember { mutableStateOf(false) }
+    val activity = LocalActivity.current
     val currentTrackId = playbackState.currentTrack?.id
     val isLiked = currentTrackId?.let { playbackState.likedIds.contains(it) } ?: false
+
+    // 横屏模式：切换三栏布局并强制设备横屏，退出时恢复系统默认方向
+    fun toggleLandscapeMode() {
+        isLandscapeMode = !isLandscapeMode
+        activity?.requestedOrientation = if (isLandscapeMode) {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    // 横屏下标题栏与控制栏显示 3 秒后自动隐藏
+    LaunchedEffect(isLandscapeMode, landscapeChromeVisible) {
+        if (isLandscapeMode && landscapeChromeVisible) {
+            delay(3000)
+            landscapeChromeVisible = false
+        }
+    }
 
     Scaffold(
         modifier = modifier,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { MemoryUsageText() },
+            // 横屏下标题栏随控制栏一起自动隐藏，点击屏幕弹出
+            AnimatedVisibility(
+                visible = !isLandscapeMode || landscapeChromeVisible,
+                enter = slideInVertically(animationSpec = tween(300)) { -it } + fadeIn(),
+                exit = slideOutVertically(animationSpec = tween(300)) { -it } + fadeOut(),
+            ) {
+                CenterAlignedTopAppBar(
+                    title = { MemoryUsageText() },
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -105,12 +143,12 @@ fun HomeAssembly(
                     }
                 },
                 actions = {
-                    // 横屏模式（暂不实现功能）
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = { toggleLandscapeMode() }) {
                         Icon(
                             imageVector = Icons.Filled.ScreenRotation,
                             contentDescription = stringResource(R.string.home_landscape_mode),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (isLandscapeMode) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     IconButton(onClick = onOpenSettings) {
@@ -124,6 +162,7 @@ fun HomeAssembly(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
             )
+            }
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
@@ -133,7 +172,16 @@ fun HomeAssembly(
                 .consumeWindowInsets(innerPadding)
                 .padding(innerPadding),
         ) {
-            PlayerArea(modifier = Modifier.fillMaxSize())
+            if (isLandscapeMode) {
+                LandscapePlayerArea(
+                    playbackState = playbackState,
+                    chromeVisible = landscapeChromeVisible,
+                    onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                PlayerArea(modifier = Modifier.fillMaxSize())
+            }
             PermissionDialog(
                 uiState = uiState,
                 onRefresh = onRefreshPermissions,
