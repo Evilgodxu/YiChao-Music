@@ -4,7 +4,9 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Process
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -35,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
@@ -69,12 +72,24 @@ fun HomeAssembly(
                 title = { MemoryUsageText() },
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { showTimer = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Timer,
-                                contentDescription = stringResource(R.string.music_panel_timer_title),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { showTimer = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = stringResource(R.string.music_panel_timer_title),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (playbackState.timerRemaining > 0) {
+                                Text(
+                                    text = "${playbackState.timerRemaining}m",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier
+                                        .clickable { playbackState.stopTimer() }
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
                         }
                         IconButton(
                             onClick = { currentTrackId?.let { playbackState.toggleFavorite(it) } },

@@ -407,6 +407,7 @@ private fun PlaylistSheet(
                                     } else {
                                         scope.launch { playTrackAt(context, playbackState, index) }
                                     }
+                                    onDismiss()
                                 },
                                 onLongClick = {},
                                 onFavoriteClick = { playbackState.toggleFavorite(track.id) },
