@@ -8,7 +8,7 @@
 
 [English](README.md) | **简体中文**
 
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Android-brightgreen)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-purple)
 ![AGP](https://img.shields.io/badge/AGP-9.3.1-blue)
@@ -158,4 +158,4 @@ KEY_PASSWORD=你的别名密码
 
 ## License
 
-[MIT](LICENSE) © 2026 Evilgodxu
+[AGPL-3.0](LICENSE) © 2026 Evilgodxu
