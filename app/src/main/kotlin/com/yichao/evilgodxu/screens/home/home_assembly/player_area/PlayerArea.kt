@@ -87,7 +87,7 @@ fun PlayerArea(
                 modifier = Modifier
                     .weight(1.1f)
                     .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.BottomCenter,
             ) {
                 DiscArt(
                     track = playbackState.currentTrack,
@@ -97,12 +97,13 @@ fun PlayerArea(
                         .aspectRatio(1f),
                 )
             }
+            Spacer(Modifier.height(8.dp))
             // 歌词
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.TopCenter,
             ) {
                 if (playbackState.currentTrack != null) {
                     LyricsPanel(
