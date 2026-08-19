@@ -83,12 +83,11 @@ fun PlayerArea(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 旋转专辑封面：占据上方剩余空间，封面贴近下方歌词
+            Spacer(Modifier.height(16.dp))
+            // 旋转专辑封面
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.BottomCenter,
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
                 DiscArt(
                     track = playbackState.currentTrack,
@@ -98,7 +97,7 @@ fun PlayerArea(
                         .aspectRatio(1f),
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(24.dp))
             // 歌词
             Box(
                 modifier = Modifier.fillMaxWidth(),
@@ -120,7 +119,7 @@ fun PlayerArea(
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(24.dp))
             // 标题与艺术家
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -144,14 +143,19 @@ fun PlayerArea(
                     )
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            // 律动与进度条（与音乐面板一致）
-            ProgressSection(playbackState = playbackState)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(24.dp))
+            // 律动与进度条（与音乐面板一致，宽度收窄 15%）
+            Box(
+                modifier = Modifier.fillMaxWidth(0.85f),
+            ) {
+                ProgressSection(playbackState = playbackState)
+            }
+            Spacer(Modifier.height(24.dp))
             PlayerControls(
                 playbackState = playbackState,
                 onPlaylistClick = { playlistVisible = !playlistVisible },
             )
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(16.dp))
         }
 
