@@ -72,6 +72,8 @@ import com.yichao.evilgodxu.musicpanel.ProgressSection
 import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.togglePlayPause
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 // 首页播放器主体：旋转封面 + 歌词 + 标题与艺术家 + 底部控制栏
@@ -81,6 +83,14 @@ fun PlayerArea(
 ) {
     val playbackState = MusicPanelStateHolder.state
     var playlistVisible by remember { mutableStateOf(false) }
+
+    // 播放期间周期性同步播放位置，驱动进度条与时间文本
+    LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
+        while (isActive && playbackState.isPlaying) {
+            playbackState.updatePosition()
+            delay(200)
+        }
+    }
 
     // 歌词区固定高度 = 5 行歌词（含顶部 4dp、每行上下 2dp 内边距与行间距），避免随歌词内容变化而跳动
     val textMeasurer = rememberTextMeasurer()
