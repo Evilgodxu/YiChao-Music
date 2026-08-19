@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.screens.home.home_assembly
 
+import android.app.Activity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -19,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
@@ -31,6 +33,8 @@ fun HomeAssembly(
     onOpenSettings: () -> Unit = {},
     uiState: HomeUiState = HomeUiState(),
     onRefreshPermissions: () -> Unit = {},
+    onStartPermissionMonitor: (PermissionType, Activity) -> Unit = { _, _ -> },
+    onStopPermissionMonitor: () -> Unit = {},
     onOpenMusicPanel: () -> Unit = {},
 ) {
     Scaffold(
@@ -58,7 +62,12 @@ fun HomeAssembly(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            PermissionArea(uiState = uiState, onRefresh = onRefreshPermissions)
+            PermissionArea(
+                uiState = uiState,
+                onRefresh = onRefreshPermissions,
+                onStartPermissionMonitor = onStartPermissionMonitor,
+                onStopPermissionMonitor = onStopPermissionMonitor,
+            )
             PlayerArea(onOpenMusicPanel = onOpenMusicPanel)
         }
     }

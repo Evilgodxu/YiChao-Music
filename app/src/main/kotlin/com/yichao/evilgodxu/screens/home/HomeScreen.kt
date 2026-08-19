@@ -22,6 +22,8 @@ fun HomeScreen(
         onOpenSettings = onOpenSettings,
         uiState = uiState,
         onRefreshPermissions = viewModel::refreshPermissions,
+        onStartPermissionMonitor = viewModel::startPermissionMonitor,
+        onStopPermissionMonitor = viewModel::stopPermissionMonitor,
         onOpenMusicPanel = { musicPanelController?.openMusicPanel() },
     )
 }
