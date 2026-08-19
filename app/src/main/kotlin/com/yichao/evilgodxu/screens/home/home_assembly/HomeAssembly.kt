@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.screens.home.home_assembly
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
+import android.os.Process
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -138,19 +139,18 @@ fun HomeAssembly(
     }
 }
 
-// 中间内存占用显示，每秒刷新
+// 顶部应用内存占用显示，半秒刷新
 @Composable
 private fun MemoryUsageText() {
     val context = LocalContext.current
     var usage by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
         while (true) {
-            val info = ActivityManager.MemoryInfo()
-            (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(info)
-            val usedGB = (info.totalMem - info.availMem) / 1073741824f
-            val totalGB = info.totalMem / 1073741824f
-            usage = String.format(Locale.getDefault(), "%.1fG / %.1fG", usedGB, totalGB)
-            delay(1000)
+            val memoryInfo = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
+                .getProcessMemoryInfo(intArrayOf(Process.myPid()))[0]
+            val pssMB = memoryInfo.getTotalPss() / 1024f
+            usage = String.format(Locale.getDefault(), "%.0f MB", pssMB)
+            delay(500)
         }
     }
     Text(
