@@ -115,7 +115,7 @@ val apkVersionName = android.defaultConfig.versionName ?: "0.0.0"
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("Template-$apkVersionName-arm64.apk")
+            output.outputFileName.set("YiChaoMusic-$apkVersionName-arm64.apk")
         }
     }
 }
