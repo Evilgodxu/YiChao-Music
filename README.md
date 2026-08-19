@@ -1,8 +1,10 @@
 <div align="center">
 
-# Template
+<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="96" alt="YiChao Music" />
 
-**A modern, out-of-the-box Android app template built with Jetpack Compose, MVVM and a zone-based architecture.**
+# YiChao Music
+
+**A modern Android music player with a floating music panel, mini player, multi-platform online search and USB DAC support.**
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -17,27 +19,30 @@
 
 </div>
 
-**Template** is a production-ready starting point for new Android apps. The project skeleton and everyday plumbing are already wired up, so you can focus on business features instead of boilerplate.
+**YiChao Music (忆潮音乐)** is a full-featured Android music player built with Jetpack Compose. Beyond a regular in-app player, it provides a **floating music panel** and a **mini player** that work on top of any app, so music is always one tap away — in games, browsers or any other screen.
 
 ## Features
 
-- **Single-Activity architecture** with Jetpack Compose + Material 3, edge-to-edge rendering
-- **MVVM with unidirectional data flow** — `UiState` + `ViewModel` per screen
-- **Zone-based code organization** — screens split into assemblies and semantic areas (`{Name}Assembly` / `{Name}Area`) that keep code modular and discoverable
-- **Navigation3** with typed routes and an explicit back stack
-- **Koin** dependency injection, started in `Application.onCreate`
-- **DataStore Preferences** persistence for app settings
-- **Theme modes** — System / Light / Dark, with a circular reveal transition animation when switching
-- **In-app language switching** — 简体中文 / English / Follow System, hot-swapped at runtime without recreating the Activity (per-language resource bundles disabled so switching always works)
-- **Crash log manager** — uncaught and caught exceptions written to app-specific external storage, auto-cleaned after a retention period, chaining to the system default handler
-- **Optimized build setup** — R8 + resource shrinking for release, signed release build, `arm64-v8a`-only ABI filter, deterministic APK naming
+- **Floating music panel** — a full-featured playback panel rendered as a system overlay (SYSTEM_ALERT_WINDOW), usable above any app
+- **Mini player** — a compact floating bar shown while the app is in the background during playback; tap it to expand back into the full panel. Can be toggled in settings
+- **Local library** — scans device storage via MediaStore, extracts embedded covers and lyrics, and imports audio through `VIEW`/`SEND` intents and the system file picker
+- **Multi-platform online search** — aggregated search across Netease (网易云), QQ Music, Kugou (酷狗) and Jamendo, with search history and direct online playback
+- **Synced lyrics** — scrolling lyrics with word-level timing, online lyric matching/refresh, and embedded local lyrics
+- **Cover management** — embedded art, local image candidates and online cover search; the new cover can be written back into the audio file
+- **Metadata editing** — rename song title / artist, written back to the file tags
+- **USB audio exclusive output** — automatic detection of USB DACs / sound cards with exclusive-mode routing, plus a real-time audio signal path view (format, source/output sample rates, bit depth, channels, DSD mode, route, output strategy & device)
+- **Bluetooth headset support** — connection detection with per-session volume initialization
+- **Playback controls** — Media3 media session with notification & lock-screen controls, play modes (repeat all / repeat one / shuffle), favorites sorted to the top, and a sleep timer (stop after current track)
+- **State persistence** — playlist, playback position and play mode are restored across restarts
+- **Theme & localization** — System / Light / Dark themes with a circular reveal transition; in-app hot switching between 简体中文 / English / Follow System without recreating the activity
+- **Crash logging** — uncaught and caught exceptions written to app-specific external storage with automatic cleanup
 
 ## Screens
 
 | Screen | Contents |
 | --- | --- |
-| Home | Welcome and project overview cards, entry to Settings |
-| Settings | Appearance (theme), Language, and About (version + GitHub link) |
+| Home | Permission status, process memory usage, landscape shortcut, and the full in-app player (cover, progress, lyrics, playlist, favorites, sleep timer, online search) |
+| Settings | Appearance (theme), Language, Playback (floating player), About (version) |
 
 ## Tech Stack
 
@@ -45,12 +50,15 @@
 | --- | --- |
 | Language | Kotlin 2.4.10 |
 | UI | Jetpack Compose (BOM 2026.08.00) + Material 3 |
-| Navigation | AndroidX Navigation3 1.1.6 |
+| Playback | Media3 ExoPlayer 1.11.0 + MediaSessionService |
+| Navigation | AndroidX Navigation3 1.1.6 (typed routes) |
 | DI | Koin 4.2.2 |
 | Persistence | DataStore Preferences 1.2.1 |
+| Image loading | Coil 3.5.0 |
+| Network | OkHttp 5.4.0 |
 | Serialization | kotlinx.serialization 1.11.0 |
 | Lifecycle | androidx.lifecycle 2.11.0, activity-compose 1.13.0 |
-| Build | AGP 9.3.1, Gradle 9.7.0, refreshVersions 0.60.6 |
+| Build | AGP 9.3.1, Gradle 9.7.0, refreshVersions |
 
 ## Project Structure
 
@@ -58,28 +66,26 @@
 .
 ├── app/
 │   └── src/main/
-│       ├── kotlin/com/template/evilgodxu/
-│       │   ├── data/                    # Data layer (DataStore)
-│       │   │   ├── repository/          #   SettingsRepository
-│       │   │   └── settings/            #   Settings state & keys
+│       ├── kotlin/com/yichao/evilgodxu/
+│       │   ├── data/                    # Data layer (DataStore settings, repository)
 │       │   ├── di/                      # Koin modules
 │       │   ├── log/                     # CrashLogManager
+│       │   ├── musicpanel/              # Floating panel / mini player / playback core
 │       │   ├── navigation/              # Navigation3 typed routes
-│       │   ├── screens/                 # Feature modules
-│       │   │   ├── home/                #   Home feature
-│       │   │   │   └── home_assembly/   #     HomeAssembly + areas
-│       │   │   └── settings/            #   Settings feature
-│       │   │       ├── settings_assembly/
-│       │   │       └── dialog/          #     Selection dialogs
+│       │   ├── screens/                 # Screens (home / settings)
+│       │   │   ├── home/                #   Home player + permission flow
+│       │   │   └── settings/            #   Appearance / language / playback / about
 │       │   ├── theme/                   # Material 3 color & typography
 │       │   ├── utils/localization/      # In-app localization manager
 │       │   ├── TemplateActivity.kt
+│       │   ├── TemplateActivityViewModel.kt
 │       │   └── TemplateApplication.kt
 │       └── res/                         # Resources (values / values-en)
 ├── gradle/
 │   ├── libs.versions.toml               # Version catalog (dependencies)
 │   └── wrapper/
 ├── docs/                                # Architecture notes
+├── LICENSE
 ├── build.gradle.kts
 ├── settings.gradle.kts
 └── gradle.properties
@@ -89,13 +95,27 @@
 
 The app follows **MVVM with unidirectional data flow**: state flows down from `ViewModel` → `UiState` → UI, while events flow up from the UI to the `ViewModel`. Shared data logic lives in the `data/` layer behind a repository, and everything is wired together by Koin.
 
-Code is organized with a **zone-based (assembly/area) pattern**:
+Screens are organized with a **zone-based (assembly/area) pattern**:
 
-- `{ScreenName}Screen.kt` — screen entry, wires the ViewModel to the UI
-- `{ScreenName}Assembly.kt` — composes the areas of the screen
+- `{Screen}Screen.kt` — screen entry, wires the ViewModel to the UI
+- `{Screen}Assembly.kt` — composes the areas of the screen
 - `{Name}Area.kt` — a self-contained UI zone with a single semantic responsibility
 
-Shared code is promoted to the top level (`data/`, `theme/`, `utils/`) when reused by more than one feature; feature-specific code stays inside the feature module.
+Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`); feature-specific code stays inside the feature module. The `musicpanel/` package hosts the window-overlay UI (full panel + mini player) and the playback engine, which are driven by Media3 ExoPlayer + `MediaSessionService` and shared through a window-level state holder.
+
+## Permissions
+
+| Permission | Purpose |
+| --- | --- |
+| Display over other apps | Floating music panel & mini player |
+| All files access | Import and manage local music files |
+| Music access (`READ_MEDIA_AUDIO`, ≤ API 32: `READ_EXTERNAL_STORAGE`) | Play tracks from the device library |
+| Images (`READ_MEDIA_IMAGES`) | Embedded art & local cover candidates |
+| Bluetooth (`BLUETOOTH_CONNECT`) | Bluetooth headset control |
+| Foreground service (`mediaPlayback`) | Background playback with notification / lock-screen controls |
+| USB host (optional feature) | USB DAC exclusive audio output |
+
+Permissions are requested through a transparent onboarding activity that chains them one by one and closes automatically once all are granted.
 
 ## Getting Started
 
@@ -108,17 +128,17 @@ Shared code is promoted to the top level (`data/`, `theme/`, `utils/`) when reus
 ### Build
 
 ```bash
-git clone https://github.com/Evilgodxu/android-template.git
-cd android-template
+git clone https://github.com/Evilgodxu/YiChao-Music.git
+cd YiChao-Music
 
-# Debug build
+# Debug APK
 ./gradlew assembleDebug
 
-# Release build (requires signing config, see below)
+# Release APK (requires signing config, see below)
 ./gradlew assembleRelease
 ```
 
-APKs are emitted as `Template-<versionName>-arm64.apk` under `app/build/outputs/apk/`.
+APKs are emitted as `YiChaoMusic-<versionName>-arm64.apk` under `app/build/outputs/apk/`. Only the `arm64-v8a` ABI is built.
 
 ### Release Signing
 
@@ -130,15 +150,11 @@ KEY_ALIAS=jh
 KEY_PASSWORD=your_key_password
 ```
 
-The keystore file is expected at `jh.keystore` in the project root (adjust `storeFile` in `app/build.gradle.kts` if needed). `jh.keystore` and `local.properties` are git-ignored — never commit them.
+The keystore file is expected at `jh.keystore` in the project root (adjust `storeFile` in `app/build.gradle.kts` if needed). Both files are git-ignored — never commit them.
 
-## Customizing the Template
+## Disclaimer
 
-- **Rename the application / package**: update `namespace` and `applicationId` in `app/build.gradle.kts`, move the Kotlin sources under `app/src/main/kotlin/`, and update the manifest. Avoid a name collision with the existing `com.template.evilgodxu`.
-- **App name**: edit `app_name` in `app/src/main/res/values/strings.xml`.
-- **Theme colors**: edit `app/src/main/kotlin/.../theme/Color.kt`.
-- **Supported ABIs**: adjust `ndk.abiFilters` in `app/build.gradle.kts` (currently `arm64-v8a`).
-- **Add a new screen**: create a `screens/<name>/` feature module with its `UiState` + `ViewModel` + `Assembly`/`Area` composables, register the route in `navigation/Screen.kt`, and add it to `AppNavHost`.
+Online music search relies on third-party public web endpoints (Netease / QQ Music / Kugou / Jamendo), whose availability and playback policy may vary by region and song. The app is for personal study and communication only — please support the copyright holders.
 
 ## License
 

@@ -1,8 +1,10 @@
 <div align="center">
 
-# Template
+<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="96" alt="忆潮音乐" />
 
-**一个开箱即用的现代化 Android 应用模板，基于 Jetpack Compose、MVVM 与分区架构构建。**
+# 忆潮音乐
+
+**一款现代化的 Android 音乐播放器，支持悬浮音乐面板、迷你播放器、多平台在线搜索与 USB DAC 输出。**
 
 [English](README.md) | **简体中文**
 
@@ -17,27 +19,30 @@
 
 </div>
 
-**Template** 是一个可直接上手的 Android 应用起点工程。工程骨架与常用基础设施已搭建完毕，你可以专注于业务功能，而非重复搭建样板代码。
+**忆潮音乐（YiChao Music）** 是一款基于 Jetpack Compose 构建的全功能 Android 音乐播放器。除常规应用内播放外，它还提供可悬浮于任意应用之上的**悬浮音乐面板**与**迷你播放器**——无论正在游戏、浏览器还是其他界面，音乐始终触手可及。
 
 ## 特性
 
-- **单 Activity 架构**：基于 Jetpack Compose + Material 3，支持边到边（edge-to-edge）渲染
-- **MVVM + 单向数据流**：每个页面由 `UiState` + `ViewModel` 驱动，状态自上而下、事件自下而上
-- **分区架构组织代码**：页面按语义拆分为组装器与分区（`{Name}Assembly` / `{Name}Area`），结构清晰、便于定位与复用
-- **Navigation3 导航**：类型安全路由 + 显式返回栈
-- **Koin 依赖注入**：在 `Application.onCreate` 中启动
-- **DataStore Preferences 持久化**：统一管理应用设置
-- **主题模式**：跟随系统 / 浅色 / 深色，切换时带圆形扩散过渡动效
-- **应用内多语言**：简体中文 / English / 跟随系统，运行时热切换、无需重建 Activity（已禁用按语言分包，保证切换始终生效）
-- **崩溃日志管理**：未捕获异常与捕获异常写入应用专属外部目录，超期自动清理，并链式调用系统默认处理器
-- **构建优化**：Release 启用 R8 + 资源压缩、签名构建，仅打 `arm64-v8a` ABI，APK 输出命名固定
+- **悬浮音乐面板**：以系统悬浮窗（SYSTEM_ALERT_WINDOW）形式渲染的全功能播放面板，可在任意应用上层使用
+- **迷你播放器**：应用退到后台播放时显示的紧凑悬浮条，点击即可展开回完整面板，可在设置中开关
+- **本地曲库**：基于 MediaStore 扫描设备存储，提取内嵌封面与歌词，并支持通过 `VIEW`/`SEND` 意图与系统文件选择器导入音频
+- **多平台在线搜索**：聚合网易云、QQ 音乐、酷狗与 Jamendo 搜索，支持搜索历史与在线歌曲直接播放
+- **同步歌词**：滚动歌词 + 逐字级时间轴，支持在线歌词匹配/刷新与本地内嵌歌词
+- **封面管理**：内嵌封面、本地图片候选与在线封面搜索，新封面可写回音频文件
+- **元数据编辑**：重命名歌曲名 / 艺术家，并写回文件标签
+- **USB 音频独占**：自动检测 USB DAC / 声卡并启用独占路由，实时展示播放链路信息（音频格式、源/输出采样率、位深、声道、DSD 模式、路由、输出策略与设备）
+- **蓝牙耳机支持**：连接状态检测与会话级音量初始化
+- **播放控制**：基于 Media3 媒体会话，支持通知栏 / 锁屏控制、播放模式（列表循环 / 单曲循环 / 随机）、收藏置顶与定时关闭（当前曲目播完即停）
+- **状态持久化**：重启后恢复播放列表、播放位置与播放模式
+- **主题与多语言**：跟随系统 / 浅色 / 深色主题（切换带圆形扩散过渡动效）；应用内简体中文 / English / 跟随系统热切换，无需重建 Activity
+- **崩溃日志**：未捕获异常与捕获异常写入应用专属外部目录，超期自动清理
 
 ## 页面
 
 | 页面 | 内容 |
 | --- | --- |
-| 首页 | 欢迎与项目简介卡片，设置入口 |
-| 设置 | 外观（主题）、语言、关于（版本 + GitHub 链接） |
+| 首页 | 权限状态、进程内存、横屏快捷入口，以及完整的应用内播放器（封面、进度、歌词、播放列表、收藏、定时关闭、在线搜索） |
+| 设置 | 外观（主题）、语言、播放（悬浮播放器）、关于（版本） |
 
 ## 技术栈
 
@@ -45,12 +50,15 @@
 | --- | --- |
 | 语言 | Kotlin 2.4.10 |
 | UI | Jetpack Compose（BOM 2026.08.00）+ Material 3 |
-| 导航 | AndroidX Navigation3 1.1.6 |
+| 播放 | Media3 ExoPlayer 1.11.0 + MediaSessionService |
+| 导航 | AndroidX Navigation3 1.1.6（类型安全路由） |
 | 依赖注入 | Koin 4.2.2 |
 | 持久化 | DataStore Preferences 1.2.1 |
+| 图片加载 | Coil 3.5.0 |
+| 网络 | OkHttp 5.4.0 |
 | 序列化 | kotlinx.serialization 1.11.0 |
 | 生命周期 | androidx.lifecycle 2.11.0、activity-compose 1.13.0 |
-| 构建 | AGP 9.3.1、Gradle 9.7.0、refreshVersions 0.60.6 |
+| 构建 | AGP 9.3.1、Gradle 9.7.0、refreshVersions |
 
 ## 项目结构
 
@@ -58,28 +66,26 @@
 .
 ├── app/
 │   └── src/main/
-│       ├── kotlin/com/template/evilgodxu/
-│       │   ├── data/                    # 数据层（DataStore）
-│       │   │   ├── repository/          #   SettingsRepository
-│       │   │   └── settings/            #   设置状态与键
+│       ├── kotlin/com/yichao/evilgodxu/
+│       │   ├── data/                    # 数据层（DataStore 设置、仓库）
 │       │   ├── di/                      # Koin 模块
-│       │   ├── log/                     # 崩溃日志管理
+│       │   ├── log/                     # CrashLogManager
+│       │   ├── musicpanel/              # 悬浮面板 / 迷你播放器 / 播放核心
 │       │   ├── navigation/              # Navigation3 类型安全路由
-│       │   ├── screens/                 # 页面模块
-│       │   │   ├── home/                #   首页
-│       │   │   │   └── home_assembly/   #     HomeAssembly + 分区
-│       │   │   └── settings/            #   设置页
-│       │   │       ├── settings_assembly/
-│       │   │       └── dialog/          #     选择弹窗
+│       │   ├── screens/                 # 页面（首页 / 设置）
+│       │   │   ├── home/                #   首页播放器 + 权限流程
+│       │   │   └── settings/            #   外观 / 语言 / 播放 / 关于
 │       │   ├── theme/                   # Material 3 配色与字体
 │       │   ├── utils/localization/      # 应用内多语言管理
 │       │   ├── TemplateActivity.kt
+│       │   ├── TemplateActivityViewModel.kt
 │       │   └── TemplateApplication.kt
 │       └── res/                         # 资源（values / values-en）
 ├── gradle/
 │   ├── libs.versions.toml               # 版本目录（依赖管理）
 │   └── wrapper/
 ├── docs/                                # 架构说明
+├── LICENSE
 ├── build.gradle.kts
 ├── settings.gradle.kts
 └── gradle.properties
@@ -87,15 +93,29 @@
 
 ## 架构
 
-应用采用 **MVVM + 单向数据流**：状态由 `ViewModel` → `UiState` → UI 自上而下流动，事件由 UI 自下而上传递；共享数据逻辑位于 `data/` 层并通过 Repository 暴露，全部由 Koin 组装。
+应用遵循 **MVVM + 单向数据流**：状态由 `ViewModel` → `UiState` → UI 自上而下流动，事件由 UI 自下而上传递；共享数据逻辑位于 `data/` 层并通过 Repository 暴露，全部由 Koin 组装。
 
-代码遵循 **分区架构（assembly/area 模式）**：
+页面代码采用**分区架构（assembly/area 模式）**：
 
-- `{ScreenName}Screen.kt` — 页面入口，负责将 ViewModel 与 UI 关联
-- `{ScreenName}Assembly.kt` — 页面分区组装器，编排各分区
+- `{Screen}Screen.kt` — 页面入口，负责将 ViewModel 与 UI 关联
+- `{Screen}Assembly.kt` — 页面分区组装器，编排各分区
 - `{Name}Area.kt` — 语义单一、自包含的 UI 分区
 
-通用能力（`data/`、`theme/`、`utils/`）被两个及以上页面复用时上提至顶层；仅单页使用的代码保留在页面模块内。
+被两个及以上功能复用的代码上提至顶层（`data/`、`theme/`、`utils/`），仅单页使用的代码保留在页面模块内。`musicpanel/` 包承载窗口悬浮 UI（完整面板 + 迷你播放器）与播放引擎，由 Media3 ExoPlayer + `MediaSessionService` 驱动，并通过窗口级状态持有者共享。
+
+## 权限
+
+| 权限 | 用途 |
+| --- | --- |
+| 悬浮窗 | 悬浮音乐面板与迷你播放器 |
+| 全部文件访问 | 导入与管理本地音乐文件 |
+| 音乐访问（`READ_MEDIA_AUDIO`，≤ API 32 使用 `READ_EXTERNAL_STORAGE`） | 读取设备曲库并播放 |
+| 图片（`READ_MEDIA_IMAGES`） | 内嵌封面与本地封面候选 |
+| 蓝牙（`BLUETOOTH_CONNECT`） | 蓝牙耳机控制 |
+| 前台服务（`mediaPlayback`） | 后台播放 + 通知栏 / 锁屏控制 |
+| USB 主机（可选特性） | USB DAC 独占音频输出 |
+
+权限通过一个透明引导页链式申请，全部授予后自动关闭。
 
 ## 快速开始
 
@@ -108,8 +128,8 @@
 ### 构建
 
 ```bash
-git clone https://github.com/Evilgodxu/android-template.git
-cd android-template
+git clone https://github.com/Evilgodxu/YiChao-Music.git
+cd YiChao-Music
 
 # 调试包
 ./gradlew assembleDebug
@@ -118,7 +138,7 @@ cd android-template
 ./gradlew assembleRelease
 ```
 
-APK 输出为 `app/build/outputs/apk/` 下的 `Template-<版本号>-arm64.apk`。
+APK 输出为 `app/build/outputs/apk/` 下的 `YiChaoMusic-<版本号>-arm64.apk`，仅构建 `arm64-v8a` ABI。
 
 ### 发布签名
 
@@ -130,15 +150,11 @@ KEY_ALIAS=jh
 KEY_PASSWORD=你的别名密码
 ```
 
-签名库文件默认位于项目根目录 `jh.keystore`（如需调整请修改 `app/build.gradle.kts` 中的 `storeFile`）。`jh.keystore` 与 `local.properties` 已被 git 忽略，请勿提交。
+签名库文件默认位于项目根目录 `jh.keystore`（如需调整请修改 `app/build.gradle.kts` 中的 `storeFile`）。两个文件均已被 git 忽略，请勿提交。
 
-## 定制模板
+## 免责声明
 
-- **修改应用名 / 包名**：同步修改 `app/build.gradle.kts` 中的 `namespace` 与 `applicationId`，移动 `app/src/main/kotlin/` 下对应源码目录，并更新 Manifest，避免与现有 `com.template.evilgodxu` 冲突
-- **应用显示名**：修改 `app/src/main/res/values/strings.xml` 中的 `app_name`
-- **主题配色**：修改 `app/src/main/kotlin/.../theme/Color.kt`
-- **支持的 ABI**：调整 `app/build.gradle.kts` 中的 `ndk.abiFilters`（当前仅 `arm64-v8a`）
-- **新增页面**：在 `screens/<name>/` 下创建页面模块（`UiState` + `ViewModel` + `Assembly`/`Area`），在 `navigation/Screen.kt` 注册路由，并加入 `AppNavHost`
+在线音乐搜索依赖第三方公共网络接口（网易云 / QQ 音乐 / 酷狗 / Jamendo），其可用性与播放策略可能随地区与歌曲而异。应用仅供个人学习交流使用，请支持正版版权方。
 
 ## License
 

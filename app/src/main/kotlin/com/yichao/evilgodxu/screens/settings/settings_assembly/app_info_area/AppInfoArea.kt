@@ -85,4 +85,4 @@ fun AppInfoArea(version: String) {
     }
 }
 
-private const val GITHUB_URL = "https://github.com/Evilgodxu/android-template"
+private const val GITHUB_URL = "https://github.com/Evilgodxu/YiChao-Music"
