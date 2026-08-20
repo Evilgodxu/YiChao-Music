@@ -188,7 +188,7 @@ internal fun LyricText(
     }
 
     Text(
-        text = line.text,
+        text = wrapLyricText(line.text),
         style = TextStyle(
             brush = lyricBrush,
             shadow = if (progress > 0f) Shadow(
@@ -197,13 +197,24 @@ internal fun LyricText(
             ) else null
         ),
         fontSize = fontSize,
-        softWrap = true,
-        maxLines = MAX_LYRIC_LINES,
-        overflow = TextOverflow.Ellipsis,
+        softWrap = false,
         textAlign = TextAlign.Center,
         fontWeight = fontWeight,
         modifier = modifier
     )
+}
+
+// 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
+private fun wrapLyricText(text: String): String {
+    if (text.length <= MAX_LYRIC_CHARS) return text
+    return buildString {
+        var i = 0
+        while (i < text.length) {
+            if (i > 0) append('\n')
+            append(text, i, minOf(i + MAX_LYRIC_CHARS, text.length))
+            i += MAX_LYRIC_CHARS
+        }
+    }
 }
 
 internal fun splitLyricText(text: String): List<String> {
@@ -225,8 +236,8 @@ internal fun splitLyricText(text: String): List<String> {
     return result
 }
 
-// 单句歌词最多显示行数，仍溢出则省略号兜底，避免无限撑高破坏行排版
-private const val MAX_LYRIC_LINES = 2
+// 单行歌词超过该字符数则手动换行
+private const val MAX_LYRIC_CHARS = 30
 
 // 歌词面板默认可见行数
 private const val DEFAULT_VISIBLE_LINES = 5

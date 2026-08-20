@@ -212,9 +212,11 @@ private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
 
 private const val MAX_VERTICAL_CHARS = 7
 
-// 歌词透视参数：绕 Y 轴角度与相机距离系数；不对歌词额外放大，避免放大后排版宽度失真导致换行失效被截断
-private const val ROTATION_Y_DEGREES = 30f
-private const val CAMERA_DISTANCE_FACTOR = 1f
+// 歌词透视参数：绕 Y 轴角度与相机距离系数；cameraDistance 越小透视越强，
+// 大视角下取值过大会让旋转透视近乎消失，故用较小的宽度比例以获得明显左远右近；
+// rotationY 取负使左缘向前、右缘后退
+private const val ROTATION_Y_DEGREES = -45f
+private const val CAMERA_DISTANCE_FACTOR = 0.15f
 // 横屏歌词可见行数（当前行居中，上下各 4 行）
 private const val LYRICS_VISIBLE_LINES = 9
 
