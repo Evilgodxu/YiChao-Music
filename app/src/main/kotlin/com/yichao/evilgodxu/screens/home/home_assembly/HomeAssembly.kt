@@ -5,7 +5,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.os.Process
-import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -75,7 +75,8 @@ fun HomeAssembly(
     var isLandscapeMode by rememberSaveable { mutableStateOf(false) }
     // 横屏下标题栏与控制栏的统一显隐状态
     var landscapeChromeVisible by remember { mutableStateOf(false) }
-    val activity = LocalActivity.current
+    // LocalContext 为本地化包装 context，宿主 Activity 需从注册表所有者获取
+    val activity = LocalActivityResultRegistryOwner.current as? Activity
     val currentTrackId = playbackState.currentTrack?.id
     val isLiked = currentTrackId?.let { playbackState.likedIds.contains(it) } ?: false
 
@@ -85,7 +86,7 @@ fun HomeAssembly(
         activity?.requestedOrientation = if (isLandscapeMode) {
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         } else {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 
