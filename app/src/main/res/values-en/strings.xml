@@ -152,7 +152,6 @@
     <string name="home_player_next">Next</string>
     <string name="home_player_empty">No local music. Grant music access to continue.</string>
     <string name="home_player_close_playlist">Close playlist</string>
-    <string name="home_double_back_exit">Press back again to exit</string>
     <string name="settings_section_player">Playback</string>
     <string name="settings_mini_player_title">Floating player</string>
     <string name="settings_mini_player_desc">Show mini player during background playback</string>
