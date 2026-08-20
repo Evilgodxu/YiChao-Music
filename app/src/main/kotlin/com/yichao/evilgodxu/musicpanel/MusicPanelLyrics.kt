@@ -52,6 +52,7 @@ internal fun LyricsPanel(
     onLongClick: (() -> Unit)? = null,
     fontSize: TextUnit = 12.sp,
     contentColor: Color? = null,
+    visibleLines: Int = DEFAULT_VISIBLE_LINES,
 ) {
     // 已唱 / 未唱歌词颜色：默认取主题色，传入 contentColor 时（如首页）覆盖为指定色
     val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
@@ -68,6 +69,8 @@ internal fun LyricsPanel(
 
     val lines = playbackState.currentTrack?.lyricLines.orEmpty()
     val activeIndex = lines.indexOfLast { it.timeMs <= lyricPosition }.coerceAtLeast(0)
+    // 当前行居中，上下各显示 (total-1)/2 行（total 为奇数）
+    val offset = visibleLines / 2
 
     Box(
         modifier = modifier
@@ -106,8 +109,8 @@ internal fun LyricsPanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    repeat(5) { row ->
-                        val index = renderedActiveIndex - 2 + row
+                    repeat(visibleLines) { row ->
+                        val index = renderedActiveIndex - offset + row
                         val line = lines.getOrNull(index)
                         if (line == null) {
                             LyricSpacer()
@@ -224,3 +227,6 @@ internal fun splitLyricText(text: String): List<String> {
 
 // 单句歌词最多显示行数，仍溢出则省略号兜底，避免无限撑高破坏行排版
 private const val MAX_LYRIC_LINES = 2
+
+// 歌词面板默认可见行数
+private const val DEFAULT_VISIBLE_LINES = 5

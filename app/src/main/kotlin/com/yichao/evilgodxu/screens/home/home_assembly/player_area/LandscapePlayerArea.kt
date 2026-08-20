@@ -215,6 +215,8 @@ private const val MAX_VERTICAL_CHARS = 7
 // 歌词透视参数：绕 Y 轴角度与相机距离系数；不对歌词额外放大，避免放大后排版宽度失真导致换行失效被截断
 private const val ROTATION_Y_DEGREES = 30f
 private const val CAMERA_DISTANCE_FACTOR = 1f
+// 横屏歌词可见行数（当前行居中，上下各 4 行）
+private const val LYRICS_VISIBLE_LINES = 9
 
 // 歌词透视区：rotationY 绕 Y 轴旋转，配合随宽度缩放的 cameraDistance 产生近大远小的真实 3D 透视
 @Composable
@@ -238,6 +240,8 @@ private fun LyricsPerspectiveZone(
             onClick = {},
             fontSize = 14.sp,
             contentColor = Color.White,
+            // 横屏视野更宽，上下各多显示两行（共 9 行）
+            visibleLines = LYRICS_VISIBLE_LINES,
         )
     }
 }
