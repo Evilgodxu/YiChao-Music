@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
+import com.yichao.evilgodxu.data.permission.mediaImagePermission
 import com.yichao.evilgodxu.screens.home.HomeUiState
 
 // 权限状态对话框：未全部授权时显示且不可关闭，列表 + 右侧按钮申请，全部授权后自动隐藏
@@ -171,6 +172,20 @@ fun PermissionDialog(
                         granted = uiState.mediaAudioGranted,
                         onRequest = {
                             runtimePermissionLauncher.launch(arrayOf(mediaAudioPermission()))
+                        },
+                    )
+                    PermissionCardRow(
+                        icon = {
+                            Icon(
+                                painterResource(R.drawable.ic_image),
+                                null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        },
+                        title = stringResource(R.string.permission_image_title),
+                        granted = uiState.mediaImageGranted,
+                        onRequest = {
+                            runtimePermissionLauncher.launch(arrayOf(mediaImagePermission()))
                         },
                     )
                     PermissionCardRow(

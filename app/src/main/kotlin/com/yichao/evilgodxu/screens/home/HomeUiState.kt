@@ -6,9 +6,10 @@ data class HomeUiState(
     val overlayGranted: Boolean = false,
     val allFilesGranted: Boolean = false,
     val mediaAudioGranted: Boolean = false,
+    val mediaImageGranted: Boolean = false,
     val bluetoothGranted: Boolean = false,
 ) {
     // 全部权限已授权时隐藏权限状态分区
     val allPermissionsGranted: Boolean
-        get() = overlayGranted && allFilesGranted && mediaAudioGranted && bluetoothGranted
+        get() = overlayGranted && allFilesGranted && mediaAudioGranted && mediaImageGranted && bluetoothGranted
 }

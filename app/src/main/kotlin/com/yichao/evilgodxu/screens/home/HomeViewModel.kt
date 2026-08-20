@@ -39,6 +39,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 overlayGranted = permissionMonitor.isOverlayGranted(),
                 allFilesGranted = permissionMonitor.isAllFilesGranted(),
                 mediaAudioGranted = permissionMonitor.isMediaAudioGranted(),
+                mediaImageGranted = permissionMonitor.isMediaImageGranted(),
                 bluetoothGranted = permissionMonitor.isBluetoothGranted(),
             )
         }

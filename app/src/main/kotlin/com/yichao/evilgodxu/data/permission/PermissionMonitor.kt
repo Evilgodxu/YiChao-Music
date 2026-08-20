@@ -18,12 +18,20 @@ enum class PermissionType {
     OVERLAY,                 // 悬浮窗（系统特殊权限）
     MANAGE_EXTERNAL_STORAGE, // 全部文件（系统特殊权限）
     MEDIA_AUDIO,             // 音乐访问（运行时权限）
+    MEDIA_IMAGES,            // 图片访问（运行时权限）
     BLUETOOTH,               // 蓝牙设备（运行时权限）
 }
 
 // 音乐访问的运行时权限名：API 33 及以上为媒体权限，以下为旧的外部存储权限
 fun mediaAudioPermission(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
     Manifest.permission.READ_MEDIA_AUDIO
+} else {
+    Manifest.permission.READ_EXTERNAL_STORAGE
+}
+
+// 图片访问的运行时权限名：API 33 及以上为媒体权限，以下为旧的外部存储权限
+fun mediaImagePermission(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    Manifest.permission.READ_MEDIA_IMAGES
 } else {
     Manifest.permission.READ_EXTERNAL_STORAGE
 }
@@ -38,6 +46,9 @@ class PermissionMonitor(private val context: Context) {
     fun isMediaAudioGranted(): Boolean =
         ContextCompat.checkSelfPermission(context, mediaAudioPermission()) == PackageManager.PERMISSION_GRANTED
 
+    fun isMediaImageGranted(): Boolean =
+        ContextCompat.checkSelfPermission(context, mediaImagePermission()) == PackageManager.PERMISSION_GRANTED
+
     fun isBluetoothGranted(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
@@ -45,6 +56,7 @@ class PermissionMonitor(private val context: Context) {
         PermissionType.OVERLAY -> isOverlayGranted()
         PermissionType.MANAGE_EXTERNAL_STORAGE -> isAllFilesGranted()
         PermissionType.MEDIA_AUDIO -> isMediaAudioGranted()
+        PermissionType.MEDIA_IMAGES -> isMediaImageGranted()
         PermissionType.BLUETOOTH -> isBluetoothGranted()
     }
 
