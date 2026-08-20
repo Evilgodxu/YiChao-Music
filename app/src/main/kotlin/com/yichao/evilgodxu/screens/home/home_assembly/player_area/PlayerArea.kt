@@ -140,12 +140,13 @@ fun PlayerArea(
                         playbackState = playbackState,
                         onClick = {},
                         fontSize = 16.sp,
+                        contentColor = Color.White,
                     )
                 } else {
                     Text(
                         text = stringResource(R.string.home_player_empty),
                         fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 32.dp),
                     )
@@ -158,7 +159,7 @@ fun PlayerArea(
                     text = playbackState.currentTrack?.title.orEmpty(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 32.dp),
@@ -168,7 +169,7 @@ fun PlayerArea(
                     Text(
                         text = playbackState.currentTrack?.artist.orEmpty(),
                         fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 32.dp),
@@ -180,7 +181,10 @@ fun PlayerArea(
             Box(
                 modifier = Modifier.fillMaxWidth(0.85f),
             ) {
-                ProgressSection(playbackState = playbackState)
+                ProgressSection(
+                    playbackState = playbackState,
+                    contentColor = Color.White,
+                )
             }
             Spacer(Modifier.height(24.dp))
             PlayerControls(
@@ -282,8 +286,8 @@ private fun PlayerControlButton(
             imageVector = icon,
             contentDescription = contentDescription,
             modifier = Modifier.size(24.dp),
-            tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
-            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+            tint = if (enabled) Color.White
+            else Color.White.copy(alpha = 0.3f),
         )
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -49,7 +50,11 @@ internal fun LyricsPanel(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     fontSize: TextUnit = 12.sp,
+    contentColor: Color? = null,
 ) {
+    // 已唱 / 未唱歌词颜色：默认取主题色，传入 contentColor 时（如首页）覆盖为指定色
+    val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
+    val pendingColor = (contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.72f)
     var lyricPosition by remember { mutableLongStateOf(playbackState.currentPosition) }
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
         while (isActive) {
@@ -71,7 +76,7 @@ internal fun LyricsPanel(
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
-            Text(stringResource(R.string.music_panel_no_lyrics), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(stringResource(R.string.music_panel_no_lyrics), color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         } else {
             AnimatedContent(
                 targetState = activeIndex,
@@ -122,6 +127,8 @@ internal fun LyricsPanel(
                             isCurrent = isCurrent,
                             fontSize = fontSize,
                             fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
+                            activeColor = activeColor,
+                            pendingColor = pendingColor,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .graphicsLayer {
@@ -150,10 +157,10 @@ internal fun LyricText(
     isCurrent: Boolean,
     fontSize: TextUnit,
     fontWeight: FontWeight,
+    activeColor: Color,
+    pendingColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val pendingColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
-    val activeColor = MaterialTheme.colorScheme.primary
     val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
     val progress = when {
         !isCurrent || positionMs <= line.timeMs -> 0f

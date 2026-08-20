@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -35,7 +36,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 @Composable
-internal fun ProgressSection(playbackState: MusicPlaybackState) {
+internal fun ProgressSection(
+    playbackState: MusicPlaybackState,
+    contentColor: Color? = null,
+) {
+    // 进度条与时间文本颜色：默认取主题色，传入 contentColor 时（如首页）覆盖为指定色
+    val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
+    val dimTextColor = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -44,6 +51,7 @@ internal fun ProgressSection(playbackState: MusicPlaybackState) {
     ) {
         VisualizerSection(
             isPlaying = playbackState.isPlaying,
+            contentColor = contentColor,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(14.dp)
@@ -56,7 +64,7 @@ internal fun ProgressSection(playbackState: MusicPlaybackState) {
         ) {
             Text(
                 text = formatTime(playbackState.currentPosition),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = dimTextColor,
                 fontSize = 9.sp,
                 modifier = Modifier.width(24.dp),
                 textAlign = TextAlign.Start
@@ -100,18 +108,18 @@ internal fun ProgressSection(playbackState: MusicPlaybackState) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(3.dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(2.dp))
+                        .background(activeColor.copy(alpha = 0.08f), RoundedCornerShape(2.dp))
                 )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(displayProgress)
                         .height(3.dp)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
+                        .background(activeColor, RoundedCornerShape(2.dp))
                 )
             }
             Text(
                 text = formatTime(playbackState.duration),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = dimTextColor,
                 fontSize = 9.sp,
                 modifier = Modifier.width(24.dp),
                 textAlign = TextAlign.End
@@ -124,10 +132,11 @@ internal fun ProgressSection(playbackState: MusicPlaybackState) {
 internal fun VisualizerSection(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    contentColor: Color? = null,
 ) {
     val barCount = 28
-    val primary = MaterialTheme.colorScheme.primary
-    val inactiveColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+    val primary = contentColor ?: MaterialTheme.colorScheme.primary
+    val inactiveColor = (contentColor ?: MaterialTheme.colorScheme.onSurface).copy(alpha = 0.06f)
     Row(
         modifier = modifier
             .fillMaxWidth()

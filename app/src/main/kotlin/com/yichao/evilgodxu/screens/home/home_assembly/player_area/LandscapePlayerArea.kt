@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -116,7 +116,7 @@ fun LandscapePlayerArea(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+                    .background(Color.Transparent),
             ) {
                 PlayerControls(
                     playbackState = playbackState,
@@ -166,14 +166,14 @@ private fun MetadataAxis(
                     .fillMaxHeight(1f)
                     .width(3.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                    .background(Color.White.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(progress)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+                        .background(Color.White, RoundedCornerShape(2.dp)),
                 )
             }
             // 艺术家：组内底部
@@ -201,7 +201,7 @@ private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
         visible.forEach { char ->
             Text(
                 text = char.toString(),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -238,6 +238,7 @@ private fun LyricsPerspectiveZone(
             playbackState = playbackState,
             onClick = {},
             fontSize = 14.sp,
+            contentColor = Color.White,
         )
     }
 }

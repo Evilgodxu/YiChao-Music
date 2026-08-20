@@ -231,14 +231,14 @@ private fun HomeTopBar(
                         Icon(
                             imageVector = Icons.Default.Timer,
                             contentDescription = stringResource(R.string.music_panel_timer_title),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = Color.White,
                         )
                     }
                     // 剩余时间叠加在按钮下方，不占布局空间，避免顶高按钮
                     if (playbackState.timerRemaining > 0) {
                         Text(
                             text = "${playbackState.timerRemaining}m",
-                            color = MaterialTheme.colorScheme.primary,
+                            color = Color.White,
                             fontSize = 10.sp,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -255,8 +255,8 @@ private fun HomeTopBar(
                     Icon(
                         imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = stringResource(R.string.music_panel_favorite),
-                        tint = if (isLiked) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (isLiked) Color.White
+                        else Color.White,
                     )
                 }
             }
@@ -266,14 +266,15 @@ private fun HomeTopBar(
                 Icon(
                     imageVector = Icons.Filled.ScreenRotation,
                     contentDescription = stringResource(R.string.home_landscape_mode),
-                    tint = if (isLandscapeMode) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isLandscapeMode) Color.White
+                    else Color.White,
                 )
             }
             IconButton(onClick = onOpenSettings) {
                 Icon(
                     painter = painterResource(R.drawable.ic_settings),
                     contentDescription = stringResource(R.string.settings_title),
+                    tint = Color.White,
                 )
             }
         },
@@ -300,7 +301,7 @@ private fun MemoryUsageText() {
     Text(
         text = stringResource(R.string.home_memory_usage, usage),
         fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = Color.White,
         fontWeight = FontWeight.Medium,
     )
 }
