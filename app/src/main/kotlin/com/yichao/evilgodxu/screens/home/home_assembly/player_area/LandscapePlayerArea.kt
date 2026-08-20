@@ -37,7 +37,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.musicpanel.DiscArt
+import com.yichao.evilgodxu.musicpanel.AlbumArt
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import kotlinx.coroutines.delay
@@ -63,20 +63,21 @@ fun LandscapePlayerArea(
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // 左：封面视觉区
+            // 左：封面视觉区，圆角矩形封面
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 if (playbackState.currentTrack != null) {
-                    DiscArt(
+                    AlbumArt(
                         track = playbackState.currentTrack,
-                        isPlaying = playbackState.isPlaying,
                         modifier = Modifier
                             .fillMaxWidth(0.68f)
-                            .aspectRatio(1f),
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(24.dp)),
                     )
                 }
             }
@@ -132,7 +133,7 @@ fun LandscapePlayerArea(
     }
 }
 
-// 信息轴区：标题位于左上角、艺术家位于右下角，垂直文字夹住居中的竖线进度条
+// 信息轴区：标题、进度条、艺术家三合一整体居中，内部 4dp 间距不变
 @Composable
 private fun MetadataAxis(
     playbackState: MusicPlaybackState,
@@ -145,38 +146,42 @@ private fun MetadataAxis(
             } else 0f
         }
     }
-    // 标题、进度条、艺术家横排紧贴：标题置顶、艺术家沉底
-    Row(
-        modifier = modifier.padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
+        modifier = modifier.padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        // 标题：左上角竖排文字
-        VerticalLabel(
-            text = playbackState.currentTrack?.title.orEmpty(),
-            modifier = Modifier.align(Alignment.Top),
-        )
-        // 进度条：居中竖线，从底部向上填充
-        Box(
-            modifier = Modifier
-                .fillMaxHeight(0.72f)
-                .width(3.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.BottomCenter,
+        Row(
+            modifier = Modifier.fillMaxHeight(0.72f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 标题：组内顶部
+            VerticalLabel(
+                text = playbackState.currentTrack?.title.orEmpty(),
+                modifier = Modifier.align(Alignment.Top),
+            )
+            // 进度条：组内居中，从底部向上填充
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(progress)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+                    .fillMaxHeight(1f)
+                    .width(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(progress)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+                )
+            }
+            // 艺术家：组内底部
+            VerticalLabel(
+                text = playbackState.currentTrack?.artist.orEmpty(),
+                modifier = Modifier.align(Alignment.Bottom),
             )
         }
-        // 艺术家：右下角竖排文字
-        VerticalLabel(
-            text = playbackState.currentTrack?.artist.orEmpty(),
-            modifier = Modifier.align(Alignment.Bottom),
-        )
     }
 }
 
@@ -215,7 +220,7 @@ private fun LyricsPerspectiveZone(
 ) {
     Box(
         modifier = modifier
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 24.dp, vertical = 12.dp)
             .graphicsLayer {
                 rotationY = 15f
                 cameraDistance = 800f
