@@ -92,7 +92,7 @@ class TemplateActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                AppNavHost()
+                AppNavHost(onExit = { finish() })
             }
         }
     }
