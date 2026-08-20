@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -221,6 +222,7 @@ private fun LyricsPerspectiveZone(
     Box(
         modifier = modifier
             .padding(horizontal = 24.dp, vertical = 12.dp)
+            .clipToBounds()
             .graphicsLayer {
                 rotationY = 15f
                 cameraDistance = 800f
