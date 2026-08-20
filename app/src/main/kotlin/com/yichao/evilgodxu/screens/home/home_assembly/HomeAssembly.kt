@@ -38,10 +38,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -75,7 +75,8 @@ fun HomeAssembly(
 ) {
     val playbackState = MusicPanelStateHolder.state
     var showTimer by remember { mutableStateOf(false) }
-    var isLandscapeMode by rememberSaveable { mutableStateOf(false) }
+    // 横屏模式：跟随窗口宽高比，旋转时窗口重布局由 onSizeChanged 更新
+    var isLandscapeMode by remember { mutableStateOf(false) }
     // 横屏下标题栏与控制栏的统一显隐状态
     var landscapeChromeVisible by remember { mutableStateOf(false) }
     // LocalContext 为本地化包装 context，宿主 Activity 需从注册表所有者获取
@@ -83,13 +84,12 @@ fun HomeAssembly(
     val currentTrackId = playbackState.currentTrack?.id
     val isLiked = currentTrackId?.let { playbackState.likedIds.contains(it) } ?: false
 
-    // 横屏模式：切换三栏布局并强制设备横屏，退出时恢复系统默认方向
+    // 横屏模式：按当前朝向切换设备方向，布局由配置变化驱动
     fun toggleLandscapeMode() {
-        isLandscapeMode = !isLandscapeMode
         activity?.requestedOrientation = if (isLandscapeMode) {
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        } else {
             ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }
     }
 
@@ -112,7 +112,7 @@ fun HomeAssembly(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { isLandscapeMode = it.width > it.height },
         topBar = {
             // 竖屏标题栏常驻；横屏下改为悬浮控制栏，不占布局空间
             if (!isLandscapeMode) {
