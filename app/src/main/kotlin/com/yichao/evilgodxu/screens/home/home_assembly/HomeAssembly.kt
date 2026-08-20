@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.os.Process
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
@@ -12,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -41,13 +44,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import coil3.compose.AsyncImage
+import coil3.imageLoader
 import coil3.request.ImageRequest
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
@@ -70,8 +70,9 @@ import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlay
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import java.io.File
 import java.util.Locale
-import kotlin.math.min
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 // 首页组装器：顶部标题栏（定时/收藏/内存/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -303,26 +304,67 @@ private fun MemoryUsageText() {
     )
 }
 
-// 沉浸式页面背景：以屏幕最短边为基准解码当前封面，直接拉伸铺满全屏后高斯模糊
+// 沉浸式页面背景：由封面提取上下半区主色并向下渐变，替代拉伸全屏图片
 @Composable
 private fun HomeImmersiveBackground(track: MusicTrack?) {
-    val model = homeCoverModel(track) ?: return
+    val model = homeCoverModel(track)
     val context = LocalContext.current
-    val config = LocalConfiguration.current
-    val shortestPx = with(LocalDensity.current) {
-        min(config.screenWidthDp, config.screenHeightDp).dp.roundToPx()
+    var gradient by remember { mutableStateOf(defaultHomeGradient()) }
+    LaunchedEffect(model) {
+        gradient = if (model != null) {
+            coverGradient(context, model) ?: defaultHomeGradient()
+        } else {
+            defaultHomeGradient()
+        }
     }
-    // 按屏幕最短边分辨率请求封面，直接拉伸铺满全屏，放大与变形由模糊掩盖
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(model)
-            .size(shortestPx, shortestPx)
-            .build(),
-        contentDescription = null,
-        contentScale = ContentScale.FillBounds,
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .blur(40.dp)
+            .background(gradient)
+    )
+}
+
+@Composable
+private fun defaultHomeGradient(): Brush =
+    Brush.verticalGradient(
+        listOf(
+            MaterialTheme.colorScheme.surface,
+            MaterialTheme.colorScheme.surfaceVariant,
+        )
+    )
+
+// 以小尺寸解码封面，取上下半区平均色组成向下渐变
+private suspend fun coverGradient(context: Context, model: Any): Brush? = withContext(Dispatchers.IO) {
+    val drawable = context.imageLoader.execute(
+        ImageRequest.Builder(context)
+            .data(model)
+            .size(32)
+            .build()
+    ).drawable
+    val bitmap = (drawable as? BitmapDrawable)?.bitmap ?: return@withContext null
+    Brush.verticalGradient(listOf(bitmap.avgColor(topHalf = true), bitmap.avgColor(topHalf = false)))
+}
+
+private fun Bitmap.avgColor(topHalf: Boolean): Color {
+    val startY = if (topHalf) 0 else height / 2
+    val endY = if (topHalf) height / 2 else height
+    var r = 0L
+    var g = 0L
+    var b = 0L
+    var count = 0L
+    for (y in startY until endY) {
+        for (x in 0 until width) {
+            val c = getPixel(x, y)
+            r += (c shr 16) and 0xFF
+            g += (c shr 8) and 0xFF
+            b += c and 0xFF
+            count++
+        }
+    }
+    return Color(
+        red = (r / count).toFloat() / 255f,
+        green = (g / count).toFloat() / 255f,
+        blue = (b / count).toFloat() / 255f,
     )
 }
 
