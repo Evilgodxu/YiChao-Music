@@ -31,7 +31,6 @@ import com.yichao.evilgodxu.musicpanel.MusicPanelController
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
 import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
-import com.yichao.evilgodxu.update.UpdateCheckWorker
 import com.yichao.evilgodxu.update.UpdateDialog
 import com.yichao.evilgodxu.update.UpdateManager
 import com.yichao.evilgodxu.update.UpdateViewModel
@@ -76,15 +75,6 @@ class TemplateActivity : ComponentActivity() {
             }
         })
 
-        // 跟踪前后台状态，供 UpdateCheckWorker 判断是弹框还是发通知
-        lifecycle.addObserver(LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> UpdateCheckWorker.isAppInForeground = true
-                Lifecycle.Event.ON_STOP -> UpdateCheckWorker.isAppInForeground = false
-                else -> {}
-            }
-        })
-
         setContent {
             ProvideLocalizedContext(localizationManager) {
                 CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
@@ -109,18 +99,11 @@ class TemplateActivity : ComponentActivity() {
 
     @Composable
     private fun TemplateContent() {
-        // 从通知打开时检查是否携带 show_update 标记
-        LaunchedEffect(Unit) {
-            if (intent?.getBooleanExtra("show_update", false) == true) {
-                updateViewModel.checkForUpdate(force = true)
-            }
-        }
-
-        // 回前台时自动检查更新（内部有 24 小时冷却，即每天检查一次）
+        // 回前台时自动检查更新（每日仅检查一次）
         val lifecycleOwner = LocalLifecycleOwner.current
         DisposableEffect(lifecycleOwner) {
             val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
+                if (event == Lifecycle.Event.ON_RESUME && UpdateManager.shouldCheckUpdate(applicationContext)) {
                     updateViewModel.checkForUpdate()
                 }
             }

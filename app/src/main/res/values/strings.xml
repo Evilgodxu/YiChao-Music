@@ -153,10 +153,6 @@
     <string name="settings_mini_player_desc">后台播放时显示迷你播放器</string>
 
     <!-- 更新 -->
-    <string name="update_channel_name">应用更新</string>
-    <string name="update_channel_desc">当发现新版本时发送更新通知</string>
-    <string name="update_notification_title">发现新版本</string>
-    <string name="update_notification_text">忆潮音乐 %s 已可用</string>
     <string name="update_dialog_title">发现新版本 %s</string>
     <string name="update_dialog_description_alt">是否下载并安装新版本？</string>
     <string name="update_dialog_downloading">正在下载…</string>

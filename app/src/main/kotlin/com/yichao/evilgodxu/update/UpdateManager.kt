@@ -43,12 +43,11 @@ sealed class DownloadState {
 object UpdateManager {
 
     private const val PREFS_NAME = "update_prefs"
-    private const val KEY_LAST_CHECK = "last_check_time"
+    private const val KEY_LAST_CHECK_DAY = "last_check_day"
     private const val KEY_PENDING_VERSION = "pending_version"
     private const val KEY_PENDING_URL = "pending_url"
     private const val KEY_PENDING_CHANGELOG = "pending_changelog"
     private const val KEY_IGNORED_VERSION = "ignored_version"
-    private const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L // 24 小时冷却
     private const val TAG = "UpdateManager"
 
     // GitHub 仓库配置
@@ -82,7 +81,18 @@ object UpdateManager {
     )
 
     /**
-     * 检查是否有新版本（非强制检查时遵守 24 小时冷却）
+     * 是否已进入新的一天，即是否需要检查更新
+     */
+    fun shouldCheckUpdate(context: Context): Boolean {
+        val lastCheckDay = prefs(context).getString(KEY_LAST_CHECK_DAY, null)
+        return lastCheckDay != currentDay()
+    }
+
+    private fun currentDay(): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+    /**
+     * 检查是否有新版本（非强制检查时仅当进入新的一天才检查）
      */
     suspend fun checkForUpdate(
         context: Context,
@@ -90,27 +100,14 @@ object UpdateManager {
         onError: ((Exception) -> Unit)? = null
     ): UpdateInfo? {
         val prefs = prefs(context)
-        val now = System.currentTimeMillis()
 
-        // 非强制检查时遵守 24 小时冷却
-        if (!force) {
-            val lastCheck = prefs.getLong(KEY_LAST_CHECK, 0L)
-            if (now - lastCheck < CHECK_INTERVAL_MS) {
-                // 返回缓存的待更新信息
-                val cachedVersion = prefs.getString(KEY_PENDING_VERSION, null)
-                val cachedUrl = prefs.getString(KEY_PENDING_URL, null)
-                if (cachedVersion != null && cachedUrl != null) {
-                    return UpdateInfo(
-                        latestVersion = cachedVersion,
-                        downloadUrl = cachedUrl,
-                        changelog = prefs.getString(KEY_PENDING_CHANGELOG, "") ?: ""
-                    )
-                }
-                return null
-            }
+        // 非强制检查仅当进入新的一天时才执行
+        if (!force && !shouldCheckUpdate(context)) {
+            return null
         }
 
         return try {
+            val day = currentDay()
             val release = withContext(Dispatchers.IO) {
                 val url = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
                 json.decodeFromString<GitHubRelease>(readJson(url))
@@ -126,7 +123,7 @@ object UpdateManager {
                     ?: throw IllegalStateException("GitHub Release 未提供可用 APK")
 
                 prefs.edit()
-                    .putLong(KEY_LAST_CHECK, now)
+                    .putString(KEY_LAST_CHECK_DAY, day)
                     .putString(KEY_PENDING_VERSION, latest)
                     .putString(KEY_PENDING_URL, downloadUrl)
                     .putString(KEY_PENDING_CHANGELOG, release.body)
@@ -138,7 +135,7 @@ object UpdateManager {
                     changelog = release.body
                 )
             } else {
-                prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
+                prefs.edit().putString(KEY_LAST_CHECK_DAY, day).apply()
                 null
             }
         } catch (e: Exception) {
