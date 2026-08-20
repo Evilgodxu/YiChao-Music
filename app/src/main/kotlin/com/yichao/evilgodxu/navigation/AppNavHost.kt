@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.navigation
 import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +26,8 @@ fun AppNavHost(
 ) {
     val backStack = rememberNavBackStack(Home)
     val context = LocalContext.current
+    // LocalContext 已被本地化包装，宿主 Activity 需从注册表所有者获取
+    val activity = LocalActivityResultRegistryOwner.current as? Activity
 
     // 返回防抖：500ms 内连点只生效一次，防止回退栈被清空
     var lastBackTime by remember { mutableStateOf(0L) }
@@ -35,7 +38,7 @@ fun AppNavHost(
         if (now - lastHomeBackTime < DOUBLE_BACK_EXIT_MS) {
             if (MusicPanelStateHolder.state.isPlayerActive) {
                 // 播放中：返回桌面，保留后台播放与迷你播放器
-                (context as? Activity)?.moveTaskToBack(true)
+                activity?.moveTaskToBack(true)
             } else {
                 MusicPanelStateHolder.releaseIfIdle()
                 onExit()
