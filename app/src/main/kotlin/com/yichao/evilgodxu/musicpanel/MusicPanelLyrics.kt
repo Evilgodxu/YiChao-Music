@@ -60,9 +60,16 @@ internal fun LyricsPanel(
     var lyricPosition by remember { mutableLongStateOf(playbackState.currentPosition) }
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
         while (isActive) {
-            lyricPosition = playbackState.mediaController?.currentPosition
+            val candidate = playbackState.mediaController?.currentPosition
                 ?.takeIf { it >= 0L }
                 ?: playbackState.currentPosition
+            // 播放中保持单调前进，避免控制器位置抖动导致高亮回退；大幅回退视为手动拖动
+            lyricPosition = when {
+                !playbackState.isPlaying -> candidate
+                candidate >= lyricPosition -> candidate
+                lyricPosition - candidate > LYRIC_SEEK_TOLERANCE_MS -> candidate
+                else -> lyricPosition
+            }
             delay(if (playbackState.isPlaying) 50L else 200L)
         }
     }
@@ -252,6 +259,9 @@ internal fun splitLyricText(text: String): List<String> {
 
 // 单行歌词超过该字符数则手动换行
 private const val MAX_LYRIC_CHARS = 30
+
+// 播放中位置回退容差：小于该值视为控制器位置抖动，大于视为手动拖动进度条
+private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
 // 歌词面板默认可见行数
 private const val DEFAULT_VISIBLE_LINES = 5

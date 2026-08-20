@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -189,7 +190,8 @@ private fun MetadataAxis(
 @Composable
 private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
     if (text.isBlank()) return
-    val visible = if (text.length > MAX_VERTICAL_CHARS) {
+    val truncated = text.length > MAX_VERTICAL_CHARS
+    val visible = if (truncated) {
         text.take(MAX_VERTICAL_CHARS - 1) + "…"
     } else {
         text
@@ -198,13 +200,16 @@ private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        visible.forEach { char ->
+        visible.forEachIndexed { index, char ->
+            // 省略号横向三点，竖排场景右旋 90° 变为竖向三点
+            val isEllipsis = truncated && index == visible.lastIndex
             Text(
                 text = char.toString(),
                 color = Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
+                modifier = if (isEllipsis) Modifier.rotate(90f) else Modifier,
             )
         }
     }
