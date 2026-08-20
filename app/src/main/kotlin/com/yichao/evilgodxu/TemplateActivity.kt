@@ -82,7 +82,7 @@ class TemplateActivity : ComponentActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        updateSystemBarsVisibility()
+        updateSystemBarsVisibility(newConfig.orientation)
     }
 
     @Composable
@@ -104,8 +104,8 @@ class TemplateActivity : ComponentActivity() {
     }
 
     // 横屏隐藏系统栏，竖屏显示
-    private fun updateSystemBarsVisibility() {
-        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+    private fun updateSystemBarsVisibility(orientation: Int = resources.configuration.orientation) {
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         } else {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())

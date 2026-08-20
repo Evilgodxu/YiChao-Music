@@ -48,9 +48,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
+import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.TimerOverlay
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
@@ -98,74 +101,31 @@ fun HomeAssembly(
         }
     }
 
+    // 进入横屏沉浸模式时隐藏系统栏
+    LaunchedEffect(isLandscapeMode) {
+        if (isLandscapeMode) {
+            activity?.let {
+                WindowInsetsControllerCompat(it.window, it.window.decorView)
+                    .hide(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
-            // 横屏下标题栏随控制栏一起自动隐藏，点击屏幕弹出
-            AnimatedVisibility(
-                visible = !isLandscapeMode || landscapeChromeVisible,
-                enter = slideInVertically(animationSpec = tween(300)) { -it } + fadeIn(),
-                exit = slideOutVertically(animationSpec = tween(300)) { -it } + fadeOut(),
-            ) {
-                CenterAlignedTopAppBar(
-                    title = { MemoryUsageText() },
-                navigationIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box {
-                            IconButton(onClick = { showTimer = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = stringResource(R.string.music_panel_timer_title),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            // 剩余时间叠加在按钮下方，不占布局空间，避免顶高按钮
-                            if (playbackState.timerRemaining > 0) {
-                                Text(
-                                    text = "${playbackState.timerRemaining}m",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 10.sp,
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .offset(y = 14.dp)
-                                        .clickable { playbackState.stopTimer() }
-                                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
-                            enabled = currentTrackId != null,
-                        ) {
-                            Icon(
-                                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                contentDescription = stringResource(R.string.music_panel_favorite),
-                                tint = if (isLiked) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { toggleLandscapeMode() }) {
-                        Icon(
-                            imageVector = Icons.Filled.ScreenRotation,
-                            contentDescription = stringResource(R.string.home_landscape_mode),
-                            tint = if (isLandscapeMode) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_settings),
-                            contentDescription = stringResource(R.string.settings_title),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+            // 竖屏标题栏常驻；横屏下改为悬浮控制栏，不占布局空间
+            if (!isLandscapeMode) {
+                HomeTopBar(
+                    playbackState = playbackState,
+                    isLandscapeMode = isLandscapeMode,
+                    isLiked = isLiked,
+                    favoriteEnabled = currentTrackId != null,
+                    onShowTimer = { showTimer = true },
+                    onToggleFavorite = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
+                    onToggleLandscape = { toggleLandscapeMode() },
+                    onOpenSettings = onOpenSettings,
+                )
             }
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -186,6 +146,27 @@ fun HomeAssembly(
             } else {
                 PlayerArea(modifier = Modifier.fillMaxSize())
             }
+            // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局
+            if (isLandscapeMode) {
+                AnimatedVisibility(
+                    visible = landscapeChromeVisible,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    enter = slideInVertically(animationSpec = tween(300)) { -it } + fadeIn(),
+                    exit = slideOutVertically(animationSpec = tween(300)) { -it } + fadeOut(),
+                ) {
+                    HomeTopBar(
+                        playbackState = playbackState,
+                        isLandscapeMode = isLandscapeMode,
+                        isLiked = isLiked,
+                        favoriteEnabled = currentTrackId != null,
+                        windowInsets = WindowInsets(0, 0, 0, 0),
+                        onShowTimer = { showTimer = true },
+                        onToggleFavorite = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
+                        onToggleLandscape = { toggleLandscapeMode() },
+                        onOpenSettings = onOpenSettings,
+                    )
+                }
+            }
             PermissionDialog(
                 uiState = uiState,
                 onRefresh = onRefreshPermissions,
@@ -204,6 +185,82 @@ fun HomeAssembly(
             )
         }
     }
+}
+
+// 顶部标题栏：内存占用 + 定时/收藏/横屏/设置操作；横屏悬浮时不吃系统栏内边距
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeTopBar(
+    playbackState: MusicPlaybackState,
+    isLandscapeMode: Boolean,
+    isLiked: Boolean,
+    favoriteEnabled: Boolean,
+    onShowTimer: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onToggleLandscape: () -> Unit,
+    onOpenSettings: () -> Unit,
+    windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
+) {
+    CenterAlignedTopAppBar(
+        title = { MemoryUsageText() },
+        windowInsets = windowInsets,
+        navigationIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    IconButton(onClick = onShowTimer) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = stringResource(R.string.music_panel_timer_title),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // 剩余时间叠加在按钮下方，不占布局空间，避免顶高按钮
+                    if (playbackState.timerRemaining > 0) {
+                        Text(
+                            text = "${playbackState.timerRemaining}m",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .offset(y = 14.dp)
+                                .clickable { playbackState.stopTimer() }
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onToggleFavorite,
+                    enabled = favoriteEnabled,
+                ) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = stringResource(R.string.music_panel_favorite),
+                        tint = if (isLiked) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        actions = {
+            IconButton(onClick = onToggleLandscape) {
+                Icon(
+                    imageVector = Icons.Filled.ScreenRotation,
+                    contentDescription = stringResource(R.string.home_landscape_mode),
+                    tint = if (isLandscapeMode) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onOpenSettings) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_settings),
+                    contentDescription = stringResource(R.string.settings_title),
+                )
+            }
+        },
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            containerColor = MaterialTheme.colorScheme.background,
+        ),
+    )
 }
 
 // 顶部应用内存占用显示，半秒刷新
