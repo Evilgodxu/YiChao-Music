@@ -47,6 +47,7 @@ fun SettingsAssembly(
     onLanguageSelected: (AppLanguage) -> Unit,
     onThemeClick: (Offset) -> Unit,
     onMiniPlayerEnabledChange: (Boolean) -> Unit,
+    onVersionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -103,7 +104,7 @@ fun SettingsAssembly(
                 miniPlayerEnabled = uiState.miniPlayerEnabled,
                 onMiniPlayerEnabledChange = onMiniPlayerEnabledChange,
             )
-            AppInfoArea(uiState.version)
+            AppInfoArea(uiState.version, onVersionClick)
         }
     }
 

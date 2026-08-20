@@ -25,9 +25,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.yichao.evilgodxu.R
 
-// 关于分区：应用信息
+// 关于分区：应用信息，点击版本号主动检查更新
 @Composable
-fun AppInfoArea(version: String) {
+fun AppInfoArea(
+    version: String,
+    onVersionClick: () -> Unit,
+) {
     val context = LocalContext.current
     Column(
         modifier = Modifier
@@ -44,7 +47,10 @@ fun AppInfoArea(version: String) {
         )
         Text(
             text = stringResource(R.string.settings_version, version),
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp)
+                .clickable(onClick = onVersionClick),
             textAlign = TextAlign.Center,
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),

@@ -2,7 +2,6 @@
     <string name="app_name">忆潮音乐</string>
 
     <!-- 主页 -->
-    <string name="home_memory_usage">内存 %1$s</string>
     <string name="home_landscape_mode">横屏模式</string>
 
     <!-- 设置页 -->
@@ -152,4 +151,20 @@
     <string name="settings_section_player">播放</string>
     <string name="settings_mini_player_title">悬浮播放</string>
     <string name="settings_mini_player_desc">后台播放时显示迷你播放器</string>
+
+    <!-- 更新 -->
+    <string name="update_channel_name">应用更新</string>
+    <string name="update_channel_desc">当发现新版本时发送更新通知</string>
+    <string name="update_notification_title">发现新版本</string>
+    <string name="update_notification_text">忆潮音乐 %s 已可用</string>
+    <string name="update_dialog_title">发现新版本 %s</string>
+    <string name="update_dialog_description_alt">是否下载并安装新版本？</string>
+    <string name="update_dialog_downloading">正在下载…</string>
+    <string name="update_dialog_download_failed">下载失败，请尝试使用浏览器下载</string>
+    <string name="update_dialog_changelog_title">更新日志：</string>
+    <string name="update_dialog_download">下载</string>
+    <string name="update_dialog_later">稍后</string>
+    <string name="update_dialog_open_browser">在浏览器中打开</string>
+    <string name="update_toast_up_to_date">已是最新版本</string>
+    <string name="update_toast_error">检查更新失败，请稍后重试</string>
 </resources>

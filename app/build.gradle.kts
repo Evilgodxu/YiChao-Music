@@ -168,6 +168,9 @@ dependencies {
     // 在线音乐搜索网络请求
     implementation(libs.okhttp)
 
+    // WorkManager 后台更新检查
+    implementation(libs.androidx.work.runtime.ktx)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))

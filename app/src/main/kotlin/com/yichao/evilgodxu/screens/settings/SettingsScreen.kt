@@ -7,7 +7,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.screens.settings.settings_assembly.SettingsAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
+import com.yichao.evilgodxu.update.UpdateViewModel
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 // 页面入口：编排设置页分区
 @Composable
@@ -15,6 +17,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
+    updateViewModel: UpdateViewModel = koinInject(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onThemeClick: (Offset) -> Unit = LocalThemeTransitionController.current::revealAt
@@ -25,6 +28,7 @@ fun SettingsScreen(
         onLanguageSelected = viewModel::setLanguage,
         onThemeClick = onThemeClick,
         onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
+        onVersionClick = { updateViewModel.checkForUpdate(force = true) },
         modifier = modifier,
     )
 }

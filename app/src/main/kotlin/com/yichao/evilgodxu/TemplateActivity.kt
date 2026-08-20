@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.LocaleList
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,17 +13,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.musicpanel.LocalMusicPanelController
 import com.yichao.evilgodxu.musicpanel.MusicPanelController
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
 import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
+import com.yichao.evilgodxu.update.UpdateCheckWorker
+import com.yichao.evilgodxu.update.UpdateDialog
+import com.yichao.evilgodxu.update.UpdateManager
+import com.yichao.evilgodxu.update.UpdateViewModel
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.utils.localization.toLocale
@@ -33,6 +45,7 @@ import org.koin.android.ext.android.inject
 class TemplateActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsControllerCompat
     private val localizationManager: LocalizationManager by inject()
+    private val updateViewModel: UpdateViewModel by inject()
     private lateinit var musicPanelController: MusicPanelController
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
@@ -63,6 +76,15 @@ class TemplateActivity : ComponentActivity() {
             }
         })
 
+        // 跟踪前后台状态，供 UpdateCheckWorker 判断是弹框还是发通知
+        lifecycle.addObserver(LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> UpdateCheckWorker.isAppInForeground = true
+                Lifecycle.Event.ON_STOP -> UpdateCheckWorker.isAppInForeground = false
+                else -> {}
+            }
+        })
+
         setContent {
             ProvideLocalizedContext(localizationManager) {
                 CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
@@ -87,12 +109,69 @@ class TemplateActivity : ComponentActivity() {
 
     @Composable
     private fun TemplateContent() {
+        // 从通知打开时检查是否携带 show_update 标记
+        LaunchedEffect(Unit) {
+            if (intent?.getBooleanExtra("show_update", false) == true) {
+                updateViewModel.checkForUpdate(force = true)
+            }
+        }
+
+        // 回前台时自动检查更新（内部有 24 小时冷却，即每天检查一次）
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    updateViewModel.checkForUpdate()
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        // 更新对话框与手动检查反馈（全局弹出，覆盖所有页面）
+        val updateInfo by updateViewModel.updateInfo.collectAsStateWithLifecycle()
+        val showUpdateDialog by updateViewModel.showUpdateDialog.collectAsStateWithLifecycle()
+        val downloadState by updateViewModel.downloadState.collectAsStateWithLifecycle()
+        val checkFeedback by updateViewModel.checkFeedback.collectAsStateWithLifecycle()
+
+        LaunchedEffect(checkFeedback) {
+            when (checkFeedback) {
+                UpdateViewModel.CheckFeedback.UP_TO_DATE ->
+                    Toast.makeText(this@TemplateActivity, R.string.update_toast_up_to_date, Toast.LENGTH_SHORT).show()
+                UpdateViewModel.CheckFeedback.ERROR ->
+                    Toast.makeText(this@TemplateActivity, R.string.update_toast_error, Toast.LENGTH_SHORT).show()
+                null -> {}
+            }
+            updateViewModel.clearCheckFeedback()
+        }
+
         MyApplicationTheme {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
                 AppNavHost(onExit = { finish() })
+            }
+        }
+
+        if (showUpdateDialog && updateInfo != null) {
+            val info = updateInfo
+            if (info != null) {
+                UpdateDialog(
+                    updateInfo = info,
+                    downloadState = downloadState,
+                    onDownload = { updateViewModel.downloadAndInstall() },
+                    onOpenBrowser = {
+                        val url = UpdateManager.GITHUB_REPOSITORY_URL
+                        if (url.startsWith("http")) {
+                            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                        }
+                        updateViewModel.dismissUpdateDialog()
+                    },
+                    onDismiss = { updateViewModel.dismissUpdateDialog() }
+                )
             }
         }
     }

@@ -1,11 +1,9 @@
 package com.yichao.evilgodxu.screens.home.home_assembly
 
 import android.app.Activity
-import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
-import android.os.Process
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -49,7 +47,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
@@ -70,12 +67,11 @@ import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.Permissio
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-// 首页组装器：顶部标题栏（定时/收藏/内存/横屏/设置）+ 播放器主体 + 权限与定时对话框
+// 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeAssembly(
@@ -207,7 +203,7 @@ fun HomeAssembly(
     }
 }
 
-// 顶部标题栏：内存占用 + 定时/收藏/横屏/设置操作；横屏悬浮时不吃系统栏内边距
+// 顶部标题栏：定时/收藏/横屏/设置操作；横屏悬浮时不吃系统栏内边距
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTopBar(
@@ -222,7 +218,7 @@ private fun HomeTopBar(
     windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
 ) {
     CenterAlignedTopAppBar(
-        title = { MemoryUsageText() },
+        title = {},
         windowInsets = windowInsets,
         navigationIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -281,28 +277,6 @@ private fun HomeTopBar(
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = Color.Transparent,
         ),
-    )
-}
-
-// 顶部应用内存占用显示，半秒刷新
-@Composable
-private fun MemoryUsageText() {
-    val context = LocalContext.current
-    var usage by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
-        while (true) {
-            val memoryInfo = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
-                .getProcessMemoryInfo(intArrayOf(Process.myPid()))[0]
-            val pssMB = memoryInfo.getTotalPss() / 1024f
-            usage = String.format(Locale.getDefault(), "%.0f MB", pssMB)
-            delay(500)
-        }
-    }
-    Text(
-        text = stringResource(R.string.home_memory_usage, usage),
-        fontSize = 12.sp,
-        color = Color.White,
-        fontWeight = FontWeight.Medium,
     )
 }
 

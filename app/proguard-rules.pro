@@ -47,3 +47,10 @@
 -keepclassmembers class * {
     @androidx.navigation.NavType <fields>;
 }
+
+# ============================================================
+# WorkManager 后台更新检查
+# ============================================================
+-keepclassmembers class * extends androidx.work.Worker {
+    public <init>(android.content.Context,androidx.work.WorkerParameters);
+}

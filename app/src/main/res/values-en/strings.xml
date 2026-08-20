@@ -2,7 +2,6 @@
     <string name="app_name">YiChao Music</string>
 
     <!-- Home -->
-    <string name="home_memory_usage">Memory %1$s</string>
     <string name="home_landscape_mode">Landscape mode</string>
 
     <!-- Settings -->
@@ -151,4 +150,20 @@
     <string name="settings_section_player">Playback</string>
     <string name="settings_mini_player_title">Floating player</string>
     <string name="settings_mini_player_desc">Show mini player during background playback</string>
+
+    <!-- Update -->
+    <string name="update_channel_name">App updates</string>
+    <string name="update_channel_desc">Send a notification when a new version is available</string>
+    <string name="update_notification_title">New version available</string>
+    <string name="update_notification_text">YiChao Music %s is available</string>
+    <string name="update_dialog_title">New version %s</string>
+    <string name="update_dialog_description_alt">Download and install the new version?</string>
+    <string name="update_dialog_downloading">Downloading…</string>
+    <string name="update_dialog_download_failed">Download failed, try opening in the browser</string>
+    <string name="update_dialog_changelog_title">Changelog:</string>
+    <string name="update_dialog_download">Download</string>
+    <string name="update_dialog_later">Later</string>
+    <string name="update_dialog_open_browser">Open in browser</string>
+    <string name="update_toast_up_to_date">You are up to date</string>
+    <string name="update_toast_error">Check for update failed, try again later</string>
 </resources>
