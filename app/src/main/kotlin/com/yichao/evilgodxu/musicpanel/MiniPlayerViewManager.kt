@@ -466,7 +466,8 @@ private fun MiniPlayerOverlay(
                             scaleX = cardScale.value
                             scaleY = cardScale.value
                         }
-                        .background(cardBackground, RoundedCornerShape(24.dp))
+                        // 展开播放列表时用小圆角，呈现更接近窗口的方角效果
+                        .background(cardBackground, RoundedCornerShape(12.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
