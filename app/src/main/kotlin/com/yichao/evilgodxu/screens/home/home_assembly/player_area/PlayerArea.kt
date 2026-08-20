@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -87,6 +88,9 @@ fun PlayerArea(
 ) {
     val playbackState = MusicPanelStateHolder.state
     var playlistVisible by remember { mutableStateOf(false) }
+
+    // 播放列表展开时，系统返回键收起面板
+    BackHandler(enabled = playlistVisible) { playlistVisible = false }
 
     // 播放期间周期性同步播放位置，驱动进度条与时间文本
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
