@@ -67,13 +67,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.CoverContextMenu
-import com.yichao.evilgodxu.musicpanel.CoverRefreshOverlay
-import com.yichao.evilgodxu.musicpanel.CoverReplaceOverlay
+import com.yichao.evilgodxu.musicpanel.CoverRefreshDialog
+import com.yichao.evilgodxu.musicpanel.CoverReplaceDialog
 import com.yichao.evilgodxu.musicpanel.DiscArt
 import com.yichao.evilgodxu.musicpanel.HeaderIconButton
-import com.yichao.evilgodxu.musicpanel.LocalCoverOverlay
+import com.yichao.evilgodxu.musicpanel.LocalCoverDialog
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
-import com.yichao.evilgodxu.musicpanel.LyricsRefreshOverlay
+import com.yichao.evilgodxu.musicpanel.LyricsRefreshDialog
 import com.yichao.evilgodxu.musicpanel.MiniContextMenu
 import com.yichao.evilgodxu.musicpanel.MusicErrorBanner
 import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
@@ -86,7 +86,7 @@ import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
 import com.yichao.evilgodxu.musicpanel.PlaylistRow
 import com.yichao.evilgodxu.musicpanel.ProgressSection
 import com.yichao.evilgodxu.musicpanel.RecentCover
-import com.yichao.evilgodxu.musicpanel.RenameOverlay
+import com.yichao.evilgodxu.musicpanel.RenameDialog
 import com.yichao.evilgodxu.musicpanel.applyCoverCandidate
 import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
 import com.yichao.evilgodxu.musicpanel.applyLocalCover
@@ -314,7 +314,7 @@ fun PlayerArea(
             onDismiss = { playlistVisible = false },
         )
 
-        RenameOverlay(
+        RenameDialog(
             visible = showRename,
             isTitle = renameIsTitle,
             initialValue = renameInitValue,
@@ -334,7 +334,7 @@ fun PlayerArea(
             onCancel = { showRename = false },
         )
 
-        LocalCoverOverlay(
+        LocalCoverDialog(
             visible = showLocalCover,
             playbackState = playbackState,
             selected = selectedLocalCover,
@@ -364,7 +364,7 @@ fun PlayerArea(
             },
         )
 
-        CoverRefreshOverlay(
+        CoverRefreshDialog(
             visible = showCoverRefresh && !showCoverReplace && !showLocalCover,
             track = playbackState.currentTrack,
             playbackState = playbackState,
@@ -400,15 +400,15 @@ fun PlayerArea(
             },
         )
 
-        CoverReplaceOverlay(
+        CoverReplaceDialog(
             visible = showCoverReplace,
             track = playbackState.currentTrack,
             candidate = selectedCoverCandidate,
             saving = coverSaving,
             onConfirm = {
-                val candidate = selectedCoverCandidate ?: return@CoverReplaceOverlay
-                val track = playbackState.currentTrack ?: return@CoverReplaceOverlay
-                if (track.id != coverTargetId) return@CoverReplaceOverlay
+                val candidate = selectedCoverCandidate ?: return@CoverReplaceDialog
+                val track = playbackState.currentTrack ?: return@CoverReplaceDialog
+                if (track.id != coverTargetId) return@CoverReplaceDialog
                 coverSaving = true
                 coverSaveFailed = false
                 scope.launch {
@@ -424,7 +424,7 @@ fun PlayerArea(
             onCancel = { showCoverReplace = false },
         )
 
-        LyricsRefreshOverlay(
+        LyricsRefreshDialog(
             visible = showLyricsRefresh,
             track = playbackState.currentTrack,
             playbackState = playbackState,

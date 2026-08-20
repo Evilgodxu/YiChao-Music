@@ -88,22 +88,32 @@ internal fun TimerDialog(
     onCancel: () -> Unit,
 ) {
     if (visible) {
-        Dialog(onDismissRequest = onCancel) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-            ) {
-                TimerPanelContent(
-                    minutes = minutes,
-                    onMinutesChange = onMinutesChange,
-                    onConfirm = onConfirm,
-                    onCancel = onCancel,
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
+        MetadataDialogCard(onDismiss = onCancel) {
+            TimerPanelContent(
+                minutes = minutes,
+                onMinutesChange = onMinutesChange,
+                onConfirm = onConfirm,
+                onCancel = onCancel,
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    }
+}
+
+// 统一卡片对话框容器：供定时关闭与长按面板复用的圆角卡片
+@Composable
+internal fun MetadataDialogCard(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        ) {
+            content()
         }
     }
 }

@@ -46,7 +46,6 @@ internal fun RenameOverlay(
     onConfirm: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
-    var value by remember(initialValue) { mutableStateOf(initialValue) }
     AnimatedContent(
         targetState = visible,
         transitionSpec = {
@@ -68,62 +67,107 @@ internal fun RenameOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = if (isTitle) stringResource(R.string.music_panel_rename_title)
-                           else stringResource(R.string.music_panel_rename_artist),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                RenameContent(
+                    initialValue = initialValue,
+                    isTitle = isTitle,
+                    onConfirm = onConfirm,
+                    onCancel = onCancel,
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.widthIn(max = 200.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                        onClick = onCancel
-                    ) {
-                        Text(
-                            text = stringResource(R.string.music_panel_rename_cancel),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp)
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        onClick = {
-                            val trimmed = value.trim()
-                            if (trimmed.isNotEmpty()) onConfirm(trimmed)
-                        }
-                    ) {
-                        Text(
-                            text = stringResource(R.string.music_panel_rename_confirm),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp)
-                        )
-                    }
-                }
             }
         } else {
             Box(modifier = Modifier.fillMaxSize())
+        }
+    }
+}
+
+@Composable
+internal fun RenameDialog(
+    visible: Boolean,
+    isTitle: Boolean,
+    initialValue: String,
+    onConfirm: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    if (visible) {
+        MetadataDialogCard(onDismiss = onCancel) {
+            RenameContent(
+                initialValue = initialValue,
+                isTitle = isTitle,
+                onConfirm = onConfirm,
+                onCancel = onCancel,
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    }
+}
+
+// 重命名共享主体：标题 + 输入框 + 确认/取消，供全屏蒙层与对话框复用
+@Composable
+private fun RenameContent(
+    initialValue: String,
+    isTitle: Boolean,
+    onConfirm: (String) -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var value by remember(initialValue) { mutableStateOf(initialValue) }
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = if (isTitle) stringResource(R.string.music_panel_rename_title)
+                   else stringResource(R.string.music_panel_rename_artist),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = { value = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.widthIn(max = 200.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                onClick = onCancel
+            ) {
+                Text(
+                    text = stringResource(R.string.music_panel_rename_cancel),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary,
+                onClick = {
+                    val trimmed = value.trim()
+                    if (trimmed.isNotEmpty()) onConfirm(trimmed)
+                }
+            ) {
+                Text(
+                    text = stringResource(R.string.music_panel_rename_confirm),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
         }
     }
 }

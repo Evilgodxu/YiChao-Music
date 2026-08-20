@@ -28,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -100,8 +99,59 @@ internal fun LocalCoverOverlay(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        LocalCoverContent(
+            playbackState = playbackState,
+            selected = selected,
+            saving = saving,
+            onSelected = onSelected,
+            onConfirm = onConfirm,
+            onCancel = onCancel,
+        )
+    }
+}
+
+@Composable
+internal fun LocalCoverDialog(
+    visible: Boolean,
+    playbackState: MusicPlaybackState,
+    selected: RecentCover?,
+    saving: Boolean,
+    onSelected: (RecentCover) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    if (!visible) return
+    MetadataDialogCard(onDismiss = onCancel) {
+        LocalCoverContent(
+            playbackState = playbackState,
+            selected = selected,
+            saving = saving,
+            onSelected = onSelected,
+            onConfirm = onConfirm,
+            onCancel = onCancel,
+            modifier = Modifier.padding(16.dp),
+        )
+    }
+}
+
+// 本地封面共享主体：标题 + 候选列表 + 按钮，供全屏蒙层与对话框复用
+@Composable
+private fun LocalCoverContent(
+    playbackState: MusicPlaybackState,
+    selected: RecentCover?,
+    saving: Boolean,
+    onSelected: (RecentCover) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text(stringResource(R.string.music_panel_local_cover), color = MaterialTheme.colorScheme.onSurface)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             items(playbackState.localCoverCandidates, key = { it.id }) { cover ->
                 Box(
                     modifier = Modifier.size(84.dp).clip(RoundedCornerShape(8.dp)).clickable { onSelected(cover) },

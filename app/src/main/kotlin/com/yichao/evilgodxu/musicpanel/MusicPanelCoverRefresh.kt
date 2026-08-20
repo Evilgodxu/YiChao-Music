@@ -28,20 +28,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
@@ -66,60 +62,115 @@ internal fun CoverRefreshOverlay(
             .pointerInput(Unit) { detectHorizontalDragGestures { _, amount -> if (amount > 50) onCancel() } },
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.music_panel_refresh_cover), color = MaterialTheme.colorScheme.onSurface)
-            if (playbackState.isCoverSearching) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-            } else if (playbackState.coverCandidates.isEmpty()) {
-                Text(stringResource(R.string.music_panel_cover_no_candidates), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
-                ) {
-                    items(playbackState.coverCandidates, key = { it.id }) { candidate ->
-                        val selected = candidate.id == selectedId
-                        Column(
-                            modifier = Modifier.width(92.dp).clickable { onCandidateSelected(candidate) },
-                            horizontalAlignment = Alignment.CenterHorizontally
+        CoverRefreshContent(
+            playbackState = playbackState,
+            selectedId = selectedId,
+            saving = saving,
+            context = context,
+            onCandidateSelected = onCandidateSelected,
+            onConfirm = onConfirm,
+            onCancel = onCancel,
+        )
+    }
+}
+
+@Composable
+internal fun CoverRefreshDialog(
+    visible: Boolean,
+    track: MusicTrack?,
+    playbackState: MusicPlaybackState,
+    context: Context,
+    selectedId: Long?,
+    saving: Boolean,
+    onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    if (visible && track != null) {
+        MetadataDialogCard(onDismiss = onCancel) {
+            CoverRefreshContent(
+                playbackState = playbackState,
+                selectedId = selectedId,
+                saving = saving,
+                context = context,
+                onCandidateSelected = onCandidateSelected,
+                onConfirm = onConfirm,
+                onCancel = onCancel,
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    }
+}
+
+// 封面刷新共享主体：标题 + 候选 / 状态 + 按钮，供全屏蒙层与对话框复用
+@Composable
+private fun CoverRefreshContent(
+    playbackState: MusicPlaybackState,
+    selectedId: Long?,
+    saving: Boolean,
+    context: Context,
+    onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(stringResource(R.string.music_panel_refresh_cover), color = MaterialTheme.colorScheme.onSurface)
+        if (playbackState.isCoverSearching) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+        } else if (playbackState.coverCandidates.isEmpty()) {
+            Text(stringResource(R.string.music_panel_cover_no_candidates), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+            ) {
+                items(playbackState.coverCandidates, key = { it.id }) { candidate ->
+                    val selected = candidate.id == selectedId
+                    Column(
+                        modifier = Modifier.width(92.dp).clickable { onCandidateSelected(candidate) },
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(candidate.coverUrl)
-                                        .diskCachePolicy(CachePolicy.DISABLED)
-                                        .build(),
-                                    contentDescription = candidate.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.size(84.dp).clip(RoundedCornerShape(8.dp))
-                                )
-                            }
-                            Text(candidate.title, maxLines = 1, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 4.dp))
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(candidate.coverUrl)
+                                    .diskCachePolicy(CachePolicy.DISABLED)
+                                    .build(),
+                                contentDescription = candidate.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(84.dp).clip(RoundedCornerShape(8.dp))
+                            )
                         }
+                        Text(candidate.title, maxLines = 1, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), onClick = onCancel) {
-                    Text(stringResource(R.string.music_panel_rename_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
-                }
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selectedId != null && !saving) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    onClick = { if (selectedId != null && !saving) onConfirm() }
-                ) {
-                    Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            stringResource(R.string.music_panel_rename_confirm),
-                            color = if (saving) Color.Transparent else if (selectedId != null) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (saving) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                        }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), onClick = onCancel) {
+                Text(stringResource(R.string.music_panel_rename_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
+            }
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (selectedId != null && !saving) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                onClick = { if (selectedId != null && !saving) onConfirm() }
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        stringResource(R.string.music_panel_rename_confirm),
+                        color = if (saving) Color.Transparent else if (selectedId != null) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (saving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             }
@@ -148,36 +199,84 @@ internal fun CoverReplaceOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(stringResource(R.string.music_panel_cover_replace_title), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 18.dp)) {
-                    AlbumArt(track = track, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(10.dp)))
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(candidate.coverUrl)
-                            .diskCachePolicy(CachePolicy.DISABLED)
-                            .build(),
-                        contentDescription = candidate.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(96.dp).clip(RoundedCornerShape(10.dp))
+                CoverReplaceContent(
+                    track = track,
+                    candidate = candidate,
+                    saving = saving,
+                    onConfirm = onConfirm,
+                    onCancel = onCancel,
+                )
+            }
+        } else Box(modifier = Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+internal fun CoverReplaceDialog(
+    visible: Boolean,
+    track: MusicTrack?,
+    candidate: NeteaseSongSearchResult?,
+    saving: Boolean,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    if (visible && track != null && candidate != null) {
+        MetadataDialogCard(onDismiss = onCancel) {
+            CoverReplaceContent(
+                track = track,
+                candidate = candidate,
+                saving = saving,
+                onConfirm = onConfirm,
+                onCancel = onCancel,
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    }
+}
+
+// 封面替换确认共享主体：对比图 + 按钮，供全屏蒙层与对话框复用
+@Composable
+private fun CoverReplaceContent(
+    track: MusicTrack,
+    candidate: NeteaseSongSearchResult,
+    saving: Boolean,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(stringResource(R.string.music_panel_cover_replace_title), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 18.dp)) {
+            AlbumArt(track = track, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(10.dp)))
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(candidate.coverUrl)
+                    .diskCachePolicy(CachePolicy.DISABLED)
+                    .build(),
+                contentDescription = candidate.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(96.dp).clip(RoundedCornerShape(10.dp))
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), onClick = onCancel) {
+                Text(stringResource(R.string.music_panel_rename_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
+            }
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary, onClick = { if (!saving) onConfirm() }) {
+                Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        stringResource(R.string.music_panel_rename_confirm),
+                        color = if (saving) Color.Transparent else MaterialTheme.colorScheme.onPrimary
                     )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), onClick = onCancel) {
-                        Text(stringResource(R.string.music_panel_rename_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
-                    }
-                    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary, onClick = { if (!saving) onConfirm() }) {
-                        Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                stringResource(R.string.music_panel_rename_confirm),
-                                color = if (saving) Color.Transparent else MaterialTheme.colorScheme.onPrimary
-                            )
-                            if (saving) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                            }
-                        }
+                    if (saving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             }
-        } else Box(modifier = Modifier.fillMaxSize())
+        }
     }
 }
