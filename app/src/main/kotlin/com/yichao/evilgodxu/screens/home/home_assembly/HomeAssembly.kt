@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -322,7 +323,18 @@ private suspend fun coverGradient(context: Context, model: Any): Brush? = withCo
     val bitmap = if (source.config == Bitmap.Config.HARDWARE) {
         source.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
     } else source
-    Brush.verticalGradient(listOf(bitmap.avgColor(topHalf = true), bitmap.avgColor(topHalf = false)))
+    Brush.verticalGradient(
+        listOf(
+            bitmap.avgColor(topHalf = true).darkenIfNearWhite(),
+            bitmap.avgColor(topHalf = false).darkenIfNearWhite(),
+        )
+    )
+}
+
+// 与白色前景（按钮标题/歌词）亮度相近时轻微压暗，保证文字可读
+private fun Color.darkenIfNearWhite(): Color {
+    val luminance = 0.299f * red + 0.587f * green + 0.114f * blue
+    return if (luminance > 0.8f) lerp(this, Color.Black, 0.2f) else this
 }
 
 private fun Bitmap.avgColor(topHalf: Boolean): Color {
