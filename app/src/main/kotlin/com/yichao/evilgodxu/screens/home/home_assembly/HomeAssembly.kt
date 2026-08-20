@@ -126,7 +126,7 @@ fun HomeAssembly(
                                     fontSize = 10.sp,
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
-                                        .offset(y = 8.dp)
+                                        .offset(y = 14.dp)
                                         .clickable { playbackState.stopTimer() }
                                         .padding(horizontal = 8.dp, vertical = 2.dp),
                                 )
