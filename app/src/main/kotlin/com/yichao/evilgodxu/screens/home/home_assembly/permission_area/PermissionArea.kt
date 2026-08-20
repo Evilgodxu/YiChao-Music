@@ -114,7 +114,6 @@ fun PermissionDialog(
                             )
                         },
                         title = stringResource(R.string.permission_overlay_title),
-                        description = stringResource(R.string.permission_overlay_desc),
                         granted = uiState.overlayGranted,
                         onRequest = {
                             // 跳转系统设置前启动权限监控，授权后自动返回本应用
@@ -141,7 +140,6 @@ fun PermissionDialog(
                             )
                         },
                         title = stringResource(R.string.permission_all_files_title),
-                        description = stringResource(R.string.permission_all_files_desc),
                         granted = uiState.allFilesGranted,
                         onRequest = {
                             // 跳转系统设置前启动权限监控，授权后自动返回本应用
@@ -170,7 +168,6 @@ fun PermissionDialog(
                             )
                         },
                         title = stringResource(R.string.permission_music_title),
-                        description = stringResource(R.string.permission_music_desc),
                         granted = uiState.mediaAudioGranted,
                         onRequest = {
                             runtimePermissionLauncher.launch(arrayOf(mediaAudioPermission()))
@@ -185,7 +182,6 @@ fun PermissionDialog(
                             )
                         },
                         title = stringResource(R.string.permission_bluetooth_title),
-                        description = stringResource(R.string.permission_bluetooth_desc),
                         granted = uiState.bluetoothGranted,
                         onRequest = {
                             runtimePermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT))

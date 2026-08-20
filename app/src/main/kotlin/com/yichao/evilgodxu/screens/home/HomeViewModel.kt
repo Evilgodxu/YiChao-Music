@@ -7,6 +7,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yichao.evilgodxu.data.permission.PermissionMonitor
 import com.yichao.evilgodxu.data.permission.PermissionType
+import com.yichao.evilgodxu.musicpanel.MetadataEnricher
+import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
+import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +33,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // 刷新全部权限状态，从系统设置页返回时调用
     fun refreshPermissions() {
+        val wasAllGranted = _state.value.allPermissionsGranted
         _state.update {
             it.copy(
                 overlayGranted = permissionMonitor.isOverlayGranted(),
@@ -37,6 +41,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 mediaAudioGranted = permissionMonitor.isMediaAudioGranted(),
                 bluetoothGranted = permissionMonitor.isBluetoothGranted(),
             )
+        }
+        // 权限从未全部授权变为全部授权时，自动扫描歌曲并补全封面/歌词
+        if (!wasAllGranted && _state.value.allPermissionsGranted) {
+            autoScanAfterPermissionGranted()
+        }
+    }
+
+    private var autoScanStarted = false
+
+    private fun autoScanAfterPermissionGranted() {
+        if (autoScanStarted) return
+        autoScanStarted = true
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val state = MusicPanelStateHolder.state
+            // 先恢复持久化歌单，避免扫描覆盖已缓存的封面/歌词
+            state.restoreSavedState(context)
+            PlaylistRefresher.refresh(context, state, restoreCurrent = true)
+            MetadataEnricher.enrichAndCleanup(context, state)
         }
     }
 

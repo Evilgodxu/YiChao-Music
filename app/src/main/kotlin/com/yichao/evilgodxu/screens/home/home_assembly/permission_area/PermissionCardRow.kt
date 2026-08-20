@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,11 +23,10 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.theme.LocalSuccessColor
 
-// 权限条目行：图标 | 标题+描述 | 状态标签，未授权时点击可申请
+// 权限条目行：图标 | 标题 | 状态标签，未授权时点击可申请
 @Composable
 fun PermissionCardRow(
     title: String,
-    description: String,
     granted: Boolean,
     onRequest: () -> Unit,
     icon: @Composable () -> Unit,
@@ -66,12 +64,6 @@ fun PermissionCardRow(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 

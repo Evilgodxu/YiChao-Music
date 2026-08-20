@@ -35,13 +35,9 @@
     <string name="permission_granted">已授权</string>
     <string name="permission_request">去授权</string>
     <string name="permission_overlay_title">悬浮窗</string>
-    <string name="permission_overlay_desc">允许在其他应用上层显示迷你播放器</string>
     <string name="permission_all_files_title">全部文件</string>
-    <string name="permission_all_files_desc">访问本地音乐文件以导入与管理曲库</string>
     <string name="permission_music_title">音乐访问</string>
-    <string name="permission_music_desc">读取设备音乐媒体以播放本地曲目</string>
     <string name="permission_bluetooth_title">蓝牙设备</string>
-    <string name="permission_bluetooth_desc">连接蓝牙耳机等设备以控制播放</string>
 
     <!-- 音乐面板 -->
     <string name="music_panel_empty">暂无本地音乐</string>

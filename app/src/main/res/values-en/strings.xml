@@ -35,13 +35,9 @@
     <string name="permission_granted">Granted</string>
     <string name="permission_request">Grant</string>
     <string name="permission_overlay_title">Display over other apps</string>
-    <string name="permission_overlay_desc">Show the mini player above other apps</string>
     <string name="permission_all_files_title">All files access</string>
-    <string name="permission_all_files_desc">Access local music files to import and manage your library</string>
     <string name="permission_music_title">Music access</string>
-    <string name="permission_music_desc">Read device music media to play local tracks</string>
     <string name="permission_bluetooth_title">Bluetooth</string>
-    <string name="permission_bluetooth_desc">Connect Bluetooth headphones to control playback</string>
 
     <!-- Music panel -->
     <string name="music_panel_empty">No local music</string>
