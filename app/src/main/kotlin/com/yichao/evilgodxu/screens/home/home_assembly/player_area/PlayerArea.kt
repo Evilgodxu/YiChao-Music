@@ -77,6 +77,7 @@ import com.yichao.evilgodxu.musicpanel.LyricsRefreshDialog
 import com.yichao.evilgodxu.musicpanel.MiniContextMenu
 import com.yichao.evilgodxu.musicpanel.MusicErrorBanner
 import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
+import com.yichao.evilgodxu.musicpanel.MetadataEnricher
 import com.yichao.evilgodxu.musicpanel.MusicMetadataWriter
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
@@ -622,7 +623,12 @@ internal fun PlaylistSheet(
                             onClick = {
                                 if (!playbackState.isScanning) {
                                     scope.launch {
-                                        PlaylistRefresher.refresh(context, playbackState, restoreCurrent = true)
+                                        PlaylistRefresher.refresh(
+                                            context, playbackState, restoreCurrent = true
+                                        ) {
+                                            // 刷新后后台加载封面与歌词
+                                            scope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
+                                        }
                                     }
                                 }
                             },
