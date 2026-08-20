@@ -41,8 +41,8 @@
 
 | Screen | Contents |
 | --- | --- |
-| Home | Permission status, process memory usage, landscape shortcut, and the full in-app player (cover, progress, lyrics, playlist, favorites, sleep timer, online search) |
-| Settings | Appearance (theme), Language, Playback (floating player), About (version) |
+| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics, refreshable playlist, favorites, sleep timer, landscape mode and online search (long-press the cover / title for cover & lyrics refresh and rename) |
+| Settings | Appearance (theme), Language, Playback (floating player), About (version, update check, GitHub link) |
 
 ## Tech Stack
 
@@ -76,6 +76,7 @@
 │       │   │   ├── home/                #   Home player + permission flow
 │       │   │   └── settings/            #   Appearance / language / playback / about
 │       │   ├── theme/                   # Material 3 color & typography
+│       │   ├── update/                  # Version check & in-app update
 │       │   ├── utils/localization/      # In-app localization manager
 │       │   ├── TemplateActivity.kt
 │       │   ├── TemplateActivityViewModel.kt
