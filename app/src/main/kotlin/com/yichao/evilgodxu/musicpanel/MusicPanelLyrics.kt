@@ -169,39 +169,53 @@ internal fun LyricText(
     modifier: Modifier = Modifier,
 ) {
     val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
-    val progress = when {
-        !isCurrent || positionMs <= line.timeMs -> 0f
-        positionMs >= nextTimeMs -> 1f
-        else -> ((positionMs - line.timeMs).toFloat() / duration).coerceIn(0f, 1f)
-    }
-    val lyricBrush = when {
-        progress <= 0f -> Brush.horizontalGradient(listOf(pendingColor, pendingColor))
-        progress >= 1f -> Brush.horizontalGradient(listOf(activeColor, activeColor))
-        else -> Brush.horizontalGradient(
-            colorStops = arrayOf(
-                0f to activeColor,
-                progress to activeColor,
-                progress to pendingColor,
-                1f to pendingColor
-            )
-        )
-    }
+    val totalLen = line.text.length.coerceAtLeast(1)
+    // 手动换行后的各行，时间按字符数占比分配，后一行在前一行渲染完成后才高亮
+    val segments = wrapLyricText(line.text).split('\n')
 
-    Text(
-        text = wrapLyricText(line.text),
-        style = TextStyle(
-            brush = lyricBrush,
-            shadow = if (progress > 0f) Shadow(
-                activeColor.copy(alpha = 0.65f),
-                blurRadius = 7f
-            ) else null
-        ),
-        fontSize = fontSize,
-        softWrap = false,
-        textAlign = TextAlign.Center,
-        fontWeight = fontWeight,
-        modifier = modifier
-    )
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        var acc = 0
+        segments.forEach { segment ->
+            val startMs = line.timeMs + duration * acc / totalLen
+            val endMs = line.timeMs + duration * (acc + segment.length) / totalLen
+            acc += segment.length
+            val progress = when {
+                !isCurrent || positionMs <= startMs -> 0f
+                positionMs >= endMs -> 1f
+                else -> ((positionMs - startMs).toFloat() / (endMs - startMs)).coerceIn(0f, 1f)
+            }
+            val lyricBrush = when {
+                progress <= 0f -> Brush.horizontalGradient(listOf(pendingColor, pendingColor))
+                progress >= 1f -> Brush.horizontalGradient(listOf(activeColor, activeColor))
+                else -> Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0f to activeColor,
+                        progress to activeColor,
+                        progress to pendingColor,
+                        1f to pendingColor
+                    )
+                )
+            }
+            Text(
+                text = segment,
+                style = TextStyle(
+                    brush = lyricBrush,
+                    shadow = if (progress > 0f) Shadow(
+                        activeColor.copy(alpha = 0.65f),
+                        blurRadius = 7f
+                    ) else null
+                ),
+                fontSize = fontSize,
+                softWrap = false,
+                textAlign = TextAlign.Center,
+                fontWeight = fontWeight,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }
 
 // 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
