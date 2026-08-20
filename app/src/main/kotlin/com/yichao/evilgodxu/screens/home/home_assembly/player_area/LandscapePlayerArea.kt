@@ -68,8 +68,8 @@ fun LandscapePlayerArea(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(horizontal = 24.dp),
-                contentAlignment = Alignment.Center,
+                    .padding(start = 56.dp, end = 16.dp),
+                contentAlignment = Alignment.CenterEnd,
             ) {
                 if (playbackState.currentTrack != null) {
                     AlbumArt(
@@ -147,7 +147,7 @@ private fun MetadataAxis(
         }
     }
     Box(
-        modifier = modifier.padding(horizontal = 24.dp),
+        modifier = modifier.padding(start = 36.dp, end = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -226,7 +226,7 @@ private fun LyricsPerspectiveZone(
 ) {
     Box(
         modifier = modifier
-            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .padding(start = 12.dp, end = 24.dp, top = 12.dp, bottom = 12.dp)
             .clipToBounds()
             .graphicsLayer {
                 rotationY = ROTATION_Y_DEGREES
