@@ -14,11 +14,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -110,7 +110,7 @@ fun HomeAssembly(
                     title = { MemoryUsageText() },
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box {
                             IconButton(onClick = { showTimer = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Timer,
@@ -118,12 +118,15 @@ fun HomeAssembly(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            // 剩余时间叠加在按钮下方，不占布局空间，避免顶高按钮
                             if (playbackState.timerRemaining > 0) {
                                 Text(
                                     text = "${playbackState.timerRemaining}m",
                                     color = MaterialTheme.colorScheme.primary,
                                     fontSize = 10.sp,
                                     modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .offset(y = 8.dp)
                                         .clickable { playbackState.stopTimer() }
                                         .padding(horizontal = 8.dp, vertical = 2.dp),
                                 )
