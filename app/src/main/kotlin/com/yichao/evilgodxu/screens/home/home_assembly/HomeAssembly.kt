@@ -5,7 +5,6 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.os.Process
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
@@ -57,6 +56,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import coil3.imageLoader
 import coil3.request.ImageRequest
+import coil3.request.ImageResult
+import coil3.toBitmap
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
@@ -309,12 +310,13 @@ private fun MemoryUsageText() {
 private fun HomeImmersiveBackground(track: MusicTrack?) {
     val model = homeCoverModel(track)
     val context = LocalContext.current
-    var gradient by remember { mutableStateOf(defaultHomeGradient()) }
+    val defaultGradient = defaultHomeGradient()
+    var gradient by remember { mutableStateOf(defaultGradient) }
     LaunchedEffect(model) {
         gradient = if (model != null) {
-            coverGradient(context, model) ?: defaultHomeGradient()
+            coverGradient(context, model) ?: defaultGradient
         } else {
-            defaultHomeGradient()
+            defaultGradient
         }
     }
     Box(
@@ -335,13 +337,16 @@ private fun defaultHomeGradient(): Brush =
 
 // 以小尺寸解码封面，取上下半区平均色组成向下渐变
 private suspend fun coverGradient(context: Context, model: Any): Brush? = withContext(Dispatchers.IO) {
-    val drawable = context.imageLoader.execute(
+    val result = context.imageLoader.execute(
         ImageRequest.Builder(context)
             .data(model)
             .size(32)
             .build()
-    ).drawable
-    val bitmap = (drawable as? BitmapDrawable)?.bitmap ?: return@withContext null
+    )
+    val source = result.image?.toBitmap() ?: return@withContext null
+    val bitmap = if (source.config == Bitmap.Config.HARDWARE) {
+        source.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
+    } else source
     Brush.verticalGradient(listOf(bitmap.avgColor(topHalf = true), bitmap.avgColor(topHalf = false)))
 }
 
