@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.R
 
 @Composable
@@ -65,72 +66,123 @@ internal fun TimerOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = stringResource(R.string.music_panel_timer_title),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                TimerPanelContent(
+                    minutes = minutes,
+                    onMinutesChange = onMinutesChange,
+                    onConfirm = onConfirm,
+                    onCancel = onCancel,
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    TimerAdjustButton(text = "−", onClick = { onMinutesChange((minutes - 5).coerceAtLeast(1)) })
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = minutes.toString(),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(R.string.music_panel_timer_minutes),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
-                        )
-                    }
-                    TimerAdjustButton(text = "+", onClick = { onMinutesChange((minutes + 5).coerceAtMost(999)) })
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.widthIn(max = 200.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                        onClick = onCancel
-                    ) {
-                        Text(
-                            text = stringResource(R.string.music_panel_timer_cancel),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp)
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        onClick = onConfirm
-                    ) {
-                        Text(
-                            text = stringResource(R.string.music_panel_timer_confirm),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp)
-                        )
-                    }
-                }
             }
         } else {
             Box(modifier = Modifier.fillMaxSize())
+        }
+    }
+}
+
+@Composable
+internal fun TimerDialog(
+    visible: Boolean,
+    minutes: Int,
+    onMinutesChange: (Int) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    if (visible) {
+        Dialog(onDismissRequest = onCancel) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+            ) {
+                TimerPanelContent(
+                    minutes = minutes,
+                    onMinutesChange = onMinutesChange,
+                    onConfirm = onConfirm,
+                    onCancel = onCancel,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+    }
+}
+
+// 定时面板共享主体：标题 + 加减分钟 + 确认/取消，供全屏蒙层与对话框复用
+@Composable
+private fun TimerPanelContent(
+    minutes: Int,
+    onMinutesChange: (Int) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.music_panel_timer_title),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            TimerAdjustButton(text = "−", onClick = { onMinutesChange((minutes - 5).coerceAtLeast(1)) })
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = minutes.toString(),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.music_panel_timer_minutes),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+            }
+            TimerAdjustButton(text = "+", onClick = { onMinutesChange((minutes + 5).coerceAtMost(999)) })
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.widthIn(max = 200.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                onClick = onCancel
+            ) {
+                Text(
+                    text = stringResource(R.string.music_panel_timer_cancel),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary,
+                onClick = onConfirm
+            ) {
+                Text(
+                    text = stringResource(R.string.music_panel_timer_confirm),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
         }
     }
 }

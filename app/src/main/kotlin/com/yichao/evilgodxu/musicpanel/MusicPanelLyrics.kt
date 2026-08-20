@@ -10,7 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +49,7 @@ internal fun LyricsPanel(
     playbackState: MusicPlaybackState,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     fontSize: TextUnit = 12.sp,
     contentColor: Color? = null,
 ) {
@@ -71,7 +72,10 @@ internal fun LyricsPanel(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
             .padding(top = 4.dp, bottom = 0.dp),
         contentAlignment = Alignment.Center
     ) {

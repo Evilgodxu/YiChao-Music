@@ -64,7 +64,7 @@ import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
-import com.yichao.evilgodxu.musicpanel.TimerOverlay
+import com.yichao.evilgodxu.musicpanel.TimerDialog
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
@@ -192,7 +192,7 @@ fun HomeAssembly(
                     onStartPermissionMonitor = onStartPermissionMonitor,
                     onStopPermissionMonitor = onStopPermissionMonitor,
                 )
-                TimerOverlay(
+                TimerDialog(
                     visible = showTimer,
                     minutes = playbackState.timerMinutes,
                     onMinutesChange = { playbackState.setTimerMinutes(it) },

@@ -148,7 +148,7 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CoverContextMenu(
+internal fun CoverContextMenu(
     visible: Boolean,
     onOnlineCover: () -> Unit,
     onLocalCover: () -> Unit,
@@ -183,7 +183,7 @@ private fun CoverContextMenu(
 }
 
 @Composable
-private fun MiniContextMenu(
+internal fun MiniContextMenu(
     visible: Boolean,
     onCopy: () -> Unit,
     onRename: () -> Unit,

@@ -9,6 +9,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,17 +66,36 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.musicpanel.CoverContextMenu
+import com.yichao.evilgodxu.musicpanel.CoverRefreshOverlay
+import com.yichao.evilgodxu.musicpanel.CoverReplaceOverlay
 import com.yichao.evilgodxu.musicpanel.DiscArt
 import com.yichao.evilgodxu.musicpanel.HeaderIconButton
+import com.yichao.evilgodxu.musicpanel.LocalCoverOverlay
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
+import com.yichao.evilgodxu.musicpanel.LyricsRefreshOverlay
+import com.yichao.evilgodxu.musicpanel.MiniContextMenu
+import com.yichao.evilgodxu.musicpanel.MusicErrorBanner
+import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
+import com.yichao.evilgodxu.musicpanel.MusicMetadataWriter
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.NeteaseSongSearchResult
 import com.yichao.evilgodxu.musicpanel.PlayMode
 import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
 import com.yichao.evilgodxu.musicpanel.PlaylistRow
 import com.yichao.evilgodxu.musicpanel.ProgressSection
+import com.yichao.evilgodxu.musicpanel.RecentCover
+import com.yichao.evilgodxu.musicpanel.RenameOverlay
+import com.yichao.evilgodxu.musicpanel.applyCoverCandidate
+import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
+import com.yichao.evilgodxu.musicpanel.applyLocalCover
 import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
+import com.yichao.evilgodxu.musicpanel.copyToClipboard
+import com.yichao.evilgodxu.musicpanel.loadRecentCovers
 import com.yichao.evilgodxu.musicpanel.playTrackAt
+import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
+import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
 import com.yichao.evilgodxu.musicpanel.togglePlayPause
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -107,6 +127,30 @@ fun PlayerArea(
     }
     val lyricsAreaHeight = (lyricLineHeight + 4.dp) * 5 + 2.dp * 4 + 4.dp
 
+    // 长按功能状态：复用音乐面板的封面/歌词刷新与标题/艺人重命名能力
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val lyricsRefreshFailedMessage = stringResource(R.string.music_panel_lyrics_refresh_failed)
+    var showCoverMenu by remember { mutableStateOf(false) }
+    var showCoverRefresh by remember { mutableStateOf(false) }
+    var showLocalCover by remember { mutableStateOf(false) }
+    var showCoverReplace by remember { mutableStateOf(false) }
+    var selectedCoverCandidate by remember { mutableStateOf<NeteaseSongSearchResult?>(null) }
+    var selectedLocalCover by remember { mutableStateOf<RecentCover?>(null) }
+    var coverSaving by remember { mutableStateOf(false) }
+    var coverSaveFailed by remember { mutableStateOf(false) }
+    var coverTargetId by remember { mutableStateOf<Long?>(null) }
+    var showLyricsRefresh by remember { mutableStateOf(false) }
+    var selectedLyricsCandidate by remember { mutableStateOf<NeteaseSongSearchResult?>(null) }
+    var lyricsTargetId by remember { mutableStateOf<Long?>(null) }
+    var showRename by remember { mutableStateOf(false) }
+    var renameIsTitle by remember { mutableStateOf(true) }
+    var renameInitValue by remember { mutableStateOf("") }
+    var renameTargetId by remember { mutableStateOf<Long?>(null) }
+    var showMetaMenu by remember { mutableStateOf(false) }
+    var menuText by remember { mutableStateOf("") }
+    var menuIsTitle by remember { mutableStateOf(true) }
+
     Box(modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -114,9 +158,14 @@ fun PlayerArea(
             verticalArrangement = Arrangement.Center,
         ) {
             Spacer(Modifier.height(16.dp))
-            // 旋转专辑封面
+            // 旋转专辑封面：长按复用音乐面板封面菜单
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { if (playbackState.currentTrack != null) showCoverMenu = true },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 DiscArt(
@@ -125,6 +174,25 @@ fun PlayerArea(
                     modifier = Modifier
                         .fillMaxWidth(0.58f)
                         .aspectRatio(1f),
+                )
+                CoverContextMenu(
+                    visible = showCoverMenu,
+                    onOnlineCover = {
+                        showCoverMenu = false
+                        coverTargetId = playbackState.currentTrack?.id
+                        showCoverRefresh = true
+                        playbackState.currentTrack?.let { track ->
+                            scope.launch { searchCoverCandidates(playbackState, track) }
+                        }
+                    },
+                    onLocalCover = {
+                        showCoverMenu = false
+                        coverTargetId = playbackState.currentTrack?.id
+                        selectedLocalCover = null
+                        showLocalCover = true
+                        scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
+                    },
+                    onDismiss = { showCoverMenu = false },
                 )
             }
             Spacer(Modifier.height(24.dp))
@@ -139,6 +207,13 @@ fun PlayerArea(
                     LyricsPanel(
                         playbackState = playbackState,
                         onClick = {},
+                        onLongClick = {
+                            lyricsTargetId = playbackState.currentTrack?.id
+                            showLyricsRefresh = true
+                            playbackState.currentTrack?.let { track ->
+                                scope.launch { searchLyricsCandidates(playbackState, track) }
+                            }
+                        },
                         fontSize = 16.sp,
                         contentColor = Color.White,
                     )
@@ -162,7 +237,19 @@ fun PlayerArea(
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 32.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 32.dp)
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                val track = playbackState.currentTrack
+                                if (track != null) {
+                                    menuText = track.title
+                                    menuIsTitle = true
+                                    showMetaMenu = true
+                                }
+                            },
+                        ),
                 )
                 if (playbackState.currentTrack != null) {
                     Spacer(Modifier.height(4.dp))
@@ -172,9 +259,36 @@ fun PlayerArea(
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 32.dp),
+                        modifier = Modifier
+                            .padding(horizontal = 32.dp)
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    val artist = playbackState.currentTrack?.artist
+                                    if (!artist.isNullOrBlank()) {
+                                        menuText = artist
+                                        menuIsTitle = false
+                                        showMetaMenu = true
+                                    }
+                                },
+                            ),
                     )
                 }
+                MiniContextMenu(
+                    visible = showMetaMenu,
+                    onCopy = {
+                        showMetaMenu = false
+                        copyToClipboard(context, menuText)
+                    },
+                    onRename = {
+                        showMetaMenu = false
+                        renameIsTitle = menuIsTitle
+                        renameInitValue = menuText
+                        renameTargetId = playbackState.currentTrack?.id
+                        showRename = true
+                    },
+                    onDismiss = { showMetaMenu = false },
+                )
             }
             Spacer(Modifier.height(24.dp))
             // 律动与进度条（与音乐面板一致，宽度收窄 15%）
@@ -199,6 +313,155 @@ fun PlayerArea(
             playbackState = playbackState,
             onDismiss = { playlistVisible = false },
         )
+
+        RenameOverlay(
+            visible = showRename,
+            isTitle = renameIsTitle,
+            initialValue = renameInitValue,
+            onConfirm = { newValue ->
+                showRename = false
+                val track = playbackState.currentTrack
+                if (track != null && track.id == renameTargetId) {
+                    val updated = if (renameIsTitle) track.copy(title = newValue)
+                    else track.copy(artist = newValue)
+                    playbackState.renameTrackMetadata(updated)
+                    // 手动重命名标题/艺术家后写入音频文件元数据
+                    scope.launch {
+                        MusicMetadataWriter.writeTitleArtist(context, track, updated.title, updated.artist)
+                    }
+                }
+            },
+            onCancel = { showRename = false },
+        )
+
+        LocalCoverOverlay(
+            visible = showLocalCover,
+            playbackState = playbackState,
+            selected = selectedLocalCover,
+            saving = coverSaving,
+            onSelected = { selectedLocalCover = it },
+            onConfirm = {
+                val cover = selectedLocalCover
+                val track = playbackState.currentTrack
+                if (cover != null && track != null && track.id == coverTargetId) {
+                    coverSaving = true
+                    coverSaveFailed = false
+                    scope.launch {
+                        if (applyLocalCover(context, playbackState, track, cover)) {
+                            showLocalCover = false
+                            selectedLocalCover = null
+                        } else {
+                            coverSaveFailed = true
+                        }
+                        coverSaving = false
+                    }
+                }
+            },
+            onCancel = {
+                showLocalCover = false
+                selectedLocalCover = null
+                playbackState.setLocalCoverCandidates(emptyList())
+            },
+        )
+
+        CoverRefreshOverlay(
+            visible = showCoverRefresh && !showCoverReplace && !showLocalCover,
+            track = playbackState.currentTrack,
+            playbackState = playbackState,
+            context = context,
+            selectedId = selectedCoverCandidate?.id,
+            saving = coverSaving,
+            onCandidateSelected = { selectedCoverCandidate = it },
+            onConfirm = {
+                val candidate = selectedCoverCandidate
+                val track = playbackState.currentTrack
+                if (candidate != null && track != null && track.id == coverTargetId) {
+                    val hasCover = MusicMetadataCache.isValid(track.coverCachePath) || track.neteaseCoverUrl.isNotBlank()
+                    if (hasCover) {
+                        showCoverReplace = true
+                    } else {
+                        coverSaving = true
+                        coverSaveFailed = false
+                        scope.launch {
+                            coverSaveFailed = !applyCoverCandidate(context, playbackState, track, candidate)
+                            if (!coverSaveFailed) {
+                                showCoverRefresh = false
+                                selectedCoverCandidate = null
+                            }
+                            coverSaving = false
+                        }
+                    }
+                }
+            },
+            onCancel = {
+                showCoverRefresh = false
+                selectedCoverCandidate = null
+                playbackState.setCoverCandidates(emptyList())
+            },
+        )
+
+        CoverReplaceOverlay(
+            visible = showCoverReplace,
+            track = playbackState.currentTrack,
+            candidate = selectedCoverCandidate,
+            saving = coverSaving,
+            onConfirm = {
+                val candidate = selectedCoverCandidate ?: return@CoverReplaceOverlay
+                val track = playbackState.currentTrack ?: return@CoverReplaceOverlay
+                if (track.id != coverTargetId) return@CoverReplaceOverlay
+                coverSaving = true
+                coverSaveFailed = false
+                scope.launch {
+                    coverSaveFailed = !applyCoverCandidate(context, playbackState, track, candidate)
+                    if (!coverSaveFailed) {
+                        showCoverReplace = false
+                        showCoverRefresh = false
+                        selectedCoverCandidate = null
+                    }
+                    coverSaving = false
+                }
+            },
+            onCancel = { showCoverReplace = false },
+        )
+
+        LyricsRefreshOverlay(
+            visible = showLyricsRefresh,
+            track = playbackState.currentTrack,
+            playbackState = playbackState,
+            selectedId = selectedLyricsCandidate?.id,
+            context = context,
+            onCandidateSelected = { selectedLyricsCandidate = it },
+            onConfirm = {
+                val candidate = selectedLyricsCandidate
+                val track = playbackState.currentTrack
+                if (candidate != null && track != null && track.id == lyricsTargetId) scope.launch {
+                    val success = applyLyricsCandidate(context, playbackState, track, candidate)
+                    if (success) {
+                        showLyricsRefresh = false
+                        selectedLyricsCandidate = null
+                        playbackState.setLyricsCandidates(emptyList())
+                    } else {
+                        playbackState.setLyricsRefreshError(lyricsRefreshFailedMessage)
+                    }
+                }
+            },
+            onCancel = {
+                showLyricsRefresh = false
+                selectedLyricsCandidate = null
+                playbackState.setLyricsCandidates(emptyList())
+                playbackState.setLyricsRefreshError(null)
+            },
+        )
+
+        if (coverSaveFailed) {
+            MusicErrorBanner(
+                message = stringResource(R.string.music_panel_cover_save_failed),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                onDismiss = { coverSaveFailed = false },
+            )
+        }
     }
 }
 
