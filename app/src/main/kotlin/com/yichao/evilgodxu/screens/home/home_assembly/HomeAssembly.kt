@@ -41,8 +41,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,16 +55,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
+import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.TimerOverlay
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
+import java.io.File
 import java.util.Locale
+import kotlin.math.min
 import kotlinx.coroutines.delay
 
 // 首页组装器：顶部标题栏（定时/收藏/内存/横屏/设置）+ 播放器主体 + 权限与定时对话框
@@ -111,78 +122,85 @@ fun HomeAssembly(
         }
     }
 
-    Scaffold(
-        modifier = modifier.onSizeChanged { isLandscapeMode = it.width > it.height },
-        topBar = {
-            // 竖屏标题栏常驻；横屏下改为悬浮控制栏，不占布局空间
-            if (!isLandscapeMode) {
-                HomeTopBar(
-                    playbackState = playbackState,
-                    isLandscapeMode = isLandscapeMode,
-                    isLiked = isLiked,
-                    favoriteEnabled = currentTrackId != null,
-                    onShowTimer = { showTimer = true },
-                    onToggleFavorite = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
-                    onToggleLandscape = { toggleLandscapeMode() },
-                    onOpenSettings = onOpenSettings,
-                )
-            }
-        },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-    ) { innerPadding ->
-        Box(
+    // 沉浸式页面背景铺满全屏，Scaffold 透明以透出背景层
+    Box(modifier = modifier) {
+        HomeImmersiveBackground(track = playbackState.currentTrack)
+        Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .consumeWindowInsets(innerPadding)
-                .padding(innerPadding),
-        ) {
-            if (isLandscapeMode) {
-                LandscapePlayerArea(
-                    playbackState = playbackState,
-                    chromeVisible = landscapeChromeVisible,
-                    onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                PlayerArea(modifier = Modifier.fillMaxSize())
-            }
-            // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局
-            if (isLandscapeMode) {
-                AnimatedVisibility(
-                    visible = landscapeChromeVisible,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    enter = slideInVertically(animationSpec = tween(300)) { -it } + fadeIn(),
-                    exit = slideOutVertically(animationSpec = tween(300)) { -it } + fadeOut(),
-                ) {
+                .onSizeChanged { isLandscapeMode = it.width > it.height },
+            containerColor = Color.Transparent,
+            topBar = {
+                // 竖屏标题栏常驻；横屏下改为悬浮控制栏，不占布局空间
+                if (!isLandscapeMode) {
                     HomeTopBar(
                         playbackState = playbackState,
                         isLandscapeMode = isLandscapeMode,
                         isLiked = isLiked,
                         favoriteEnabled = currentTrackId != null,
-                        windowInsets = WindowInsets(0, 0, 0, 0),
                         onShowTimer = { showTimer = true },
                         onToggleFavorite = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
                         onToggleLandscape = { toggleLandscapeMode() },
                         onOpenSettings = onOpenSettings,
                     )
                 }
+            },
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(innerPadding)
+                    .padding(innerPadding),
+            ) {
+                if (isLandscapeMode) {
+                    LandscapePlayerArea(
+                        playbackState = playbackState,
+                        chromeVisible = landscapeChromeVisible,
+                        onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    PlayerArea(modifier = Modifier.fillMaxSize())
+                }
+                // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局
+                if (isLandscapeMode) {
+                    AnimatedVisibility(
+                        visible = landscapeChromeVisible,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        enter = slideInVertically(animationSpec = tween(300)) { -it } + fadeIn(),
+                        exit = slideOutVertically(animationSpec = tween(300)) { -it } + fadeOut(),
+                    ) {
+                        HomeTopBar(
+                            playbackState = playbackState,
+                            isLandscapeMode = isLandscapeMode,
+                            isLiked = isLiked,
+                            favoriteEnabled = currentTrackId != null,
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                            onShowTimer = { showTimer = true },
+                            onToggleFavorite = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
+                            onToggleLandscape = { toggleLandscapeMode() },
+                            onOpenSettings = onOpenSettings,
+                        )
+                    }
+                }
+                PermissionDialog(
+                    uiState = uiState,
+                    onRefresh = onRefreshPermissions,
+                    onStartPermissionMonitor = onStartPermissionMonitor,
+                    onStopPermissionMonitor = onStopPermissionMonitor,
+                )
+                TimerOverlay(
+                    visible = showTimer,
+                    minutes = playbackState.timerMinutes,
+                    onMinutesChange = { playbackState.setTimerMinutes(it) },
+                    onConfirm = {
+                        playbackState.startTimer(playbackState.timerMinutes)
+                        showTimer = false
+                    },
+                    onCancel = { showTimer = false },
+                )
             }
-            PermissionDialog(
-                uiState = uiState,
-                onRefresh = onRefreshPermissions,
-                onStartPermissionMonitor = onStartPermissionMonitor,
-                onStopPermissionMonitor = onStopPermissionMonitor,
-            )
-            TimerOverlay(
-                visible = showTimer,
-                minutes = playbackState.timerMinutes,
-                onMinutesChange = { playbackState.setTimerMinutes(it) },
-                onConfirm = {
-                    playbackState.startTimer(playbackState.timerMinutes)
-                    showTimer = false
-                },
-                onCancel = { showTimer = false },
-            )
         }
     }
 }
@@ -258,7 +276,7 @@ private fun HomeTopBar(
             }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
         ),
     )
 }
@@ -283,4 +301,35 @@ private fun MemoryUsageText() {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Medium,
     )
+}
+
+// 沉浸式页面背景：以屏幕最短边为基准解码当前封面，直接拉伸铺满全屏后高斯模糊
+@Composable
+private fun HomeImmersiveBackground(track: MusicTrack?) {
+    val model = homeCoverModel(track) ?: return
+    val context = LocalContext.current
+    val config = LocalConfiguration.current
+    val shortestPx = with(LocalDensity.current) {
+        min(config.screenWidthDp, config.screenHeightDp).dp.roundToPx()
+    }
+    // 按屏幕最短边分辨率请求封面，直接拉伸铺满全屏，放大与变形由模糊掩盖
+    AsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(model)
+            .size(shortestPx, shortestPx)
+            .build(),
+        contentDescription = null,
+        contentScale = ContentScale.FillBounds,
+        modifier = Modifier
+            .fillMaxSize()
+            .blur(40.dp)
+    )
+}
+
+// 当前歌曲封面来源：磁盘缓存优先，其次在线封面 URL
+private fun homeCoverModel(track: MusicTrack?): Any? {
+    val coverFile = track?.coverCachePath
+        ?.takeIf { MusicMetadataCache.isValid(it) }
+        ?.let { File(it) }
+    return coverFile ?: track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
 }

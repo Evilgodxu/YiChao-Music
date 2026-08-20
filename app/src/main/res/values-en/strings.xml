@@ -4,7 +4,6 @@
     <!-- Home -->
     <string name="home_memory_usage">Memory %1$s</string>
     <string name="home_landscape_mode">Landscape mode</string>
-    <string name="home_double_back_exit">Press back again to exit</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
