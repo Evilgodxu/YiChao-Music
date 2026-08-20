@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -213,7 +212,11 @@ private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
 
 private const val MAX_VERTICAL_CHARS = 7
 
-// 歌词透视区：左高右低倾斜并放大 35%，近似 CSS skewY(5deg) perspective(800px) rotateY(15deg)
+// 歌词透视参数：绕 Y 轴角度与相机距离系数；不对歌词额外放大，避免放大后排版宽度失真导致换行失效被截断
+private const val ROTATION_Y_DEGREES = 30f
+private const val CAMERA_DISTANCE_FACTOR = 1f
+
+// 歌词透视区：rotationY 绕 Y 轴旋转，配合随宽度缩放的 cameraDistance 产生近大远小的真实 3D 透视
 @Composable
 private fun LyricsPerspectiveZone(
     playbackState: MusicPlaybackState,
@@ -224,15 +227,9 @@ private fun LyricsPerspectiveZone(
             .padding(horizontal = 24.dp, vertical = 12.dp)
             .clipToBounds()
             .graphicsLayer {
-                rotationY = 15f
-                cameraDistance = 800f
-                scaleX = 1.35f
-                scaleY = 1.35f
-            }
-            .drawWithContent {
-                // skewY(5deg) ≈ tan(5°)，右端下移形成左高右低
-                drawContext.canvas.skew(0f, 0.0875f)
-                drawContent()
+                rotationY = ROTATION_Y_DEGREES
+                // 官方推荐：cameraDistance 不小于视图宽度，透视才自然且不畸变
+                cameraDistance = size.width * CAMERA_DISTANCE_FACTOR
             },
         contentAlignment = Alignment.Center,
     ) {

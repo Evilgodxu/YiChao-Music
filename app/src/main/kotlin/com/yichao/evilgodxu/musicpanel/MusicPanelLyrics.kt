@@ -194,7 +194,8 @@ internal fun LyricText(
             ) else null
         ),
         fontSize = fontSize,
-        maxLines = 1,
+        softWrap = true,
+        maxLines = MAX_LYRIC_LINES,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.Center,
         fontWeight = fontWeight,
@@ -220,3 +221,6 @@ internal fun splitLyricText(text: String): List<String> {
     }
     return result
 }
+
+// 单句歌词最多显示行数，仍溢出则省略号兜底，避免无限撑高破坏行排版
+private const val MAX_LYRIC_LINES = 2
