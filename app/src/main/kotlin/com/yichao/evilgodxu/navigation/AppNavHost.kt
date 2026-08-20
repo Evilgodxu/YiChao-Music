@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.navigation
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,14 +28,24 @@ fun AppNavHost(
 
     // 返回防抖：500ms 内连点只生效一次，防止回退栈被清空
     var lastBackTime by remember { mutableStateOf(0L) }
-    // 首页根节点 NavDisplay 不拦截返回，需自行拦截：播放中返回桌面，未播放则释放资源并退出
+    // 首页根节点 NavDisplay 不拦截返回，需自行拦截：双击返回桌面（播放中）或退出（未播放）
+    var lastHomeBackTime by remember { mutableStateOf(0L) }
     BackHandler(enabled = backStack.size <= 1) {
-        if (MusicPanelStateHolder.state.isPlayerActive) {
-            // 播放中：仅返回桌面，保留后台播放与迷你播放器
-            (context as? Activity)?.moveTaskToBack(true)
+        val now = System.currentTimeMillis()
+        if (now - lastHomeBackTime < DOUBLE_BACK_EXIT_MS) {
+            if (MusicPanelStateHolder.state.isPlayerActive) {
+                // 播放中：返回桌面，保留后台播放与迷你播放器
+                (context as? Activity)?.moveTaskToBack(true)
+            } else {
+                MusicPanelStateHolder.releaseIfIdle()
+                onExit()
+            }
         } else {
-            MusicPanelStateHolder.releaseIfIdle()
-            onExit()
+            lastHomeBackTime = now
+            val hint =
+                if (MusicPanelStateHolder.state.isPlayerActive) "再按一次返回桌面"
+                else "再按一次退出应用"
+            Toast.makeText(context, hint, Toast.LENGTH_SHORT).show()
         }
     }
     fun onBack() {
@@ -62,3 +73,5 @@ fun AppNavHost(
 
 // 返回按键防抖间隔
 private const val BACK_DEBOUNCE_MS = 500L
+// 首页双击返回间隔
+private const val DOUBLE_BACK_EXIT_MS = 2000L
