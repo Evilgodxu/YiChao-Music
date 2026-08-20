@@ -4,28 +4,44 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,16 +54,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
@@ -62,15 +82,24 @@ import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
+import com.yichao.evilgodxu.musicpanel.SearchOverlay
+import com.yichao.evilgodxu.musicpanel.SearchResultRow
 import com.yichao.evilgodxu.musicpanel.TimerDialog
+import com.yichao.evilgodxu.musicpanel.performSearch
+import com.yichao.evilgodxu.musicpanel.playSearchResult
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+// 右滑呼出/左滑关闭在线搜索覆盖层的触发距离
+private const val SWIPE_OPEN_DRAG_PX = 120f
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +118,14 @@ fun HomeAssembly(
     var isLandscapeMode by remember { mutableStateOf(false) }
     // 横屏下标题栏与控制栏的统一显隐状态
     var landscapeChromeVisible by remember { mutableStateOf(false) }
+    // 右滑呼出的在线搜索覆盖层显隐状态
+    var showOnlineSearch by remember { mutableStateOf(false) }
+    // 覆盖层打开时返回键优先关闭覆盖层，而非退出应用
+    BackHandler(enabled = showOnlineSearch) {
+        showOnlineSearch = false
+        playbackState.setSearchResultsVisible(false)
+        playbackState.setErrorMsg(null)
+    }
     // LocalContext 为本地化包装 context，宿主 Activity 需从注册表所有者获取
     val activity = LocalActivityResultRegistryOwner.current as? Activity
     val currentTrackId = playbackState.currentTrack?.id
@@ -121,8 +158,20 @@ fun HomeAssembly(
         }
     }
 
-    // 沉浸式页面背景铺满全屏，Scaffold 透明以透出背景层
-    Box(modifier = modifier) {
+    // 沉浸式页面背景铺满全屏，Scaffold 透明以透出背景层；右滑呼出在线搜索覆盖层
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                // dragAmount 为每帧增量，需累计距离再判定，避免误触或无法触发
+                var totalDx = 0f
+                detectHorizontalDragGestures(
+                    onDragEnd = { if (totalDx > SWIPE_OPEN_DRAG_PX) showOnlineSearch = true }
+                ) { _, dragAmount ->
+                    totalDx += dragAmount
+                }
+            }
+    ) {
         HomeImmersiveBackground(track = playbackState.currentTrack)
         Scaffold(
             modifier = Modifier
@@ -199,6 +248,21 @@ fun HomeAssembly(
                     },
                     onCancel = { showTimer = false },
                 )
+                AnimatedVisibility(
+                    visible = showOnlineSearch,
+                    modifier = Modifier.fillMaxSize(),
+                    enter = slideInHorizontally(animationSpec = tween(280)) { -it } + fadeIn(),
+                    exit = slideOutHorizontally(animationSpec = tween(280)) { -it } + fadeOut(),
+                ) {
+                    HomeOnlineSearchOverlay(
+                        playbackState = playbackState,
+                        onClose = {
+                            showOnlineSearch = false
+                            playbackState.setSearchResultsVisible(false)
+                            playbackState.setErrorMsg(null)
+                        }
+                    )
+                }
             }
         }
     }
@@ -366,4 +430,152 @@ private fun homeCoverModel(track: MusicTrack?): Any? {
         ?.takeIf { MusicMetadataCache.isValid(it) }
         ?.let { File(it) }
     return coverFile ?: track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
+}
+
+// 首页在线搜索覆盖层：右滑呼出，顶部关闭或左滑退出；输入/历史/结果复用面板搜索逻辑
+@Composable
+private fun HomeOnlineSearchOverlay(
+    playbackState: MusicPlaybackState,
+    onClose: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.97f))
+            .pointerInput(Unit) {
+                var totalDx = 0f
+                detectHorizontalDragGestures(
+                    onDragEnd = { if (totalDx < -SWIPE_OPEN_DRAG_PX) onClose() }
+                ) { _, dragAmount ->
+                    totalDx += dragAmount
+                }
+            }
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.music_panel_search_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                if (playbackState.showSearchResults) {
+                    HomeSearchResults(
+                        playbackState = playbackState,
+                        context = context,
+                        scope = scope
+                    )
+                } else {
+                    SearchOverlay(
+                        playbackState = playbackState,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+    }
+}
+
+// 首页搜索结果列表：加载/空/错误状态 + 点击播放
+@Composable
+private fun HomeSearchResults(
+    playbackState: MusicPlaybackState,
+    context: Context,
+    scope: CoroutineScope,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.music_panel_track_count, playbackState.searchResults.size),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
+            IconButton(
+                onClick = {
+                    if (!playbackState.isSearching) {
+                        scope.launch { performSearch(playbackState, context) }
+                    }
+                },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    tint = if (playbackState.isSearching) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        val errorMsg = playbackState.errorMsg
+        if (errorMsg != null) {
+            Text(
+                text = errorMsg,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            )
+        }
+        when {
+            playbackState.isSearching -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+            }
+            playbackState.searchResults.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.music_panel_search_no_results),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    state = rememberLazyListState(),
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    itemsIndexed(
+                        items = playbackState.searchResults,
+                        // 聚合多来源后 id 可能重复，key 需结合来源保证唯一
+                        key = { _, result -> "${result.source}-${result.id}" }
+                    ) { _, result ->
+                        SearchResultRow(
+                            result = result,
+                            onClick = { scope.launch { playSearchResult(result, playbackState, context, scope) } }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
