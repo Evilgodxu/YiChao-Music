@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -87,7 +88,7 @@ internal fun OnlineSearchPanel(
 private fun PanelHeader() {
     Text(
         text = stringResource(R.string.music_panel_search_title),
-        color = MaterialTheme.colorScheme.onSurface,
+        color = Color.White,
         fontSize = 16.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp)
@@ -134,6 +135,7 @@ private fun SearchInput(
                 color = Color.White,
                 fontSize = 14.sp
             ),
+            cursorBrush = SolidColor(Color.White),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
@@ -231,7 +233,7 @@ private fun SearchHistoryList(
             ) {
                 Text(
                     text = query,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -273,7 +275,7 @@ private fun SearchResultList(
         ) {
             Text(
                 text = stringResource(R.string.music_panel_track_count, playbackState.searchResults.size),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp
             )
             IconButton(
@@ -287,8 +289,8 @@ private fun SearchResultList(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = null,
-                    tint = if (playbackState.isSearching) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.onSurface
+                    tint = if (playbackState.isSearching) Color.White.copy(alpha = 0.5f)
+                    else Color.White
                 )
             }
         }
@@ -321,7 +323,7 @@ private fun SearchResultList(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource(R.string.music_panel_search_no_results),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White.copy(alpha = 0.6f),
                         fontSize = 12.sp
                     )
                 }
@@ -339,6 +341,7 @@ private fun SearchResultList(
                     ) { _, result ->
                         SearchResultRow(
                             result = result,
+                            titleColor = Color.White,
                             onClick = { scope.launch { playSearchResult(result, playbackState, context, scope) } }
                         )
                     }

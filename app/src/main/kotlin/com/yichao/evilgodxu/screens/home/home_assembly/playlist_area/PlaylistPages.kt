@@ -1,9 +1,5 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -148,7 +144,7 @@ internal fun PlaylistGroupsPage(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = group.name,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = Color.White,
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -311,10 +307,9 @@ private fun TracksContent(
     // 可排序的本地列表：拖拽实时重排，随数据源变化重置
     var orderedTracks by remember(tracks) { mutableStateOf(tracks) }
     var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    // 拖拽项相对其原槽位的像素位移，用于 graphicsLayer 跟随手指
+    // 拖拽项相对其槽位的像素位移，用于 graphicsLayer 跟随手指
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val rowHeightPx = with(density) { 42.dp.toPx() }
-    val dragElevationPx = with(density) { 10.dp.toPx() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -360,37 +355,15 @@ private fun TracksContent(
                 itemsIndexed(orderedTracks, key = { _, track -> track.audioUri }) { index, track ->
                     val isActive = track.id == playbackState.currentTrack?.id
                     val isDragging = draggingIndex == index
-                    // 拖拽项抬起/落下的缩放、阴影与底色过渡动画
-                    val dragScale by animateFloatAsState(
-                        targetValue = if (isDragging) 1.04f else 1f,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                        label = "dragScale",
-                    )
-                    val dragElevation by animateFloatAsState(
-                        targetValue = if (isDragging) dragElevationPx else 0f,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                        label = "dragElevation",
-                    )
-                    val dragTint by animateColorAsState(
-                        targetValue = if (isDragging)
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                        else
-                            Color.Transparent,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                        label = "dragTint",
-                    )
-                    // 全部项统一挂载 animateItem 平滑换位；拖拽项以 zIndex 抬升并通过 graphicsLayer 实时跟手
-                    val itemModifier = Modifier
-                        .background(dragTint, RoundedCornerShape(8.dp))
-                        .animateItem()
-                        .zIndex(if (isDragging) 1f else 0f)
-                        .graphicsLayer {
-                            translationY = if (isDragging) dragOffset else 0f
-                            scaleX = dragScale
-                            scaleY = dragScale
-                            shadowElevation = dragElevation
-                            shape = RoundedCornerShape(8.dp)
-                        }
+                    // 拖拽项背景变白并随手指平移，其余项以 animateItem 平滑换位
+                    val itemModifier = if (isDragging) {
+                        Modifier
+                            .zIndex(1f)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .graphicsLayer { translationY = dragOffset }
+                    } else {
+                        Modifier.animateItem()
+                    }
                     val dragModifier = Modifier.pointerInput(track.audioUri, orderedTracks.size) {
                         awaitEachGesture {
                             // 手柄按下即消费事件，避免与行级长按冲突；长按后进入垂直拖拽排序
@@ -451,6 +424,7 @@ private fun TracksContent(
                         isActive = isActive,
                         isPlaying = isActive && playbackState.isPlaying,
                         isLiked = track.id in playbackState.likedIds,
+                        isDragging = isDragging,
                         modifier = itemModifier,
                         onClick = {
                             if (isActive) {
@@ -476,12 +450,16 @@ private fun PlaylistTrackRow(
     isActive: Boolean,
     isPlaying: Boolean,
     isLiked: Boolean,
+    isDragging: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     dragHandleModifier: Modifier = Modifier,
 ) {
+    // 拖拽时背景变白，前景文字同步切换为深色保证可读性
+    val fg = if (isDragging) Color(0xFF1A1A1A) else Color.White
+    val fgDim = if (isDragging) Color(0xFF1A1A1A).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.6f)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -517,14 +495,14 @@ private fun PlaylistTrackRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = track.title,
-                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                color = if (isDragging) fg else if (isActive) MaterialTheme.colorScheme.primary else Color.White,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = track.artist,
-                color = Color.White.copy(alpha = 0.6f),
+                color = fgDim,
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -540,7 +518,7 @@ private fun PlaylistTrackRow(
             Icon(
                 imageVector = Icons.Filled.DragHandle,
                 contentDescription = stringResource(R.string.playlist_sort_handle),
-                tint = Color.White.copy(alpha = 0.6f),
+                tint = fgDim,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -548,7 +526,7 @@ private fun PlaylistTrackRow(
             Icon(
                 imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = stringResource(R.string.music_panel_favorite),
-                tint = if (isLiked) MaterialTheme.colorScheme.primary else Color.White,
+                tint = if (isDragging) fg else if (isLiked) MaterialTheme.colorScheme.primary else Color.White,
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -561,7 +539,7 @@ private fun EmptyHint(text: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text = text,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color.White.copy(alpha = 0.6f),
             fontSize = 12.sp,
         )
     }

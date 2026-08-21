@@ -178,7 +178,7 @@ private fun PanelHeader(
         }
         Text(
             text = title,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = Color.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -367,7 +367,7 @@ private fun PlaylistListRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = playlist.name,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

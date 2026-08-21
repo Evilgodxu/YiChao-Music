@@ -349,6 +349,7 @@ internal fun SearchResultsOverlay(
 internal fun SearchResultRow(
     result: NeteaseSongSearchResult,
     onClick: () -> Unit,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Row(
         modifier = Modifier
@@ -393,7 +394,7 @@ internal fun SearchResultRow(
         ) {
             Text(
                 text = result.title,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = titleColor,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
