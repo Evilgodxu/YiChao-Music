@@ -46,11 +46,11 @@ internal fun WordSplitLyricText(
     } else {
         -1
     }
-    // 词内逐字下标：将当前词已演唱的字符折算到字序号；整词已唱时为 -1
-    val charCount = line.text.length.coerceAtLeast(1)
+    // 词内逐字下标：将当前词已演唱的字符折算到该词的字序号；整词已唱时为 -1
+    val wordCharCount = line.words.getOrNull(currentWordIdx)?.text?.length?.coerceAtLeast(1) ?: 1
     val currentCharIdx = if (currentWordIdx >= 0) {
         val elapsed = (positionMs - line.timeMs) - currentWordIdx * perWordMs
-        (elapsed / perWordMs * charCount).toInt().coerceIn(0, charCount - 1)
+        (elapsed / perWordMs * wordCharCount).toInt().coerceIn(0, wordCharCount - 1)
     } else {
         -1
     }
