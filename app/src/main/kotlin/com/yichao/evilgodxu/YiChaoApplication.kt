@@ -8,7 +8,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 
-class TemplateApplication : Application() {
+class YiChaoApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
@@ -17,7 +17,7 @@ class TemplateApplication : Application() {
 
         startKoin {
             androidLogger()
-            androidContext(this@TemplateApplication)
+            androidContext(this@YiChaoApplication)
             modules(appModule)
         }
     }

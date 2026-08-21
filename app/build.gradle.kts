@@ -109,7 +109,7 @@ android {
     }
 }
 
-// 构建产物统一命名为 Template-<versionName>-arm64.apk
+// 构建产物统一命名为 YiChaoMusic-<versionName>-arm64.apk
 val apkVersionName = android.defaultConfig.versionName ?: "0.0.0"
 
 androidComponents {

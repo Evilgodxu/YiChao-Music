@@ -2,4 +2,4 @@ package com.yichao.evilgodxu
 
 import androidx.lifecycle.ViewModel
 
-class TemplateActivityViewModel : ViewModel()
+class YiChaoActivityViewModel : ViewModel()

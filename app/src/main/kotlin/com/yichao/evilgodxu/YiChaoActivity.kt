@@ -41,7 +41,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 
-class TemplateActivity : ComponentActivity() {
+class YiChaoActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsControllerCompat
     private val localizationManager: LocalizationManager by inject()
     private val updateViewModel: UpdateViewModel by inject()
@@ -79,7 +79,7 @@ class TemplateActivity : ComponentActivity() {
             ProvideLocalizedContext(localizationManager) {
                 CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
                     ProvideWindowSizeClass {
-                        TemplateContent()
+                        YiChaoContent()
                     }
                 }
             }
@@ -98,7 +98,7 @@ class TemplateActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun TemplateContent() {
+    private fun YiChaoContent() {
         // 回前台时自动检查更新（每日仅检查一次）
         val lifecycleOwner = LocalLifecycleOwner.current
         DisposableEffect(lifecycleOwner) {
@@ -122,9 +122,9 @@ class TemplateActivity : ComponentActivity() {
         LaunchedEffect(checkFeedback) {
             when (checkFeedback) {
                 UpdateViewModel.CheckFeedback.UP_TO_DATE ->
-                    Toast.makeText(this@TemplateActivity, R.string.update_toast_up_to_date, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@YiChaoActivity, R.string.update_toast_up_to_date, Toast.LENGTH_SHORT).show()
                 UpdateViewModel.CheckFeedback.ERROR ->
-                    Toast.makeText(this@TemplateActivity, R.string.update_toast_error, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@YiChaoActivity, R.string.update_toast_error, Toast.LENGTH_SHORT).show()
                 null -> {}
             }
             updateViewModel.clearCheckFeedback()
