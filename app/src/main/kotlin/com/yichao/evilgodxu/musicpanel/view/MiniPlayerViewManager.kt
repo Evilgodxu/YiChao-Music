@@ -775,11 +775,11 @@ internal fun DiscArt(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val r = size.minDimension / 2f
                 val center = this.center
-                // 浅色外环：仅外缘一圈细环，其余边缘保持透明材质
-                val ringWidth = r * 0.045f
+                // 浅色外环：紧贴封面外缘，无间距，宽度为半径的 9%
+                val ringWidth = r * 0.09f
                 drawCircle(
                     color = Color.White.copy(alpha = 0.22f),
-                    radius = r - ringWidth / 2f,
+                    radius = r * 0.85f + ringWidth / 2f,
                     center = center,
                     style = Stroke(width = ringWidth)
                 )
