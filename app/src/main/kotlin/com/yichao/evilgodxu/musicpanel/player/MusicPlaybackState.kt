@@ -599,6 +599,19 @@ class MusicPlaybackState {
         updateTrack(renamed)
     }
 
+    // 微调歌词时间：stepMs 正值延后，负值提前（同时作用于逐字时间轴）
+    fun adjustLyricsOffset(stepMs: Long) {
+        val track = currentTrack ?: return
+        if (track.lyricLines.isEmpty()) return
+        val shifted = track.lyricLines.map { line ->
+            line.copy(
+                timeMs = (line.timeMs + stepMs).coerceAtLeast(0),
+                words = line.words.map { word -> word.copy(startMs = (word.startMs + stepMs).coerceAtLeast(0)) },
+            )
+        }
+        updateTrack(track.copy(lyricLines = shifted))
+    }
+
     fun syncPlaybackState() {
         val controller = mediaController ?: return
         val playbackState = controller.playbackState

@@ -26,13 +26,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -151,6 +154,17 @@ fun PlayerArea(
     var showMetaMenu by remember { mutableStateOf(false) }
     var menuText by remember { mutableStateOf("") }
     var menuIsTitle by remember { mutableStateOf(true) }
+    // 歌词微调按钮显示状态：点击歌词区切换
+    var lyricTuneVisible by remember { mutableStateOf(false) }
+    // 微调操作计数：每次调整自增以重置自动隐藏计时
+    var tuneVersion by remember { mutableStateOf(0) }
+    // 显示后 2 秒无操作自动隐藏
+    LaunchedEffect(lyricTuneVisible, tuneVersion) {
+        if (lyricTuneVisible) {
+            delay(2000)
+            lyricTuneVisible = false
+        }
+    }
 
     Box(modifier = modifier) {
         Column(
@@ -197,35 +211,69 @@ fun PlayerArea(
                 )
             }
             Spacer(Modifier.height(24.dp))
-            // 歌词：固定为 5 行歌词高度
+            // 歌词：固定为 5 行歌词高度，点击歌词区切换微调按钮显隐
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(lyricsAreaHeight),
-                contentAlignment = Alignment.Center,
             ) {
-                if (playbackState.currentTrack != null) {
-                    LyricsPanel(
-                        playbackState = playbackState,
-                        onClick = {},
-                        onLongClick = {
-                            lyricsTargetId = playbackState.currentTrack?.id
-                            showLyricsRefresh = true
-                            playbackState.currentTrack?.let { track ->
-                                scope.launch { searchLyricsCandidates(playbackState, track) }
-                            }
-                        },
-                        fontSize = 16.sp,
-                        contentColor = Color.White,
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.home_player_empty),
-                        fontSize = 14.sp,
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 32.dp),
-                    )
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    if (playbackState.currentTrack != null) {
+                        LyricsPanel(
+                            playbackState = playbackState,
+                            onClick = { lyricTuneVisible = !lyricTuneVisible },
+                            onLongClick = {
+                                lyricsTargetId = playbackState.currentTrack?.id
+                                showLyricsRefresh = true
+                                playbackState.currentTrack?.let { track ->
+                                    scope.launch { searchLyricsCandidates(playbackState, track) }
+                                }
+                            },
+                            fontSize = 16.sp,
+                            contentColor = Color.White,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.home_player_empty),
+                            fontSize = 14.sp,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp),
+                        )
+                    }
+                }
+                // 歌词微调：左-延后歌词，右+提前歌词，每次微调一个步长
+                if (lyricTuneVisible && playbackState.currentTrack?.lyricLines?.isNotEmpty() == true) {
+                    IconButton(
+                        onClick = { playbackState.adjustLyricsOffset(LyricFineTuneStepMs); tuneVersion++ },
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 16.dp)
+                            .size(34.dp)
+                            .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Remove,
+                            contentDescription = stringResource(R.string.home_player_lyric_delay),
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    IconButton(
+                        onClick = { playbackState.adjustLyricsOffset(-LyricFineTuneStepMs); tuneVersion++ },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 16.dp)
+                            .size(34.dp)
+                            .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.home_player_lyric_advance),
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -704,3 +752,6 @@ internal fun PlaylistSheet(
         }
     }
 }
+
+// 歌词微调单次步长（毫秒）
+private const val LyricFineTuneStepMs = 100L
