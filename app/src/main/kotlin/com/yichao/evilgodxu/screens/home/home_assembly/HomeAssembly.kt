@@ -11,9 +11,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -91,11 +90,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 右滑呼出/左滑关闭在线搜索的触发距离
+// 右滑呼出在线搜索的触发距离
 private const val SWIPE_OPEN_DRAG_PX = 120f
-
-// 在线搜索面板相对屏幕宽度的占比
-private const val SEARCH_PANEL_RATIO = 0.68f
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,18 +164,17 @@ fun HomeAssembly(
                 }
             }
     ) {
-        // 展开进度：播放器随进度右移让位，面板由右侧同步滑入
+        // 展开进度：双页面 [在线搜索 | 播放器] 整体平移，搜索页自左侧滑入顶替播放器，播放器向右隐藏
         val searchPanelProgress by animateFloatAsState(
             targetValue = if (showOnlineSearch) 1f else 0f,
             animationSpec = tween(280),
             label = "online_search_shift"
         )
-        val searchShiftPx = maxWidth * SEARCH_PANEL_RATIO * searchPanelProgress
+        val contentWidth = maxWidth
         HomeImmersiveBackground(track = playbackState.currentTrack)
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationX = searchShiftPx.toPx() }
                 .onSizeChanged { isLandscapeMode = it.width > it.height },
             containerColor = Color.Transparent,
             topBar = {
@@ -203,17 +198,45 @@ fun HomeAssembly(
                 modifier = Modifier
                     .fillMaxSize()
                     .consumeWindowInsets(innerPadding)
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .clipToBounds(),
             ) {
-                if (isLandscapeMode) {
-                    LandscapePlayerArea(
+                // 双页面横向布局 [在线搜索 | 播放器]：搜索页占满原播放器位置，播放器页置于其右
+                Row(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(contentWidth * 2)
+                        .graphicsLayer {
+                            translationX = -contentWidth.toPx() * (1f - searchPanelProgress)
+                        }
+                ) {
+                    OnlineSearchPanel(
                         playbackState = playbackState,
-                        chromeVisible = landscapeChromeVisible,
-                        onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
-                        modifier = Modifier.fillMaxSize(),
+                        onClose = {
+                            showOnlineSearch = false
+                            playbackState.setSearchResultsVisible(false)
+                            playbackState.setErrorMsg(null)
+                        },
+                        modifier = Modifier
+                            .width(contentWidth)
+                            .fillMaxHeight(),
                     )
-                } else {
-                    PlayerArea(modifier = Modifier.fillMaxSize())
+                    Box(
+                        modifier = Modifier
+                            .width(contentWidth)
+                            .fillMaxHeight(),
+                    ) {
+                        if (isLandscapeMode) {
+                            LandscapePlayerArea(
+                                playbackState = playbackState,
+                                chromeVisible = landscapeChromeVisible,
+                                onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            PlayerArea(modifier = Modifier.fillMaxSize())
+                        }
+                    }
                 }
                 // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局
                 if (isLandscapeMode) {
@@ -253,25 +276,6 @@ fun HomeAssembly(
                     onCancel = { showTimer = false },
                 )
                 }
-        }
-        // 在线搜索面板：右侧滑入，展开进度与播放器右移保持一致
-        AnimatedVisibility(
-            visible = showOnlineSearch,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(maxWidth * SEARCH_PANEL_RATIO),
-            enter = slideInHorizontally(animationSpec = tween(280)) { it } + fadeIn(),
-            exit = slideOutHorizontally(animationSpec = tween(280)) { it } + fadeOut(),
-        ) {
-            OnlineSearchPanel(
-                playbackState = playbackState,
-                onClose = {
-                    showOnlineSearch = false
-                    playbackState.setSearchResultsVisible(false)
-                    playbackState.setErrorMsg(null)
-                }
-            )
         }
     }
 }

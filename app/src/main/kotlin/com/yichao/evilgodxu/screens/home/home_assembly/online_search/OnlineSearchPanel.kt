@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -58,7 +57,7 @@ import kotlinx.coroutines.launch
 // 左滑关闭在线搜索面板的触发距离
 private const val SWIPE_CLOSE_DRAG_PX = 120f
 
-// 首页专属在线搜索面板：播放器右移让位后由右侧滑入，输入/历史/结果逻辑与其样式在此独立封装
+// 首页专属在线搜索面板：搜索输入/历史/结果逻辑与其样式在此独立封装
 @Composable
 internal fun OnlineSearchPanel(
     playbackState: MusicPlaybackState,
@@ -70,7 +69,6 @@ internal fun OnlineSearchPanel(
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface)
-            .statusBarsPadding()
             .pointerInput(Unit) {
                 // dragAmount 为每帧增量，累计距离后判定是否需要左滑关闭
                 var totalDx = 0f
