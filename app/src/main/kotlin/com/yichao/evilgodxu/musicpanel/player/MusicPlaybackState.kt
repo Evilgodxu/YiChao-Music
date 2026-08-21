@@ -340,12 +340,21 @@ class MusicPlaybackState {
     // 建立队列时记录的当前曲目 ID，队列播完后据此接续原播放位置
     private var queueResumeTrackId: Long? by mutableStateOf(null)
 
-    // 将曲目加入下一首播放队列
-    fun addToPlayNext(track: MusicTrack) {
-        if (playNextQueue.isEmpty() && queueResumeTrackId == null) {
-            queueResumeTrackId = currentTrack?.id
+    // 曲目是否已在下一首播放队列中
+    fun isInPlayNext(trackId: Long): Boolean = playNextQueue.any { it.id == trackId }
+
+    // 切换下一首播放：已在队列则取消插队，否则加入
+    fun togglePlayNext(track: MusicTrack) {
+        if (isInPlayNext(track.id)) {
+            playNextQueue = playNextQueue.filterNot { it.id == track.id }
+            // 队列清空后无需再接续原播放位置
+            if (playNextQueue.isEmpty()) queueResumeTrackId = null
+        } else {
+            if (playNextQueue.isEmpty() && queueResumeTrackId == null) {
+                queueResumeTrackId = currentTrack?.id
+            }
+            playNextQueue = playNextQueue + track
         }
-        playNextQueue = playNextQueue + track
     }
 
     // 手动切歌时清空插队队列

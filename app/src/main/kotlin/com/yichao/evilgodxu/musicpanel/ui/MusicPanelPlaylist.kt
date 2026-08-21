@@ -137,10 +137,11 @@ internal fun PlaylistOverlay(
                                 track = track,
                                 isActive = isActive,
                                 isPlaying = isActive && playbackState.isPlaying,
+                                isQueued = playbackState.isInPlayNext(track.id),
                                 onClick = { onTrackSelected(index) },
                                 onLongClick = { onTrackLongPress(track) },
                                 onFavoriteClick = { playbackState.toggleFavorite(track.id) },
-                                onPlayNextClick = { playbackState.addToPlayNext(track) }
+                                onPlayNextClick = { playbackState.togglePlayNext(track) }
                             )
                         }
                     }
@@ -164,6 +165,7 @@ internal fun PlaylistRow(
     track: MusicTrack,
     isActive: Boolean,
     isPlaying: Boolean,
+    isQueued: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
@@ -247,10 +249,14 @@ internal fun PlaylistRow(
         }
 
         HeaderIconButton(
-            icon = ImageVector.vectorResource(R.drawable.ic_play_next),
-            contentDescription = stringResource(R.string.music_panel_play_next),
+            icon = ImageVector.vectorResource(
+                if (isQueued) R.drawable.ic_play_next_remove else R.drawable.ic_play_next
+            ),
+            contentDescription = stringResource(
+                if (isQueued) R.string.music_panel_cancel_play_next else R.string.music_panel_play_next
+            ),
             onClick = onPlayNextClick,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (isQueued) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(22.dp)
         )
 

@@ -763,6 +763,7 @@ internal fun PlaylistSheet(
                                 track = track,
                                 isActive = isActive,
                                 isPlaying = isActive && playbackState.isPlaying,
+                                isQueued = playbackState.isInPlayNext(track.id),
                                 onClick = {
                                     if (isActive) {
                                         togglePlayPause(playbackState)
@@ -773,7 +774,7 @@ internal fun PlaylistSheet(
                                 },
                                 onLongClick = {},
                                 onFavoriteClick = { playbackState.toggleFavorite(track.id) },
-                                onPlayNextClick = { playbackState.addToPlayNext(track) },
+                                onPlayNextClick = { playbackState.togglePlayNext(track) },
                             )
                         }
                     }

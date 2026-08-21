@@ -866,12 +866,13 @@ private fun MiniPlaylistPanel(
                     track = track,
                     isActive = isActive,
                     isPlaying = isActive && playbackState.isPlaying,
+                    isQueued = playbackState.isInPlayNext(track.id),
                     onClick = {
                         scope.launch { playTrackAt(context, playbackState, index) }
                         onClose()
                     },
                     onFavoriteClick = { playbackState.toggleFavorite(track.id) },
-                    onPlayNextClick = { playbackState.addToPlayNext(track) }
+                    onPlayNextClick = { playbackState.togglePlayNext(track) }
                 )
             }
         }
@@ -891,6 +892,7 @@ private fun MiniPlaylistRow(
     track: MusicTrack,
     isActive: Boolean,
     isPlaying: Boolean,
+    isQueued: Boolean,
     onClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onPlayNextClick: () -> Unit,
@@ -976,29 +978,39 @@ private fun MiniPlaylistRow(
             )
         }
 
-        IconButton(
-            onClick = onPlayNextClick,
-            modifier = Modifier.size(26.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_play_next),
-                contentDescription = stringResource(R.string.music_panel_play_next),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
-            )
-        }
+            IconButton(
+                onClick = onPlayNextClick,
+                modifier = Modifier.size(26.dp)
+            ) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(
+                        if (isQueued) R.drawable.ic_play_next_remove else R.drawable.ic_play_next
+                    ),
+                    contentDescription = stringResource(
+                        if (isQueued) R.string.music_panel_cancel_play_next else R.string.music_panel_play_next
+                    ),
+                    tint = if (isQueued) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
 
-        IconButton(
-            onClick = onFavoriteClick,
-            modifier = Modifier.size(26.dp)
-        ) {
-            Icon(
-                imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = null,
-                tint = if (track.isFavorite) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
-            )
+            IconButton(
+                onClick = onFavoriteClick,
+                modifier = Modifier.size(26.dp)
+            ) {
+                Icon(
+                    imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    tint = if (track.isFavorite) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
