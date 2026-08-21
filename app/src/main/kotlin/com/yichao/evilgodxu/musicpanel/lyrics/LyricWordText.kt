@@ -130,4 +130,4 @@ private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {
 }
 
 // 逐字歌词每行按字符计数上限换行（中文按字计数，英文词不截断）
-private const val MAX_LYRIC_CHARS = 20
+private const val MAX_LYRIC_CHARS = 28
