@@ -7,7 +7,9 @@ import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -46,6 +48,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -88,8 +92,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 右滑呼出在线搜索的触发距离
-private const val SWIPE_OPEN_DRAG_PX = 120f
+// 右滑呼出在线搜索的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
+private const val SWIPE_OPEN_RATIO = 0.45f
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,6 +114,22 @@ fun HomeAssembly(
     var landscapeChromeVisible by remember { mutableStateOf(false) }
     // 右滑呼出的在线搜索覆盖层显隐状态
     var showOnlineSearch by remember { mutableStateOf(false) }
+    // 手势跟手进度：0=播放器页，1=在线搜索页，拖动期间随手指实时更新
+    var searchProgress by remember { mutableFloatStateOf(0f) }
+    // 内容区像素宽度，用于将滑动距离换算为进度比例
+    var contentWidthPx by remember { mutableFloatStateOf(0f) }
+    // 触发回弹/展开的动画：非拖动状态下将进度平滑带到目标值
+    var settleKey by remember { mutableIntStateOf(0) }
+    LaunchedEffect(showOnlineSearch, settleKey) {
+        val target = if (showOnlineSearch) 1f else 0f
+        if (searchProgress != target) {
+            animate(
+                initialValue = searchProgress,
+                targetValue = target,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+            ) { value, _ -> searchProgress = value }
+        }
+    }
     // 覆盖层打开时返回键优先关闭覆盖层，而非退出应用
     BackHandler(enabled = showOnlineSearch) {
         showOnlineSearch = false
@@ -159,27 +179,38 @@ fun HomeAssembly(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                // dragAmount 为每帧增量，需累计距离再判定，避免误触或无法触发
-                var totalDx = 0f
+                // 拖动期间实时跟手更新进度；松开时按 45% 阈值决定展开或回弹
                 detectHorizontalDragGestures(
-                    onDragEnd = { if (totalDx > SWIPE_OPEN_DRAG_PX) showOnlineSearch = true }
-                ) { _, dragAmount ->
-                    totalDx += dragAmount
+                    onDragEnd = {
+                        val open = searchProgress >= SWIPE_OPEN_RATIO
+                        if (open != showOnlineSearch) {
+                            showOnlineSearch = open
+                            if (!open) {
+                                playbackState.setSearchResultsVisible(false)
+                                playbackState.setErrorMsg(null)
+                            }
+                        }
+                        settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
+                    },
+                    onDragCancel = { settleKey++ }, // 手势被打断按回弹处理
+                ) { change, dragAmount ->
+                    change.consume()
+                    if (contentWidthPx > 0f) {
+                        searchProgress =
+                            (searchProgress + dragAmount / contentWidthPx).coerceIn(0f, 1f)
+                    }
                 }
             }
     ) {
-        // 展开进度：双页面 [在线搜索 | 播放器] 整体平移，搜索页自左侧滑入顶替播放器，播放器向右隐藏
-        val searchPanelProgress by animateFloatAsState(
-            targetValue = if (showOnlineSearch) 1f else 0f,
-            animationSpec = tween(280),
-            label = "online_search_shift"
-        )
         val contentWidth = maxWidth
         HomeImmersiveBackground(track = playbackState.currentTrack)
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { isLandscapeMode = it.width > it.height },
+                .onSizeChanged {
+                    contentWidthPx = it.width.toFloat()
+                    isLandscapeMode = it.width > it.height
+                },
             containerColor = Color.Transparent,
             topBar = {
                 // 竖屏标题栏常驻；横屏下改为悬浮控制栏，不占布局空间
@@ -210,7 +241,7 @@ fun HomeAssembly(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            translationX = contentWidth.toPx() * searchPanelProgress
+                            translationX = contentWidth.toPx() * searchProgress
                         }
                 ) {
                     if (isLandscapeMode) {
@@ -227,15 +258,10 @@ fun HomeAssembly(
                 // 在线搜索页：自左侧滑入顶替播放器位置
                 OnlineSearchPanel(
                     playbackState = playbackState,
-                    onClose = {
-                        showOnlineSearch = false
-                        playbackState.setSearchResultsVisible(false)
-                        playbackState.setErrorMsg(null)
-                    },
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            translationX = -contentWidth.toPx() * (1f - searchPanelProgress)
+                            translationX = -contentWidth.toPx() * (1f - searchProgress)
                         },
                 )
                 // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局
@@ -351,7 +377,7 @@ private fun HomeTopBar(
                 )
             }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
         ),
     )

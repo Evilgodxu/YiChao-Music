@@ -79,7 +79,7 @@
     <string name="music_panel_refresh_lyrics">刷新歌词</string>
     <string name="music_panel_lyrics_no_candidates">暂无匹配歌词</string>
     <string name="music_panel_lyrics_refresh_failed">歌词刷新失败，请重试</string>
-    <string name="music_panel_local_lyrics">本地歌词导入</string>
+    <string name="music_panel_local_lyrics">本地歌词</string>
     <string name="music_panel_local_lyrics_failed">歌词导入失败，请重试</string>
     <string name="music_panel_cover_no_candidates">暂无可用封面</string>
     <string name="music_panel_cover_replace_title">是否覆盖为新封面</string>

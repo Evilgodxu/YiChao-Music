@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -57,30 +55,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// 左滑关闭在线搜索面板的触发距离
-private const val SWIPE_CLOSE_DRAG_PX = 120f
-
 // 首页专属在线搜索面板：搜索输入/历史/结果逻辑与其样式在此独立封装
 @Composable
 internal fun OnlineSearchPanel(
     playbackState: MusicPlaybackState,
-    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    Column(
-        modifier = modifier
-            .pointerInput(Unit) {
-                // dragAmount 为每帧增量，累计距离后判定是否需要左滑关闭
-                var totalDx = 0f
-                detectHorizontalDragGestures(
-                    onDragEnd = { if (totalDx < -SWIPE_CLOSE_DRAG_PX) onClose() }
-                ) { _, dragAmount ->
-                    totalDx += dragAmount
-                }
-            }
-    ) {
+    Column(modifier = modifier) {
         PanelHeader()
         SearchInput(playbackState = playbackState, context = context, scope = scope)
         if (playbackState.showSearchResults) {
@@ -99,7 +82,7 @@ internal fun OnlineSearchPanel(
     }
 }
 
-// 面板标题栏：仅显示标题，关闭操作通过左滑或系统返回键完成
+// 面板标题栏：仅显示标题，关闭操作通过父级手势左滑或系统返回键完成
 @Composable
 private fun PanelHeader() {
     Text(
