@@ -1,6 +1,8 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -45,6 +47,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +71,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.CoverContextMenu
 import com.yichao.evilgodxu.musicpanel.CoverRefreshDialog
@@ -92,8 +97,9 @@ import com.yichao.evilgodxu.musicpanel.ProgressSection
 import com.yichao.evilgodxu.musicpanel.RecentCover
 import com.yichao.evilgodxu.musicpanel.RenameDialog
 import com.yichao.evilgodxu.musicpanel.applyCoverCandidate
-import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
 import com.yichao.evilgodxu.musicpanel.applyLocalCover
+import com.yichao.evilgodxu.musicpanel.applyLocalLyrics
+import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
 import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
 import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
@@ -147,6 +153,21 @@ fun PlayerArea(
     var showLyricsRefresh by remember { mutableStateOf(false) }
     var selectedLyricsCandidate by remember { mutableStateOf<NeteaseSongSearchResult?>(null) }
     var lyricsTargetId by remember { mutableStateOf<Long?>(null) }
+    // 歌词长按菜单与本地歌词导入状态
+    var showLyricsMenu by remember { mutableStateOf(false) }
+    var lyricsImportFailed by remember { mutableStateOf(false) }
+    val lyricsImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val track = playbackState.currentTrack
+            if (track != null) {
+                scope.launch {
+                    lyricsImportFailed = !applyLocalLyrics(context, playbackState, track, uri)
+                }
+            }
+        }
+    }
     var showRename by remember { mutableStateOf(false) }
     var renameIsTitle by remember { mutableStateOf(true) }
     var renameInitValue by remember { mutableStateOf("") }
@@ -232,13 +253,7 @@ fun PlayerArea(
                         LyricsPanel(
                             playbackState = playbackState,
                             onClick = { lyricTuneVisible = !lyricTuneVisible },
-                            onLongClick = {
-                                lyricsTargetId = playbackState.currentTrack?.id
-                                showLyricsRefresh = true
-                                playbackState.currentTrack?.let { track ->
-                                    scope.launch { searchLyricsCandidates(playbackState, track) }
-                                }
-                            },
+                            onLongClick = { if (playbackState.currentTrack != null) showLyricsMenu = true },
                             fontSize = 16.sp,
                             contentColor = Color.White,
                         )
@@ -252,6 +267,22 @@ fun PlayerArea(
                         )
                     }
                 }
+                LyricsContextMenu(
+                    visible = showLyricsMenu,
+                    onOnlineSearch = {
+                        showLyricsMenu = false
+                        lyricsTargetId = playbackState.currentTrack?.id
+                        showLyricsRefresh = true
+                        playbackState.currentTrack?.let { track ->
+                            scope.launch { searchLyricsCandidates(playbackState, track) }
+                        }
+                    },
+                    onLocalImport = {
+                        showLyricsMenu = false
+                        lyricsImportLauncher.launch("*/*")
+                    },
+                    onDismiss = { showLyricsMenu = false },
+                )
                 // 歌词微调：左-延后歌词，右+提前歌词，每次微调一个步长
                 if (lyricTuneVisible && playbackState.currentTrack?.lyricLines?.isNotEmpty() == true) {
                     IconButton(
@@ -546,6 +577,77 @@ fun PlayerArea(
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 onDismiss = { coverSaveFailed = false },
             )
+        }
+        if (lyricsImportFailed) {
+            MusicErrorBanner(
+                message = stringResource(R.string.music_panel_local_lyrics_failed),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                onDismiss = { lyricsImportFailed = false },
+            )
+        }
+    }
+}
+
+// 歌词长按菜单：提供在线搜索与本地歌词导入
+@Composable
+private fun LyricsContextMenu(
+    visible: Boolean,
+    onOnlineSearch: () -> Unit,
+    onLocalImport: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (visible) {
+        Popup(
+            alignment = Alignment.BottomCenter,
+            properties = PopupProperties(
+                focusable = true,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true,
+            ),
+            onDismissRequest = onDismiss,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 4.dp,
+                modifier = Modifier.padding(top = 2.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color.Transparent,
+                        onClick = onOnlineSearch,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.music_panel_search_title),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color.Transparent,
+                        onClick = onLocalImport,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.music_panel_local_lyrics),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

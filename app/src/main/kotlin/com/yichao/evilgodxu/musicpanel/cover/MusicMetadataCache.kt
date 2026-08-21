@@ -115,12 +115,15 @@ internal object MusicMetadataCache {
         }
 
     fun loadLyrics(path: String): List<LyricLine> = try {
-        val text = File(path).readText()
-        parseEnhancedLrc(text).ifEmpty { parseJsonLyrics(text) }
+        parseLyricsText(File(path).readText())
     } catch (e: Exception) {
         CrashLogManager.logException("MusicMetadataCache", "加载歌词失败: 路径=$path", e)
         emptyList()
     }
+
+    // 解析本地导入的 LRC 文本（兼容逐字增强标签），供外部导入歌词时复用
+    fun parseLyricsText(text: String): List<LyricLine> =
+        parseEnhancedLrc(text).ifEmpty { parseJsonLyrics(text) }
 
     private fun lrcTimestamp(ms: Long): String {
         val minutes = ms / 60_000

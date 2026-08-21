@@ -78,6 +78,8 @@
     <string name="music_panel_refresh_lyrics">Refresh lyrics</string>
     <string name="music_panel_lyrics_no_candidates">No matching lyrics</string>
     <string name="music_panel_lyrics_refresh_failed">Lyrics refresh failed, try again</string>
+    <string name="music_panel_local_lyrics">Import local lyrics</string>
+    <string name="music_panel_local_lyrics_failed">Lyrics import failed, try again</string>
     <string name="music_panel_cover_no_candidates">No cover available</string>
     <string name="music_panel_cover_replace_title">Replace with new cover?</string>
     <string name="music_panel_cover_save_failed">Cover save failed, try again</string>

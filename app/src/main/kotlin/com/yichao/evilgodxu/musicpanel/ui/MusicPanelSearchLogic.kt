@@ -102,6 +102,34 @@ internal suspend fun applyLyricsCandidate(
     }
 }
 
+// 导入本地 LRC 歌词文件：解析后写入歌词缓存并应用到当前曲目
+internal suspend fun applyLocalLyrics(
+    context: Context,
+    playbackState: MusicPlaybackState,
+    track: MusicTrack,
+    uri: Uri,
+): Boolean {
+    return try {
+        val updated = withContext(Dispatchers.IO) {
+            val text = context.contentResolver.openInputStream(uri)
+                ?.use { it.readBytes().toString(Charsets.UTF_8) }
+                ?: return@withContext null
+            val lines = MusicMetadataCache.parseLyricsText(text)
+            if (lines.isEmpty()) return@withContext null
+            val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lines).orEmpty()
+            if (path.isBlank()) return@withContext null
+            track.copy(lyricCachePath = path, lyricLines = lines)
+        } ?: return false
+        withContext(Dispatchers.Main) {
+            playbackState.updateTrack(updated)
+        }
+        true
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicPanelSearchLogic", "导入本地歌词失败: 歌曲=${track.title}", e)
+        false
+    }
+}
+
 internal suspend fun searchCoverCandidates(
     playbackState: MusicPlaybackState,
     track: MusicTrack,
