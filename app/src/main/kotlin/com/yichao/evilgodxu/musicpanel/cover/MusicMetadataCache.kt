@@ -16,8 +16,8 @@ internal object MusicMetadataCache {
     private fun downloadsDir(context: Context): File =
         context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
 
-    internal fun coverRoot(context: Context): File = File(downloadsDir(context), "YiChao/Cover")
-    private fun lyricRoot(context: Context): File = File(downloadsDir(context), "YiChao/Lyrics")
+    internal fun coverRoot(context: Context): File = File(downloadsDir(context), "Cover")
+    private fun lyricRoot(context: Context): File = File(downloadsDir(context), "Lyrics")
     private fun coverFile(context: Context, id: Long) = File(coverRoot(context), "$id.webp")
     private fun originalCoverFile(context: Context, id: Long) = File(coverRoot(context), "$id.image")
 

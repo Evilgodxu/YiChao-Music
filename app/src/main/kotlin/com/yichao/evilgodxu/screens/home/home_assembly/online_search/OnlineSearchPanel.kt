@@ -124,7 +124,7 @@ private fun SearchInput(
             .padding(start = 12.dp, end = 12.dp)
             .height(48.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .background(Color.Transparent)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
@@ -135,7 +135,7 @@ private fun SearchInput(
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = Color.White,
             modifier = Modifier
                 .padding(start = 16.dp)
                 .size(20.dp)
@@ -148,7 +148,7 @@ private fun SearchInput(
                 .padding(start = 48.dp, end = 44.dp),
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 fontSize = 14.sp
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -165,7 +165,7 @@ private fun SearchInput(
                     if (playbackState.searchQuery.isEmpty()) {
                         Text(
                             text = stringResource(R.string.music_panel_search_placeholder),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            color = Color.White.copy(alpha = 0.5f),
                             fontSize = 14.sp
                         )
                     }
@@ -183,7 +183,7 @@ private fun SearchInput(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = Color.White,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -226,7 +226,7 @@ private fun SearchHistoryList(
     }
     LazyColumn(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth(0.85f)
             .weight(1f),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
