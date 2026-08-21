@@ -138,7 +138,14 @@ object MetadataEnricher {
     /** 后台加载在线歌词，返回歌词更新列表 */
     private suspend fun enrichLyrics(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
         val needLyrics = tracks.filter { track ->
-            track.lyricLines.isEmpty() && !MusicMetadataCache.isValid(track.lyricCachePath)
+            when {
+                // 缓存为最新格式（含逐字时序）直接沿用，不再重取
+                MusicMetadataCache.isCurrentLyricFormat(track.lyricCachePath) -> false
+                // 有缓存文件但格式旧（缺逐字时序），强制重取刷新
+                track.lyricCachePath.isNotBlank() -> true
+                // 无缓存：仅在缺歌词时拉取
+                else -> track.lyricLines.isEmpty()
+            }
         }
         if (needLyrics.isEmpty()) return emptyList()
         return coroutineScope {

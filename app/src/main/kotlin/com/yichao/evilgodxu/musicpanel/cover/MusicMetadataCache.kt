@@ -10,6 +10,8 @@ import java.io.File
 
 internal object MusicMetadataCache {
     private const val COVER_MAX_EDGE = 512
+    // 歌词缓存格式版本：旧版本（无逐字时序 words）命中该文件的歌词不视为有效，需重取刷新
+    private const val LYRIC_CACHE_VERSION = 2
 
     private fun root(context: Context) = File(context.filesDir, "music_metadata")
     private fun coverFile(context: Context, id: Long) = File(File(root(context), "covers_v2"), "$id.webp")
@@ -68,6 +70,7 @@ internal object MusicMetadataCache {
         val array = JSONArray()
         lines.forEach { line ->
             array.put(JSONObject().apply {
+                put("v", LYRIC_CACHE_VERSION)
                 put("timeMs", line.timeMs)
                 put("text", line.text)
                 put("words", JSONArray().also { words ->
@@ -108,6 +111,13 @@ internal object MusicMetadataCache {
     }
 
     fun isValid(path: String): Boolean = path.isNotBlank() && File(path).let { it.isFile && it.length() > 0 }
+
+    // 歌词缓存是否为最新格式：文件存在且带当前版本号才视为有效，旧格式需重取
+    fun isCurrentLyricFormat(path: String): Boolean = try {
+        isValid(path) && JSONObject(File(path).readText()).optInt("v", 0) == LYRIC_CACHE_VERSION
+    } catch (e: Exception) {
+        false
+    }
 
     fun isCurrentCoverPath(path: String): Boolean = isValid(path) && File(path).parentFile?.name == "covers_v2"
 

@@ -121,12 +121,12 @@ fun PlayerArea(
         }
     }
 
-    // 歌词区固定高度 = 5 行歌词（含顶部 4dp、每行上下 2dp 内边距与行间距），避免随歌词内容变化而跳动
+    // 歌词区固定高度 = 8 行歌词高度（显示 5 行，额外 3 行供歌词换行时使用），避免随歌词内容变化而跳动
     val textMeasurer = rememberTextMeasurer()
     val lyricLineHeight = with(LocalDensity.current) {
         textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = 16.sp)).size.height.toDp()
     }
-    val lyricsAreaHeight = (lyricLineHeight + 4.dp) * 5 + 2.dp * 4 + 4.dp
+    val lyricsAreaHeight = (lyricLineHeight + 4.dp) * 8 + 2.dp * 4 + 4.dp
 
     // 长按功能状态：复用音乐面板的封面/歌词刷新与标题/艺人重命名能力
     val context = LocalContext.current

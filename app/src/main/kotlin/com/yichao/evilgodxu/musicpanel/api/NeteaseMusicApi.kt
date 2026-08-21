@@ -64,11 +64,11 @@ internal object NeteaseMusicApi : OnlineMusicSource {
     suspend fun lyric(songId: Long): NeteaseLyricData = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("id", songId)
-            put("lv", 0)
-            put("kv", 0)
-            put("tv", 0)
-            put("rv", 0)
-            put("yv", 0)
+            put("lv", 1)
+            put("kv", 1)
+            put("tv", 1)
+            put("rv", 1)
+            put("yv", 1)
         }
         val root = request("song/lyric/v1", body)
         parseLrc(
