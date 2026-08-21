@@ -30,6 +30,8 @@ object MetadataEnricher {
             withContext(Dispatchers.IO) {
                 MusicMetadataCache.cleanupOrphanedMetadata(context, referenced)
             }
+            // 封面补全后刷新系统媒体面板的当前 MediaItem，避免封面就绪后仍显示空封面
+            refreshCurrentMediaItem(playbackState)
         }
 
     private suspend fun enrichPlaylistMetadata(context: Context, playbackState: MusicPlaybackState) {
@@ -127,14 +129,18 @@ object MetadataEnricher {
                         val coverBytes = NeteaseMusicApi.loadCoverBytes(match.coverUrl.orEmpty())
                             ?: return@async null // 下载失败时保留已有缓存与匹配信息，避免下次重复请求
                         val oldPath = track.coverCachePath
-                        // 优先把匹配到的封面写入音频文件元数据并清空独立缓存，由后续本地提取接管，避免冗余封面文件；
-                        // 写入失败（如纯在线资源不可写）则退回封面缓存方案，保证封面可用
+                        // 优先把匹配到的封面写入音频文件元数据，同时保留独立封面缓存：
+                        // 音频文件内嵌封面无法被 MediaItem 引用，系统媒体面板只能通过
+                        // coverCachePath 对应的 content:// URI 读取封面
                         if (MusicMetadataWriter.writeCoverToSource(context, track, coverBytes)) {
-                            if (oldPath.isNotBlank()) MusicMetadataCache.deleteCoverFile(oldPath)
+                            val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
+                            if (coverPath.isNotBlank() && oldPath.isNotBlank() && oldPath != coverPath) {
+                                MusicMetadataCache.deleteCoverFile(oldPath)
+                            }
                             track.copy(
                                 neteaseId = match.id,
                                 neteaseCoverUrl = match.coverUrl.orEmpty(),
-                                coverCachePath = ""
+                                coverCachePath = coverPath
                             )
                         } else {
                             val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()

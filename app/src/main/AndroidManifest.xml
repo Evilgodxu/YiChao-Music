@@ -94,10 +94,11 @@
             android:noHistory="true" />
 
         <!-- 音乐封面提供者：向系统媒体面板暴露本地封面文件 -->
+        <!-- exported 必须为 true：系统媒体面板（SystemUI）需要跨进程读取封面 URI，exported=false 会拒绝访问 -->
         <provider
             android:name=".musicpanel.MusicCoverProvider"
             android:authorities="${applicationId}.musiccover"
-            android:exported="false"
+            android:exported="true"
             android:grantUriPermissions="true" />
 
         <!-- APK 安装文件提供者 -->

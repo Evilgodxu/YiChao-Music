@@ -125,3 +125,22 @@ fun seekTo(state: MusicPlaybackState, positionMs: Long) {
         state.playbackScope.launch { controller.seekTo(positionMs) }
     }
 }
+
+/**
+ * 封面等元数据后台补全后刷新系统媒体面板的当前 MediaItem。
+ * 仅当 artworkUri 变化时才替换，替换不中断播放。
+ */
+fun refreshCurrentMediaItem(state: MusicPlaybackState) {
+    val context = state.appContext ?: return
+    val controller = state.mediaController ?: return
+    val track = state.currentTrack ?: return
+    val index = state.currentIndex
+    if (index < 0) return
+    state.playbackScope.launch {
+        if (controller.mediaItemCount != state.playlist.size) return@launch
+        val newItem = toMediaItem(context, track)
+        if (controller.currentMediaItem?.mediaMetadata?.artworkUri != newItem.mediaMetadata.artworkUri) {
+            controller.replaceMediaItem(index, newItem)
+        }
+    }
+}
