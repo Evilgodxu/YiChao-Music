@@ -50,7 +50,7 @@ internal fun WordSplitLyricText(
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.Center,
-        maxItemsInEachRow = 7,
+        maxItemsInEachRow = 5,
     ) {
         line.words.forEachIndexed { index, word ->
             // 已唱（含当前演唱词）为高亮色，未唱为待唱色；用纯色保证对比度可见
