@@ -94,7 +94,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // 左右滑动切换（右滑搜索、左滑歌单）共用的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
-private const val SWIPE_OPEN_RATIO = 0.35f
+private const val SWIPE_OPEN_RATIO = 0.25f
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,16 +203,16 @@ fun HomeAssembly(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                // 拖动期间实时跟手更新进度；松开时按 35% 阈值决定展开或回弹
+                // 拖动期间实时跟手更新进度；松开时按 25% 阈值决定展开或回弹
                 detectHorizontalDragGestures(
                     onDragStart = {
                         gestureSearchOpen = showOnlineSearch
                         gesturePlaylistOpen = showPlaylist
                     },
                     onDragEnd = {
-                        // 展开按滑动比例判定；从已展开面板回滑时按相同的 35% 比例判定关闭，保证来回切换阈值统一、跟手
+                        // 展开按滑动比例判定；从已展开面板回滑时按相同的 25% 比例判定关闭，保证来回切换阈值统一、跟手
                         val searchOpen = if (gestureSearchOpen) {
-                            searchProgress <= 1f - SWIPE_OPEN_RATIO
+                            searchProgress > 1f - SWIPE_OPEN_RATIO
                         } else {
                             searchProgress >= SWIPE_OPEN_RATIO
                         }
@@ -224,7 +224,7 @@ fun HomeAssembly(
                             }
                         }
                         val playlistOpen = if (gesturePlaylistOpen) {
-                            playlistProgress <= 1f - SWIPE_OPEN_RATIO
+                            playlistProgress > 1f - SWIPE_OPEN_RATIO
                         } else {
                             playlistProgress >= SWIPE_OPEN_RATIO
                         }

@@ -1,5 +1,9 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -42,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MetadataDialogCard
 import com.yichao.evilgodxu.musicpanel.MusicMetadataWriter
@@ -304,7 +311,10 @@ private fun TracksContent(
     // 可排序的本地列表：拖拽实时重排，随数据源变化重置
     var orderedTracks by remember(tracks) { mutableStateOf(tracks) }
     var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    // 拖拽项相对其原槽位的像素位移，用于 graphicsLayer 跟随手指
+    var dragOffset by remember { mutableFloatStateOf(0f) }
     val rowHeightPx = with(density) { 42.dp.toPx() }
+    val dragElevationPx = with(density) { 10.dp.toPx() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -349,6 +359,38 @@ private fun TracksContent(
             ) {
                 itemsIndexed(orderedTracks, key = { _, track -> track.audioUri }) { index, track ->
                     val isActive = track.id == playbackState.currentTrack?.id
+                    val isDragging = draggingIndex == index
+                    // 拖拽项抬起/落下的缩放、阴影与底色过渡动画
+                    val dragScale by animateFloatAsState(
+                        targetValue = if (isDragging) 1.04f else 1f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "dragScale",
+                    )
+                    val dragElevation by animateFloatAsState(
+                        targetValue = if (isDragging) dragElevationPx else 0f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "dragElevation",
+                    )
+                    val dragTint by animateColorAsState(
+                        targetValue = if (isDragging)
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                        else
+                            Color.Transparent,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "dragTint",
+                    )
+                    // 全部项统一挂载 animateItem 平滑换位；拖拽项以 zIndex 抬升并通过 graphicsLayer 实时跟手
+                    val itemModifier = Modifier
+                        .background(dragTint, RoundedCornerShape(8.dp))
+                        .animateItem()
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .graphicsLayer {
+                            translationY = if (isDragging) dragOffset else 0f
+                            scaleX = dragScale
+                            scaleY = dragScale
+                            shadowElevation = dragElevation
+                            shape = RoundedCornerShape(8.dp)
+                        }
                     val dragModifier = Modifier.pointerInput(track.audioUri, orderedTracks.size) {
                         awaitEachGesture {
                             // 手柄按下即消费事件，避免与行级长按冲突；长按后进入垂直拖拽排序
@@ -356,25 +398,21 @@ private fun TracksContent(
                             down.consume()
                             val startIndex = orderedTracks.indexOfFirst { it.audioUri == track.audioUri }
                             if (startIndex < 0) return@awaitEachGesture
-                            draggingIndex = startIndex
                             val longPress = awaitLongPressOrCancellation(down.id)
                             if (longPress != null) {
-                                // 以列表内容坐标系跟踪手指，重排或滚动均不改变该坐标
-                                val startFingerY = startIndex.let { idx ->
-                                    listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }?.offset ?: 0
-                                } + longPress.position.y
+                                draggingIndex = startIndex
+                                // 以手柄内坐标跟踪手指：重排/滚动引起的布局位移会在 position.y 中抵消，保证拖拽项始终跟手
+                                val grabOffset = longPress.position.y
+                                dragOffset = 0f
                                 while (true) {
                                     val event = awaitPointerEvent()
                                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                     if (!change.pressed) break
                                     change.consume()
-                                    val itemInfo = listState.layoutInfo.visibleItemsInfo
-                                        .firstOrNull { it.key == track.audioUri }
-                                        ?: break
-                                    val fingerY = itemInfo.offset + change.position.y
-                                    val target = (startIndex + ((fingerY - startFingerY) / rowHeightPx).roundToInt())
-                                        .coerceIn(0, orderedTracks.lastIndex)
+                                    dragOffset = change.position.y - grabOffset
                                     val current = draggingIndex ?: break
+                                    val target = (current + (dragOffset / rowHeightPx).roundToInt())
+                                        .coerceIn(0, orderedTracks.lastIndex)
                                     if (target != current) {
                                         val list = orderedTracks.toMutableList()
                                         val moved = list.removeAt(current)
@@ -405,6 +443,7 @@ private fun TracksContent(
                                 }
                             }
                             draggingIndex = null
+                            dragOffset = 0f
                         }
                     }
                     PlaylistTrackRow(
@@ -412,6 +451,7 @@ private fun TracksContent(
                         isActive = isActive,
                         isPlaying = isActive && playbackState.isPlaying,
                         isLiked = track.id in playbackState.likedIds,
+                        modifier = itemModifier,
                         onClick = {
                             if (isActive) {
                                 togglePlayPause(playbackState)
@@ -436,13 +476,14 @@ private fun PlaylistTrackRow(
     isActive: Boolean,
     isPlaying: Boolean,
     isLiked: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     dragHandleModifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
