@@ -19,10 +19,10 @@ android {
 
     defaultConfig {
         applicationId = "com.yichao.evilgodxu"
-        minSdk = 32
+        minSdk = 28
         targetSdk = 37
         versionCode = 4
-        versionName = "1.1.0"
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
