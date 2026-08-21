@@ -15,6 +15,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
+// 封面/歌词刷新候选的来源（网易云+QQ+酷狗；Jamendo 无独立元数据/歌词接口，不参与）
+private val metadataCandidateSources: List<OnlineMusicSource> = listOf(
+    NeteaseMusicApi,
+    QQMusicApi,
+    KugouMusicApi,
+)
+
+// 多源并行搜索候选：每个来源对每条查询各取前 5 条（取封面可用者），单源失败不影响其它来源
+private suspend fun searchMetadataCandidates(query: String): List<NeteaseSongSearchResult> = coroutineScope {
+    metadataCandidateSources.mapNotNull { source ->
+        runCatching {
+            source.search(query)
+                .filter { !it.coverUrl.isNullOrBlank() }
+                .take(5)
+        }.getOrNull()
+    }.flatten()
+}
+
 internal suspend fun searchLyricsCandidates(
     playbackState: MusicPlaybackState,
     track: MusicTrack,
@@ -23,14 +41,18 @@ internal suspend fun searchLyricsCandidates(
     playbackState.lyricsCandidates = emptyList()
     playbackState.lyricsRefreshError = null
     try {
-        val occupied = NeteaseMusicApi.search("${track.title} ${track.artist}")
+        val combined = listOf(track.title, track.artist)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+        val occupied = if (combined.isBlank()) emptyList() else searchMetadataCandidates(combined)
             .filter { !it.coverUrl.isNullOrBlank() }
-            .take(5)
         val occupiedIds = occupied.map { it.id }.toSet()
-        val titleOnly = NeteaseMusicApi.search(track.title)
+        val titleOnly = if (track.title.isBlank()) emptyList() else searchMetadataCandidates(track.title)
             .filter { it.id !in occupiedIds && !it.coverUrl.isNullOrBlank() }
-            .take(5)
-        playbackState.lyricsCandidates = (occupied + titleOnly).distinctBy { it.id }.take(10)
+        playbackState.lyricsCandidates = NeteaseMusicApi.rankSearchResults(
+            (occupied + titleOnly).distinctBy { it.id },
+            combined.ifBlank { track.title }
+        ).take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌词候选失败: 歌曲=${track.title}", e)
         playbackState.lyricsCandidates = emptyList()
@@ -49,13 +71,17 @@ internal suspend fun applyLyricsCandidate(
     playbackState.lyricsRefreshError = null
     return try {
         val updated = withContext(Dispatchers.IO) {
-            val lyric = NeteaseMusicApi.lyric(candidate.id)
-            if (lyric.lines.isEmpty()) return@withContext null
-            val path = MusicMetadataCache.saveLyrics(context, candidate.id, lyric.lines).orEmpty()
+            val lines = when (candidate.source) {
+                MusicSearchSource.QQ -> QQMusicApi.lyricLines(candidate).orEmpty()
+                MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(candidate).orEmpty()
+                else -> NeteaseMusicApi.lyric(candidate.id).lines
+            }
+            if (lines.isEmpty()) return@withContext null
+            val path = MusicMetadataCache.saveLyrics(context, candidate.id, lines).orEmpty()
             if (path.isBlank()) return@withContext null
             track.copy(
                 lyricCachePath = path,
-                lyricLines = lyric.lines,
+                lyricLines = lines,
                 neteaseId = candidate.id,
                 neteaseCoverUrl = candidate.coverUrl.orEmpty()
             )
@@ -85,18 +111,18 @@ internal suspend fun searchCoverCandidates(
             .filter { it.isNotBlank() }
             .joinToString(" ")
         val titleArtistCandidates = if (titleArtist.isBlank()) emptyList() else {
-            NeteaseMusicApi.search(titleArtist)
+            searchMetadataCandidates(titleArtist)
                 .filter { !it.coverUrl.isNullOrBlank() }
-                .take(5)
         }
         val titleCandidates = if (track.title.isBlank()) emptyList() else {
-            NeteaseMusicApi.search(track.title)
+            searchMetadataCandidates(track.title)
                 .filter { !it.coverUrl.isNullOrBlank() }
-                .take(5)
         }
-        playbackState.coverCandidates = (titleArtistCandidates + titleCandidates)
-            .distinctBy { it.id }
-            .take(10)
+        playbackState.coverCandidates = NeteaseMusicApi.rankSearchResults(
+            (titleArtistCandidates + titleCandidates)
+                .distinctBy { it.id },
+            titleArtist.ifBlank { track.title }
+        ).take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索封面候选失败: 歌曲=${track.title}", e)
         playbackState.coverCandidates = emptyList()
@@ -290,6 +316,8 @@ internal suspend fun cacheToDownloads(
         withContext(Dispatchers.Main) {
             updateTrackAudioUri(playbackState, trackId, audioUri)
         }
+        // 下载完成：刷新播放列表，将封面写入已缓存文件元数据并在本地提取为展示缓存，同时清理冗余封面文件
+        MetadataEnricher.enrichAndCleanup(context, playbackState)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "缓存下载文件失败", e)
     }

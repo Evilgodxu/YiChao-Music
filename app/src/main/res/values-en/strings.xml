@@ -68,7 +68,7 @@
     <string name="music_panel_sound_effects_title">Sound effects</string>
     <string name="music_panel_sound_effects_enter">Open</string>
     <string name="music_panel_sound_effects_not_implemented">Not implemented</string>
-    <string name="music_panel_play_error">This song cannot be played (maybe VIP only)</string>
+    <string name="music_panel_play_error">Copyright protection prevents playback.</string>
     <string name="music_panel_play_failed">Playback failed</string>
     <string name="music_panel_copy">Copy</string>
     <string name="music_panel_rename">Rename</string>

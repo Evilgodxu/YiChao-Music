@@ -12,8 +12,9 @@ import java.io.File
 internal object MusicMetadataCache {
     private const val COVER_MAX_EDGE = 512
 
+    // 使用应用私有目录，免外部存储权限（Android 10+ 分区存储下公共 Download 目录不可直接写）
     private fun downloadsDir(context: Context): File =
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
 
     internal fun coverRoot(context: Context): File = File(downloadsDir(context), "YiChao/Cover")
     private fun lyricRoot(context: Context): File = File(downloadsDir(context), "YiChao/Lyrics")

@@ -48,6 +48,9 @@ val LocalThemeTransitionController = androidx.compose.runtime.staticCompositionL
 // 成功态配色（随主题切换）
 val LocalSuccessColor = androidx.compose.runtime.staticCompositionLocalOf { md_theme_light_success }
 
+// 当前是否为深色主题，供子页面按需覆盖状态栏样式
+val LocalIsDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 val LightColorScheme = lightColorScheme(
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
@@ -176,6 +179,7 @@ fun MyApplicationTheme(
     CompositionLocalProvider(
         LocalThemeTransitionController provides transitionController,
         LocalSuccessColor provides if (isDarkTheme) md_theme_dark_success else md_theme_light_success,
+        LocalIsDarkTheme provides isDarkTheme,
     ) {
         MaterialTheme(
             colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,

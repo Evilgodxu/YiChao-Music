@@ -63,7 +63,8 @@ object MetadataEnricher {
             val coverOwned = fileId != null &&
                 MusicMetadataCache.isValid(path) &&
                 (fileId == track.id || (track.neteaseId > 0L && fileId == track.neteaseId))
-            !coverOwned && (track.path.isNotBlank() || track.neteaseCoverUrl.isBlank())
+            // 有可提取内嵌封面的本地音频源才尝试提取：本地文件路径或 MediaStore 本地文件（在线缓存歌）均纳入
+            !coverOwned && (track.path.isNotBlank() || isLocalFileUri(track.audioUri))
         }
         if (needCover.isEmpty()) return
         val updates = coroutineScope {
@@ -105,6 +106,12 @@ object MetadataEnricher {
         }
     }
 
+    // 是否为可读取本地音频文件（本地文件路径或 MediaStore 本地文件），区分纯在线流媒体资源
+    private fun isLocalFileUri(uri: String): Boolean = runCatching {
+        val scheme = Uri.parse(uri).scheme
+        scheme == "content" || scheme == "file"
+    }.getOrDefault(false)
+
     /** 后台加载在线封面，返回封面更新列表 */
     private suspend fun enrichOnlineCovers(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
         val needCover = tracks.filter { track ->
@@ -120,16 +127,27 @@ object MetadataEnricher {
                         val coverBytes = NeteaseMusicApi.loadCoverBytes(match.coverUrl.orEmpty())
                             ?: return@async null // 下载失败时保留已有缓存与匹配信息，避免下次重复请求
                         val oldPath = track.coverCachePath
-                        val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
-                        if (coverPath.isBlank()) return@async null
-                        if (oldPath.isNotBlank() && oldPath != coverPath) {
-                            MusicMetadataCache.deleteCoverFile(oldPath)
+                        // 优先把匹配到的封面写入音频文件元数据并清空独立缓存，由后续本地提取接管，避免冗余封面文件；
+                        // 写入失败（如纯在线资源不可写）则退回封面缓存方案，保证封面可用
+                        if (MusicMetadataWriter.writeCoverToSource(context, track, coverBytes)) {
+                            if (oldPath.isNotBlank()) MusicMetadataCache.deleteCoverFile(oldPath)
+                            track.copy(
+                                neteaseId = match.id,
+                                neteaseCoverUrl = match.coverUrl.orEmpty(),
+                                coverCachePath = ""
+                            )
+                        } else {
+                            val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
+                            if (coverPath.isBlank()) return@async null
+                            if (oldPath.isNotBlank() && oldPath != coverPath) {
+                                MusicMetadataCache.deleteCoverFile(oldPath)
+                            }
+                            track.copy(
+                                neteaseId = match.id,
+                                neteaseCoverUrl = match.coverUrl.orEmpty(),
+                                coverCachePath = coverPath
+                            )
                         }
-                        track.copy(
-                            neteaseId = match.id,
-                            neteaseCoverUrl = match.coverUrl.orEmpty(),
-                            coverCachePath = coverPath
-                        )
                     } catch (e: Exception) {
                         CrashLogManager.logException(
                             "MetadataEnricher",

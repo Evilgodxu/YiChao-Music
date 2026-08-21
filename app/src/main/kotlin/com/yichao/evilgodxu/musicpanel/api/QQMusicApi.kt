@@ -84,9 +84,9 @@ internal object QQMusicApi : OnlineMusicSource {
                 title = item.optString("title").ifBlank { item.optString("name") },
                 artist = artist,
                 coverUrl = cover,
-                // QQ 封面 CDN 支持直接改尺寸段生成小图
+                // QQ 封面 CDN 支持直接改尺寸段生成小图，128 尺寸段无效(404)，使用合法的 150
                 coverThumbUrl = if (albumMid.isNotBlank()) {
-                    "https://y.gtimg.cn/music/photo_new/T002R128x128M000$albumMid.jpg"
+                    "https://y.gtimg.cn/music/photo_new/T002R150x150M000$albumMid.jpg"
                 } else null,
                 duration = item.optLong("interval", 0L) * 1000L,
                 source = MusicSearchSource.QQ,

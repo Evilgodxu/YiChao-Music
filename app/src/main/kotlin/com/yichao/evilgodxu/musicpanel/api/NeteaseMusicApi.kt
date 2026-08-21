@@ -112,9 +112,33 @@ internal object NeteaseMusicApi : OnlineMusicSource {
                 duration = song.optLong("duration", 0L)
             )
         }
-        // 补全搜索结果中缺失封面 URL 的条目（旧版 search/get 接口有时不返回 picUrl）
-        fillMissingCovers(results)
+        // 按与查询关键词的相关性重排，优先展示与原曲(歌名+歌手)更匹配的结果，再补全缺失封面
+        fillMissingCovers(rankSearchResults(results, keyword))
     }
+
+    // 网易模糊搜索常把同名翻唱/伴奏等排在原唱之前，这里按相关性降权重排
+    internal fun rankSearchResults(
+        results: List<NeteaseSongSearchResult>,
+        query: String,
+    ): List<NeteaseSongSearchResult> {
+        val nq = normalize(query)
+        return results.sortedBy { result ->
+            val nt = normalize(result.title)
+            var score = if (nq.isNotBlank() && nt.isNotEmpty() && (nq == nt || nq.contains(nt) || nt.contains(nq))) -100 else 0
+            if (VERSION_MARKERS.any { result.title.lowercase().contains(it) }) score += 60
+            // 查询中剔除歌名部分后仍剩歌手关键词，而结果歌手未匹配该关键词时降权
+            val normArtist = normalize(result.artist)
+            val residue = nq.replace(nt, "")
+            if (residue.isNotEmpty() && normArtist.isNotEmpty() && !nq.contains(normArtist)) score += 80
+            score
+        }
+    }
+
+    // 原曲以外的版本/翻唱等标记，命中即降权
+    private val VERSION_MARKERS = listOf(
+        "深情版", "女声版", "男声版", "童声", "翻唱", "现场", "弹唱", "伴奏",
+        "演唱会", "钢琴", "吉他", "纯音乐", "dj版", "remix", "cover", "live版", "重唱"
+    )
 
     /** 批量补全搜索结果中缺失封面 URL 的条目，与 QPlayer 的 fillMissingCovers() 对应 */
     private fun fillMissingCovers(results: List<NeteaseSongSearchResult>): List<NeteaseSongSearchResult> {

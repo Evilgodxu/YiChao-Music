@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaScannerConnection
+import android.net.Uri
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,6 +24,32 @@ internal object MusicMetadataWriter {
                 writeMetadata(bytes, null, null, coverBytes)
             }
         }
+
+    // 在线缓存的歌曲 path 为空、audioUri 为 MediaStore content://，无法走文件路径写入，改用 ContentResolver 就地重写
+    suspend fun writeCoverToSource(context: Context, track: MusicTrack, coverBytes: ByteArray): Boolean =
+        withContext(Dispatchers.IO) {
+            if (track.path.isNotBlank()) {
+                write(context, track.path) { bytes -> writeMetadata(bytes, null, null, coverBytes) }
+            } else {
+                writeCoverByUri(context, track.audioUri, coverBytes)
+            }
+        }
+
+    private fun writeCoverByUri(context: Context, uriString: String, coverBytes: ByteArray): Boolean {
+        if (uriString.isBlank()) return false
+        return try {
+            val uri = Uri.parse(uriString)
+            if (uri.scheme != "content") return false
+            val resolver = context.contentResolver
+            val source = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return false
+            val result = writeMetadata(source, null, null, coverBytes) ?: return false
+            resolver.openOutputStream(uri, "wt")?.use { it.write(result) } ?: return false
+            true
+        } catch (e: Throwable) {
+            CrashLogManager.logException("MusicMetadataWriter", "经 content URI 写入音频元数据失败", e)
+            false
+        }
+    }
 
     suspend fun writeTitleArtist(
         context: Context,

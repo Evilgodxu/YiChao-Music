@@ -34,6 +34,10 @@ internal object KugouMusicApi : OnlineMusicSource {
                     ?: item.optString("cover_url").takeIf { it.isNotBlank() }
                     ?: item.optString("Image").takeIf { it.isNotBlank() }
                 if (cover != null && cover.contains("{size}")) cover = cover.replace("{size}", "300")
+                // 封面 CDN 返回 http 明文，Android 9+ 默认禁止明文流量，统一转 https
+                if (cover != null && cover.startsWith("http://")) {
+                    cover = "https://${cover.removePrefix("http://")}"
+                }
                 // duration 为秒，timelen 为毫秒，二者取其一
                 val durationSec = item.optString("duration").toLongOrNull()
                     ?: item.optLong("Duration", 0L)

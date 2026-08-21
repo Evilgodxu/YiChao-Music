@@ -81,6 +81,11 @@ class MusicPlaybackState {
                 currentPosition = 0L
                 duration = 0L
             }
+            // 切换曲目时刷新播放列表：把缓存完成时写入内嵌的封面等元数据提取为展示缓存，清理冗余封面文件
+            val triggerContext = appContext ?: return
+            playbackScope.launch {
+                MetadataEnricher.enrichAndCleanup(triggerContext, this@MusicPlaybackState)
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {

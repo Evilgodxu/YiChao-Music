@@ -68,7 +68,6 @@ internal fun OnlineSearchPanel(
     val context = LocalContext.current
     Column(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surface)
             .pointerInput(Unit) {
                 // dragAmount 为每帧增量，累计距离后判定是否需要左滑关闭
                 var totalDx = 0f
@@ -79,7 +78,7 @@ internal fun OnlineSearchPanel(
                 }
             }
     ) {
-        PanelHeader(onClose = onClose)
+        PanelHeader()
         SearchInput(playbackState = playbackState, context = context, scope = scope)
         if (playbackState.showSearchResults) {
             SearchResultList(
@@ -97,30 +96,16 @@ internal fun OnlineSearchPanel(
     }
 }
 
-// 面板标题栏：标题 + 关闭按钮
+// 面板标题栏：仅显示标题，关闭操作通过左滑或系统返回键完成
 @Composable
-private fun PanelHeader(onClose: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(R.string.music_panel_search_title),
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        IconButton(onClick = onClose) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
+private fun PanelHeader() {
+    Text(
+        text = stringResource(R.string.music_panel_search_title),
+        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp)
+    )
 }
 
 // 搜索输入框
