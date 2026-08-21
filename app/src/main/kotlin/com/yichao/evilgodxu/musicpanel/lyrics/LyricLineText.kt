@@ -116,8 +116,21 @@ private fun wrapLyricText(text: String): String {
         var i = 0
         while (i < text.length) {
             if (i > 0) append('\n')
-            append(text, i, minOf(i + MAX_LYRIC_CHARS, text.length))
-            i += MAX_LYRIC_CHARS
+            val end = minOf(i + MAX_LYRIC_CHARS, text.length)
+            // 在本行范围内取最近空格断行，避免截断完整单词
+            var breakAt = end
+            var j = end
+            while (j > i) {
+                if (text[j - 1].isWhitespace()) {
+                    breakAt = j
+                    break
+                }
+                j--
+            }
+            append(text, i, breakAt)
+            i = breakAt
+            // 跳过下一行行首空格
+            while (i < text.length && text[i].isWhitespace()) i++
         }
     }
 }
