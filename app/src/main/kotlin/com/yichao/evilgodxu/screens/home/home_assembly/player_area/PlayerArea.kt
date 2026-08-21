@@ -158,11 +158,21 @@ fun PlayerArea(
     var lyricTuneVisible by remember { mutableStateOf(false) }
     // 微调操作计数：每次调整自增以重置自动隐藏计时
     var tuneVersion by remember { mutableStateOf(0) }
+    // 浮动提示：显示当前微调的毫秒数
+    var tuneHintText by remember { mutableStateOf("") }
+    var tuneHintVersion by remember { mutableStateOf(0) }
     // 显示后 2 秒无操作自动隐藏
     LaunchedEffect(lyricTuneVisible, tuneVersion) {
         if (lyricTuneVisible) {
             delay(2000)
             lyricTuneVisible = false
+        }
+    }
+    // 浮动提示暂显后自动消失
+    LaunchedEffect(tuneHintVersion) {
+        if (tuneHintText.isNotEmpty()) {
+            delay(800)
+            tuneHintText = ""
         }
     }
 
@@ -245,7 +255,12 @@ fun PlayerArea(
                 // 歌词微调：左-延后歌词，右+提前歌词，每次微调一个步长
                 if (lyricTuneVisible && playbackState.currentTrack?.lyricLines?.isNotEmpty() == true) {
                     IconButton(
-                        onClick = { playbackState.adjustLyricsOffset(LyricFineTuneStepMs); tuneVersion++ },
+                        onClick = {
+                            playbackState.adjustLyricsOffset(LyricFineTuneStepMs)
+                            tuneVersion++
+                            tuneHintText = "+${LyricFineTuneStepMs}ms"
+                            tuneHintVersion++
+                        },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .padding(start = 16.dp)
@@ -260,7 +275,12 @@ fun PlayerArea(
                         )
                     }
                     IconButton(
-                        onClick = { playbackState.adjustLyricsOffset(-LyricFineTuneStepMs); tuneVersion++ },
+                        onClick = {
+                            playbackState.adjustLyricsOffset(-LyricFineTuneStepMs)
+                            tuneVersion++
+                            tuneHintText = "-${LyricFineTuneStepMs}ms"
+                            tuneHintVersion++
+                        },
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .padding(end = 16.dp)
@@ -272,6 +292,22 @@ fun PlayerArea(
                             contentDescription = stringResource(R.string.home_player_lyric_advance),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                // 浮动提示：居中显示微调的毫秒数
+                if (tuneHintText.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = tuneHintText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
                         )
                     }
                 }
