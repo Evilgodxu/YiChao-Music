@@ -173,6 +173,7 @@ internal fun LyricText(
     if (line.words.isNotEmpty()) {
         WordSplitLyricText(
             line = line,
+            nextTimeMs = nextTimeMs,
             positionMs = positionMs,
             isCurrent = isCurrent,
             fontSize = fontSize,

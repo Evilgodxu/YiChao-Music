@@ -123,4 +123,4 @@ private fun wrapLyricText(text: String): String {
 }
 
 // 单行歌词超过该字符数则手动换行
-private const val MAX_LYRIC_CHARS = 30
+private const val MAX_LYRIC_CHARS = 20

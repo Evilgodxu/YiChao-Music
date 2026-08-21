@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun WordSplitLyricText(
     line: LyricLine,
+    nextTimeMs: Long,
     positionMs: Long,
     isCurrent: Boolean,
     fontSize: TextUnit,
@@ -33,17 +34,18 @@ internal fun WordSplitLyricText(
     pendingColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    // 已开唱即命中首个词，保证演唱中至少首个词处于高亮，避免整行停留在待唱色
-    val reachedFirst = isCurrent && positionMs >= line.words.first().startMs
-    // 当前演唱词下标：位置命中的最后一个已开唱词；未开唱时为 -1
-    val currentWordIdx = if (reachedFirst) {
-        line.words.indexOfLast { positionMs >= it.startMs }.coerceAtLeast(0)
+    // 词起点时间戳分布往往不均匀（词间空隙大），直接按时戳点亮会长时间停在首词上，
+    // 故仿照单行歌词将整行时长按词均分，保证逐词连续高亮与跳动
+    val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
+    val wordCount = line.words.size.coerceAtLeast(1)
+    val perWordMs = duration / wordCount.toFloat()
+    // 当前演唱词下标：将行内已播放时长折算到词序号；未开唱时为 -1
+    val currentWordIdx = if (isCurrent && positionMs > line.timeMs) {
+        ((positionMs - line.timeMs).toFloat() / perWordMs).toInt().coerceIn(0, wordCount - 1)
     } else {
         -1
     }
     val floatPx = with(LocalDensity.current) { 0.05f * fontSize.toPx() }
-    // 当前词演唱持续窗口终点 = 起始 + 时长，超出即视为该词已唱完，停止强调
-    val fillingEndMs = line.words.getOrNull(currentWordIdx)?.let { it.startMs + it.durationMs }
 
     FlowRow(
         modifier = modifier,
@@ -52,9 +54,9 @@ internal fun WordSplitLyricText(
     ) {
         line.words.forEachIndexed { index, word ->
             // 已唱（含当前演唱词）为高亮色，未唱为待唱色；用纯色保证对比度可见
-            val isSung = reachedFirst && index <= currentWordIdx
-            // 仅当前正在演唱（词景点亮窗口内）的词触发跳动，其余词保持静态
-            val isFilling = isSung && currentWordIdx == index && fillingEndMs != null && positionMs < fillingEndMs
+            val isSung = isCurrent && index <= currentWordIdx
+            // 仅当前正在演唱的词触发跳动，其余词保持静态
+            val isFilling = currentWordIdx == index
             val emphasis by animateFloatAsState(
                 targetValue = if (isFilling) 1f else 0f,
                 animationSpec = spring(
