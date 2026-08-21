@@ -41,8 +41,11 @@ suspend fun playTrackAt(
     state: MusicPlaybackState,
     index: Int,
     autoPlay: Boolean = true,
+    clearQueue: Boolean = true,
 ) {
     state.playTrackMutex.withLock {
+        // 手动切歌默认清空插队队列；仅自然接续（队列消费/自动下一首）时由调用方显式关闭
+        if (clearQueue) state.clearPlayNextQueue()
         val track = state.playlist.getOrNull(index) ?: return
         val controller = getController(context, state)
         val items = state.cachedMediaItems ?: withContext(Dispatchers.IO) {
@@ -112,7 +115,8 @@ fun togglePlayPause(state: MusicPlaybackState) {
             val context = state.appContext ?: return@launch
             val index = state.currentIndex
             if (index >= 0) {
-                playTrackAt(context, state, index)
+                // 恢复当前曲目而非切歌，保留插队队列
+                playTrackAt(context, state, index, clearQueue = false)
             }
             return@launch
         }

@@ -72,6 +72,31 @@ class MusicPlaybackState {
                 }
                 return
             }
+            // 插队队列：仅自然切换时消费队列；队列播完后接续原播放位置
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                if (playNextQueue.isNotEmpty()) {
+                    val queued = playNextQueue.first()
+                    playNextQueue = playNextQueue.drop(1)
+                    val queuedIndex = playlist.indexOfFirst { it.id == queued.id }
+                    if (queuedIndex >= 0) {
+                        playbackScope.launch {
+                            playTrackAt(appContext ?: return@launch, this@MusicPlaybackState, queuedIndex, clearQueue = false)
+                        }
+                        return
+                    }
+                } else if (queueResumeTrackId != null) {
+                    val resumeTrackId = queueResumeTrackId
+                    queueResumeTrackId = null
+                    val resumeIndex = playlist.indexOfFirst { it.id == resumeTrackId }
+                    val next = calculateIndex(direction = 1, repeatOne = true, from = resumeIndex)
+                    if (next in playlist.indices && next != currentIndex) {
+                        playbackScope.launch {
+                            playTrackAt(appContext ?: return@launch, this@MusicPlaybackState, next, clearQueue = false)
+                        }
+                        return
+                    }
+                }
+            }
             val id = mediaItem?.mediaId?.toLongOrNull() ?: return
             val index = playlist.indexOfFirst { it.id == id }
             if (index >= 0) {
@@ -124,7 +149,7 @@ class MusicPlaybackState {
                     val next = autoNextIndex()
                     if (next >= 0) {
                         playbackScope.launch {
-                            playTrackAt(appContext ?: return@launch, this@MusicPlaybackState, next)
+                            playTrackAt(appContext ?: return@launch, this@MusicPlaybackState, next, clearQueue = false)
                         }
                     }
                 }
@@ -273,6 +298,8 @@ class MusicPlaybackState {
     fun removeTrack(trackId: Long) {
         if (playlist.none { it.id == trackId }) return
         playlist = playlist.filterNot { it.id == trackId }
+        playNextQueue = playNextQueue.filterNot { it.id == trackId }
+        if (queueResumeTrackId == trackId) queueResumeTrackId = null
         if (currentTrack?.id == trackId) {
             mediaController?.stop()
             currentTrack = null
@@ -307,6 +334,25 @@ class MusicPlaybackState {
 
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
+
+    // 下一首播放插队队列：自然播完后依次播放队列曲目，再接续原播放位置
+    var playNextQueue by mutableStateOf<List<MusicTrack>>(emptyList())
+    // 建立队列时记录的当前曲目 ID，队列播完后据此接续原播放位置
+    private var queueResumeTrackId: Long? by mutableStateOf(null)
+
+    // 将曲目加入下一首播放队列
+    fun addToPlayNext(track: MusicTrack) {
+        if (playNextQueue.isEmpty() && queueResumeTrackId == null) {
+            queueResumeTrackId = currentTrack?.id
+        }
+        playNextQueue = playNextQueue + track
+    }
+
+    // 手动切歌时清空插队队列
+    fun clearPlayNextQueue() {
+        playNextQueue = emptyList()
+        queueResumeTrackId = null
+    }
 
     // 定时关闭相关状态（后台计时）
     var timerMinutes by mutableIntStateOf(10)
@@ -652,9 +698,9 @@ class MusicPlaybackState {
         isPlaying = controller.isPlaying
     }
 
-    private fun calculateIndex(direction: Int, repeatOne: Boolean): Int {
+    private fun calculateIndex(direction: Int, repeatOne: Boolean, from: Int = currentIndex): Int {
         if (playlist.isEmpty()) return -1
-        val validCurrentIndex = currentIndex.takeIf { it in playlist.indices } ?: 0
+        val validCurrentIndex = from.takeIf { it in playlist.indices } ?: 0
         return when {
             playMode == PlayMode.RepeatOne && repeatOne -> validCurrentIndex
             playMode == PlayMode.Shuffle -> {

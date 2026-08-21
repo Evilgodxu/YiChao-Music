@@ -95,6 +95,7 @@
     <string name="music_panel_mini_mode">Mini mode</string>
     <string name="music_panel_mini_mode_desc">Show mini player after closing the music panel</string>
     <string name="music_panel_favorite">Favorite</string>
+    <string name="music_panel_play_next">Play next</string>
     <string name="music_panel_bluetooth_device">Bluetooth device</string>
     <string name="music_panel_usb_device">USB device</string>
 

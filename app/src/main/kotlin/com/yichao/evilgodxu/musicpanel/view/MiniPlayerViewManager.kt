@@ -73,11 +73,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.center
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -868,7 +870,8 @@ private fun MiniPlaylistPanel(
                         scope.launch { playTrackAt(context, playbackState, index) }
                         onClose()
                     },
-                    onFavoriteClick = { playbackState.toggleFavorite(track.id) }
+                    onFavoriteClick = { playbackState.toggleFavorite(track.id) },
+                    onPlayNextClick = { playbackState.addToPlayNext(track) }
                 )
             }
         }
@@ -890,6 +893,7 @@ private fun MiniPlaylistRow(
     isPlaying: Boolean,
     onClick: () -> Unit,
     onFavoriteClick: () -> Unit,
+    onPlayNextClick: () -> Unit,
 ) {
     val bg by animateColorAsState(
         targetValue = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
@@ -969,6 +973,18 @@ private fun MiniPlaylistRow(
                 lineHeight = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        IconButton(
+            onClick = onPlayNextClick,
+            modifier = Modifier.size(26.dp)
+        ) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_play_next),
+                contentDescription = stringResource(R.string.music_panel_play_next),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
             )
         }
 

@@ -96,6 +96,7 @@
     <string name="music_panel_mini_mode">迷你模式</string>
     <string name="music_panel_mini_mode_desc">关闭音乐面板后显示迷你播放器</string>
     <string name="music_panel_favorite">收藏</string>
+    <string name="music_panel_play_next">下一首播放</string>
     <string name="music_panel_bluetooth_device">蓝牙设备</string>
     <string name="music_panel_usb_device">USB 设备</string>
 

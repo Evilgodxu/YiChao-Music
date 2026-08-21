@@ -773,6 +773,7 @@ internal fun PlaylistSheet(
                                 },
                                 onLongClick = {},
                                 onFavoriteClick = { playbackState.toggleFavorite(track.id) },
+                                onPlayNextClick = { playbackState.addToPlayNext(track) },
                             )
                         }
                     }

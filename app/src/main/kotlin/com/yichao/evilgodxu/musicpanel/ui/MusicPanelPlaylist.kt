@@ -47,7 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -137,7 +139,8 @@ internal fun PlaylistOverlay(
                                 isPlaying = isActive && playbackState.isPlaying,
                                 onClick = { onTrackSelected(index) },
                                 onLongClick = { onTrackLongPress(track) },
-                                onFavoriteClick = { playbackState.toggleFavorite(track.id) }
+                                onFavoriteClick = { playbackState.toggleFavorite(track.id) },
+                                onPlayNextClick = { playbackState.addToPlayNext(track) }
                             )
                         }
                     }
@@ -164,6 +167,7 @@ internal fun PlaylistRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
+    onPlayNextClick: () -> Unit,
 ) {
     val bg by animateColorAsState(
         targetValue = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
@@ -241,6 +245,14 @@ internal fun PlaylistRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
+        HeaderIconButton(
+            icon = ImageVector.vectorResource(R.drawable.ic_play_next),
+            contentDescription = stringResource(R.string.music_panel_play_next),
+            onClick = onPlayNextClick,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp)
+        )
 
         HeaderIconButton(
             icon = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
