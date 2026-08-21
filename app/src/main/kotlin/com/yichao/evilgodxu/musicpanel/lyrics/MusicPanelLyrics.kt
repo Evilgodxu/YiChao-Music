@@ -28,14 +28,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -175,66 +170,29 @@ internal fun LyricText(
     pendingColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
-    val totalLen = line.text.length.coerceAtLeast(1)
-    // 手动换行后的各行，时间按字符数占比分配，后一行在前一行渲染完成后才高亮
-    val segments = wrapLyricText(line.text).split('\n')
-
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        var acc = 0
-        segments.forEach { segment ->
-            val startMs = line.timeMs + duration * acc / totalLen
-            val endMs = line.timeMs + duration * (acc + segment.length) / totalLen
-            acc += segment.length
-            val progress = when {
-                !isCurrent || positionMs <= startMs -> 0f
-                positionMs >= endMs -> 1f
-                else -> ((positionMs - startMs).toFloat() / (endMs - startMs)).coerceIn(0f, 1f)
-            }
-            val lyricBrush = when {
-                progress <= 0f -> Brush.horizontalGradient(listOf(pendingColor, pendingColor))
-                progress >= 1f -> Brush.horizontalGradient(listOf(activeColor, activeColor))
-                else -> Brush.horizontalGradient(
-                    colorStops = arrayOf(
-                        0f to activeColor,
-                        progress to activeColor,
-                        progress to pendingColor,
-                        1f to pendingColor
-                    )
-                )
-            }
-            Text(
-                text = segment,
-                style = TextStyle(
-                    brush = lyricBrush,
-                    shadow = if (progress > 0f) Shadow(
-                        activeColor.copy(alpha = 0.65f),
-                        blurRadius = 7f
-                    ) else null
-                ),
-                fontSize = fontSize,
-                softWrap = false,
-                textAlign = TextAlign.Center,
-                fontWeight = fontWeight,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-// 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
-private fun wrapLyricText(text: String): String {
-    if (text.length <= MAX_LYRIC_CHARS) return text
-    return buildString {
-        var i = 0
-        while (i < text.length) {
-            if (i > 0) append('\n')
-            append(text, i, minOf(i + MAX_LYRIC_CHARS, text.length))
-            i += MAX_LYRIC_CHARS
-        }
+    if (line.words.isNotEmpty()) {
+        WordSplitLyricText(
+            line = line,
+            positionMs = positionMs,
+            isCurrent = isCurrent,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            activeColor = activeColor,
+            pendingColor = pendingColor,
+            modifier = modifier,
+        )
+    } else {
+        LineFillLyricText(
+            line = line,
+            nextTimeMs = nextTimeMs,
+            positionMs = positionMs,
+            isCurrent = isCurrent,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            activeColor = activeColor,
+            pendingColor = pendingColor,
+            modifier = modifier,
+        )
     }
 }
 
@@ -256,9 +214,6 @@ internal fun splitLyricText(text: String): List<String> {
     }
     return result
 }
-
-// 单行歌词超过该字符数则手动换行
-private const val MAX_LYRIC_CHARS = 30
 
 // 播放中位置回退容差：小于该值视为控制器位置抖动，大于视为手动拖动进度条
 private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
