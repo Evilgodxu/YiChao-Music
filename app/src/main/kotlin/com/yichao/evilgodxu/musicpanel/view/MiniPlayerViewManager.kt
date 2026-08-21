@@ -70,10 +70,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.center
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
@@ -777,22 +775,13 @@ internal fun DiscArt(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val r = size.minDimension / 2f
                 val center = this.center
-                // 绘制环形区域（外圆减内圆）
-                val ring: (Float, Float, Color) -> Unit = { outer, inner, color ->
-                    val path = Path().apply {
-                        addOval(Rect(center = center, radius = outer))
-                        addOval(Rect(center = center, radius = inner), Path.Direction.CounterClockwise)
-                    }
-                    drawPath(path, color)
-                }
-
-                // 外圈透明边缘
-                ring(r, r * 0.85f, Color.White.copy(alpha = 0.16f))
+                // 浅色外环：仅外缘一圈细环，其余边缘保持透明材质
+                val ringWidth = r * 0.045f
                 drawCircle(
-                    color = Color.Black.copy(alpha = 0.15f),
-                    radius = r,
+                    color = Color.White.copy(alpha = 0.22f),
+                    radius = r - ringWidth / 2f,
                     center = center,
-                    style = Stroke(width = 0.8f)
+                    style = Stroke(width = ringWidth)
                 )
             }
         }
