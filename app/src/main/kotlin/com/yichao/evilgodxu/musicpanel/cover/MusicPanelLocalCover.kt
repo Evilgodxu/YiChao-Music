@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -78,7 +79,8 @@ internal suspend fun applyLocalCover(
             playbackState.setLocalCoverCandidates(emptyList())
         }
         true
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicPanelLocalCover", "应用本地封面失败: 歌曲=${track.title} 路径=${track.path}", e)
         false
     }
 }

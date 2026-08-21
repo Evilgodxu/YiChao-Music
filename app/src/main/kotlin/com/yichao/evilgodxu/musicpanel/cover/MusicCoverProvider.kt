@@ -18,7 +18,7 @@ import java.io.FileNotFoundException
  * URI 格式: content://{packageName}.musiccover/{文件名不含扩展名}
  * 例如: content://com.yichao.evilgodxu.musiccover/12345
  *
- * 按 covers_v2 → covers_original 顺序查找文件。
+ * 按 webp → image 顺序查找文件。
  */
 class MusicCoverProvider : ContentProvider() {
 
@@ -27,13 +27,14 @@ class MusicCoverProvider : ContentProvider() {
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
         val id = uri.lastPathSegment ?: return null
         val ctx = context ?: return null
-        val file = File(ctx.filesDir, "music_metadata/covers_v2/$id.webp").takeIf { it.isFile }
-            ?: File(ctx.filesDir, "music_metadata/covers_original/$id.image").takeIf { it.isFile }
+        val root = MusicMetadataCache.coverRoot(ctx)
+        val file = File(root, "$id.webp").takeIf { it.isFile }
+            ?: File(root, "$id.image").takeIf { it.isFile }
             ?: return null
         return try {
             ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         } catch (e: FileNotFoundException) {
-            CrashLogManager.logException("MusicCoverProvider", "封面文件不存在", e)
+            CrashLogManager.logException("MusicCoverProvider", "封面文件不存在: ${file.absolutePath}", e)
             null
         }
     }

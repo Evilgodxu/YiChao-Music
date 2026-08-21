@@ -32,7 +32,7 @@ internal suspend fun searchLyricsCandidates(
             .take(5)
         playbackState.lyricsCandidates = (occupied + titleOnly).distinctBy { it.id }.take(10)
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌词候选失败", e)
+        CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌词候选失败: 歌曲=${track.title}", e)
         playbackState.lyricsCandidates = emptyList()
     } finally {
         playbackState.isLyricsSearching = false
@@ -65,7 +65,7 @@ internal suspend fun applyLyricsCandidate(
         }
         true
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicPanelSearchLogic", "应用歌词候选失败", e)
+        CrashLogManager.logException("MusicPanelSearchLogic", "应用歌词候选失败: 歌曲=${track.title} 路径=${track.path}", e)
         false
     } finally {
         withContext(Dispatchers.Main) {
@@ -98,7 +98,7 @@ internal suspend fun searchCoverCandidates(
             .distinctBy { it.id }
             .take(10)
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicPanelSearchLogic", "搜索封面候选失败", e)
+        CrashLogManager.logException("MusicPanelSearchLogic", "搜索封面候选失败: 歌曲=${track.title}", e)
         playbackState.coverCandidates = emptyList()
     } finally {
         playbackState.isCoverSearching = false
@@ -137,7 +137,7 @@ internal suspend fun applyCoverCandidate(
         }
         true
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicPanelSearchLogic", "应用封面候选失败", e)
+        CrashLogManager.logException("MusicPanelSearchLogic", "应用封面候选失败: 歌曲=${track.title} 路径=${track.path}", e)
         false
     }
 }
@@ -277,7 +277,7 @@ internal suspend fun cacheToDownloads(
         val contentValues = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, fileName)
             put(MediaStore.Downloads.MIME_TYPE, "audio/mpeg")
-            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao Music")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
         }
         val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
         if (uri != null) {
@@ -349,7 +349,7 @@ internal suspend fun findExistingDownload(
         val projection = arrayOf(MediaStore.Downloads._ID)
         val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ? AND " +
                 "${MediaStore.Downloads.RELATIVE_PATH} = ?"
-        val args = arrayOf(fileName, Environment.DIRECTORY_DOWNLOADS + "/Memory Meets Tomorrow/")
+        val args = arrayOf(fileName, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio/")
         context.contentResolver.query(collection, projection, selection, args, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val id = cursor.getLong(0)

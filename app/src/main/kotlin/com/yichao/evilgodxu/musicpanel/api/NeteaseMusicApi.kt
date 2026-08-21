@@ -49,7 +49,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         try {
             URL(url).openStream().use { it.readBytes() }
         } catch (e: Exception) {
-            CrashLogManager.logException("NeteaseMusicApi", "下载封面失败", e)
+            CrashLogManager.logException("NeteaseMusicApi", "下载封面失败: $url", e)
             null
         }
     }

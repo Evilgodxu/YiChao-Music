@@ -150,7 +150,7 @@ object MusicScanner {
                 AlbumArtSource.THUMBNAIL
             )
         } catch (e: Exception) {
-            CrashLogManager.logException("MusicScanner", "加载缩略图封面失败", e)
+            CrashLogManager.logException("MusicScanner", "加载缩略图封面失败: $fallbackPath", e)
         }
         extractEmbeddedArt(context, audioUri)?.let { return AlbumArtResult(it, AlbumArtSource.EMBEDDED) }
         if (albumId > 0) {
@@ -161,7 +161,7 @@ object MusicScanner {
                         ?.let { return AlbumArtResult(it, AlbumArtSource.ALBUM) }
                 }
             } catch (e: Exception) {
-                CrashLogManager.logException("MusicScanner", "读取专辑封面失败", e)
+                CrashLogManager.logException("MusicScanner", "读取专辑封面失败: $fallbackPath", e)
             }
         }
         fallbackPath.takeIf { it.isNotBlank() }?.let { path ->
@@ -176,7 +176,7 @@ object MusicScanner {
             retriever.setDataSource(context, audioUri)
             retriever.embeddedPicture?.let { MusicMetadataCache.decodeSampledBitmap(it) }
         } catch (e: Exception) {
-            CrashLogManager.logException("MusicScanner", "提取内嵌封面失败", e)
+            CrashLogManager.logException("MusicScanner", "提取内嵌封面失败: $audioUri", e)
             null
         } finally {
             try {
@@ -193,7 +193,7 @@ object MusicScanner {
             retriever.setDataSource(path)
             retriever.embeddedPicture?.let { MusicMetadataCache.decodeSampledBitmap(it) }
         } catch (e: Exception) {
-            CrashLogManager.logException("MusicScanner", "提取内嵌封面失败", e)
+            CrashLogManager.logException("MusicScanner", "提取内嵌封面失败: $path", e)
             null
         } finally {
             try {

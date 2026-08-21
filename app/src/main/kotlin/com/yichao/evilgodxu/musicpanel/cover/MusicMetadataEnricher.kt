@@ -58,10 +58,10 @@ object MetadataEnricher {
         val needCover = tracks.filter { track ->
             val path = track.coverCachePath
             val fileId = File(path).nameWithoutExtension.toLongOrNull()
-            // 封面缓存按歌曲身份归属（文件名为 track.id，在线/手动刷新的封面为 neteaseId）才视为有效并跳过；
-            // 旧版本按专辑共享缓存，同一专辑内不同歌曲的封面会互相覆盖，这类共享文件需重新提取为歌曲独立封面
+            // 封面缓存按歌曲身份归属（文件名为 track.id，在线/手动刷新的封面为 neteaseId）且文件有效
+            // 才视为已具备归属封面并跳过提取
             val coverOwned = fileId != null &&
-                MusicMetadataCache.isCurrentCoverPath(path) &&
+                MusicMetadataCache.isValid(path) &&
                 (fileId == track.id || (track.neteaseId > 0L && fileId == track.neteaseId))
             !coverOwned && (track.path.isNotBlank() || track.neteaseCoverUrl.isBlank())
         }
@@ -80,7 +80,7 @@ object MetadataEnricher {
                             // 封面一律按歌曲身份缓存：内嵌封面/缩略图/专辑封面统一归属单曲，
                             // 避免按专辑共享缓存文件导致同一专辑内歌曲封面互相覆盖
                             val coverPath = MusicMetadataCache.saveCover(context, track.id, cover).orEmpty()
-                            // 清理旧封面文件（如旧版专辑共享缓存、covers_original 中的回退文件）
+                            // 清理被替换的旧封面文件，避免残留
                             if (oldPath.isNotBlank() && oldPath != coverPath) {
                                 MusicMetadataCache.deleteCoverFile(oldPath)
                             }
@@ -89,7 +89,11 @@ object MetadataEnricher {
                             cover.recycle()
                         }
                     } catch (e: Exception) {
-                        CrashLogManager.logException("MetadataEnricher", "提取本地封面失败", e)
+                        CrashLogManager.logException(
+                            "MetadataEnricher",
+                            "提取本地封面失败: 歌曲=${track.title} - ${track.artist} 路径=${track.path}",
+                            e
+                        )
                         null
                     }
                 }
@@ -127,7 +131,11 @@ object MetadataEnricher {
                             coverCachePath = coverPath
                         )
                     } catch (e: Exception) {
-                        CrashLogManager.logException("MetadataEnricher", "获取在线封面失败", e)
+                        CrashLogManager.logException(
+                            "MetadataEnricher",
+                            "获取在线封面失败: 歌曲=${track.title} - ${track.artist} 路径=${track.path}",
+                            e
+                        )
                         null
                     }
                 }
@@ -139,10 +147,8 @@ object MetadataEnricher {
     private suspend fun enrichLyrics(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
         val needLyrics = tracks.filter { track ->
             when {
-                // 缓存为最新格式（含逐字时序）直接沿用，不再重取
-                MusicMetadataCache.isCurrentLyricFormat(track.lyricCachePath) -> false
-                // 有缓存文件但格式旧（缺逐字时序），强制重取刷新
-                track.lyricCachePath.isNotBlank() -> true
+                // 已有缓存文件直接沿用
+                MusicMetadataCache.isValid(track.lyricCachePath) -> false
                 // 无缓存：仅在缺歌词时拉取
                 else -> track.lyricLines.isEmpty()
             }
@@ -159,7 +165,11 @@ object MetadataEnricher {
                         val lyricPath = MusicMetadataCache.saveLyrics(context, match.id, lyric.lines).orEmpty()
                         track.copy(lyricCachePath = lyricPath, lyricLines = lyric.lines)
                     } catch (e: Exception) {
-                        CrashLogManager.logException("MetadataEnricher", "获取在线歌词失败", e)
+                        CrashLogManager.logException(
+                            "MetadataEnricher",
+                            "获取在线歌词失败: 歌曲=${track.title} - ${track.artist} 路径=${track.path}",
+                            e
+                        )
                         null
                     }
                 }
