@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,9 +70,8 @@ internal fun WordSplitLyricText(
                     val index = globalIdx++
                     // 已唱（含当前演唱词）为高亮色，未唱为待唱色；用纯色保证对比度可见
                     val isSung = isCurrent && index <= currentWordIdx
-                    // 词保持整体排版，词间保留原间距；词内逐字渲染以支持单字跳动
+                    // 词保持整体排版，词内逐字渲染以支持单字跳动；词间间距由词文本自带空格保留
                     Row(
-                        modifier = Modifier.padding(end = 4.dp),
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         word.text.forEachIndexed { charIdx, ch ->

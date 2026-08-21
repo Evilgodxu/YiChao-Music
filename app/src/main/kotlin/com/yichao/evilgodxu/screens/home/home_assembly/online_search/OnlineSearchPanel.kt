@@ -127,7 +127,7 @@ private fun SearchInput(
             .background(Color.Transparent)
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                color = Color.White.copy(alpha = 0.45f),
                 shape = RoundedCornerShape(24.dp)
             ),
         contentAlignment = Alignment.CenterStart
@@ -198,7 +198,11 @@ private fun SearchHistoryList(
     context: Context,
     scope: CoroutineScope,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 15.dp)
+    ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,7 +212,7 @@ private fun SearchHistoryList(
     ) {
         Text(
             text = stringResource(R.string.music_panel_search_history),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color.White,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
@@ -219,14 +223,14 @@ private fun SearchHistoryList(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = stringResource(R.string.music_panel_search_history_clear),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = Color.White,
                 modifier = Modifier.size(16.dp)
             )
         }
     }
     LazyColumn(
         modifier = Modifier
-            .fillMaxWidth(0.85f)
+            .fillMaxWidth()
             .weight(1f),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -257,7 +261,7 @@ private fun SearchHistoryList(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.music_panel_search_history_delete),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = Color.White,
                         modifier = Modifier.size(15.dp)
                     )
                 }
