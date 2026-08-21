@@ -157,6 +157,42 @@
     <string name="settings_mini_player_title">Floating player</string>
     <string name="settings_mini_player_desc">Show mini player during background playback</string>
 
+    <!-- Home playlists -->
+    <string name="playlist_title">Playlists</string>
+    <string name="playlist_section_smart">Smart playlists</string>
+    <string name="playlist_section_my">My playlists</string>
+    <string name="playlist_smart_recent">Recently played</string>
+    <string name="playlist_smart_favorite">Favorites</string>
+    <string name="playlist_smart_album">Albums</string>
+    <string name="playlist_smart_artist">Artists</string>
+    <string name="playlist_create">New playlist</string>
+    <string name="playlist_create_title">New playlist</string>
+    <string name="playlist_create_confirm">Create</string>
+    <string name="playlist_name_hint">Enter playlist name</string>
+    <string name="playlist_rename_title">Rename playlist</string>
+    <string name="playlist_rename">Rename</string>
+    <string name="playlist_delete">Delete</string>
+    <string name="playlist_delete_title">Delete playlist</string>
+    <string name="playlist_delete_message">Delete "%1$s"? This cannot be undone.</string>
+    <string name="playlist_delete_confirm">Delete</string>
+    <string name="playlist_play_all">Play all</string>
+    <string name="playlist_add_songs">Add songs</string>
+    <string name="playlist_empty">No songs</string>
+    <string name="playlist_remove_track_title">Remove this song from the playlist?</string>
+    <string name="playlist_remove_track_confirm">Remove</string>
+    <string name="playlist_picker_title">Add songs to "%1$s"</string>
+    <string name="playlist_picker_select_all">Select all</string>
+    <string name="playlist_picker_select_none">Deselect all</string>
+    <string name="playlist_picker_selected">%1$d selected</string>
+    <string name="playlist_picker_add">Add (%1$d)</string>
+    <string name="playlist_picker_empty">No songs to add</string>
+    <string name="playlist_album_count">%1$d albums</string>
+    <string name="playlist_artist_count">%1$d artists</string>
+    <string name="playlist_unknown_album">Unknown album</string>
+    <string name="playlist_more">More options</string>
+    <string name="playlist_switch_title">Switch playlist</string>
+    <string name="playlist_switch_default">Default playlist</string>
+
     <!-- Update -->
     <string name="update_dialog_title">New version %s</string>
     <string name="update_dialog_description_alt">Download and install the new version?</string>

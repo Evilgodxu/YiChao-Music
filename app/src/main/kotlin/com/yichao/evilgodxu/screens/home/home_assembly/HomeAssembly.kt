@@ -86,14 +86,15 @@ import com.yichao.evilgodxu.screens.home.home_assembly.online_search.OnlineSearc
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistPanel
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 右滑呼出在线搜索的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
-private const val SWIPE_OPEN_RATIO = 0.25f
+// 左右滑动切换（右滑搜索、左滑歌单）共用的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
+private const val SWIPE_OPEN_RATIO = 0.35f
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,20 +115,39 @@ fun HomeAssembly(
     var landscapeChromeVisible by remember { mutableStateOf(false) }
     // 右滑呼出的在线搜索覆盖层显隐状态
     var showOnlineSearch by remember { mutableStateOf(false) }
-    // 手势跟手进度：0=播放器页，1=在线搜索页，拖动期间随手指实时更新
+    // 左滑呼出的歌单面板显隐状态
+    var showPlaylist by remember { mutableStateOf(false) }
+    // 手势跟手进度：0=播放器页，1=对应面板展开，拖动期间随手指实时更新
     var searchProgress by remember { mutableFloatStateOf(0f) }
+    var playlistProgress by remember { mutableFloatStateOf(0f) }
     // 内容区像素宽度，用于将滑动距离换算为进度比例
     var contentWidthPx by remember { mutableFloatStateOf(0f) }
+    // 本次手势起始时面板的展开状态，回滑关闭时按相同比例阈值判定
+    var gestureSearchOpen by remember { mutableStateOf(false) }
+    var gesturePlaylistOpen by remember { mutableStateOf(false) }
     // 触发回弹/展开的动画：非拖动状态下将进度平滑带到目标值
     var settleKey by remember { mutableIntStateOf(0) }
-    LaunchedEffect(showOnlineSearch, settleKey) {
-        val target = if (showOnlineSearch) 1f else 0f
-        if (searchProgress != target) {
-            animate(
-                initialValue = searchProgress,
-                targetValue = target,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-            ) { value, _ -> searchProgress = value }
+    LaunchedEffect(showOnlineSearch, showPlaylist, settleKey) {
+        // 两个面板进度独立结算，并行动画避免相互阻塞
+        launch {
+            val target = if (showOnlineSearch) 1f else 0f
+            if (searchProgress != target) {
+                animate(
+                    initialValue = searchProgress,
+                    targetValue = target,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                ) { value, _ -> searchProgress = value }
+            }
+        }
+        launch {
+            val target = if (showPlaylist) 1f else 0f
+            if (playlistProgress != target) {
+                animate(
+                    initialValue = playlistProgress,
+                    targetValue = target,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                ) { value, _ -> playlistProgress = value }
+            }
         }
     }
     // 覆盖层打开时返回键优先关闭覆盖层，而非退出应用
@@ -135,6 +155,10 @@ fun HomeAssembly(
         showOnlineSearch = false
         playbackState.setSearchResultsVisible(false)
         playbackState.setErrorMsg(null)
+    }
+    // 歌单面板打开时返回键关闭面板
+    BackHandler(enabled = showPlaylist) {
+        showPlaylist = false
     }
     // 只有播放器真正开始播放(无错误)时才收起在线搜索覆盖层；播放失败出现错误提示时保持面板打开
     LaunchedEffect(playbackState.isPlaying) {
@@ -174,30 +198,53 @@ fun HomeAssembly(
         }
     }
 
-    // 沉浸式页面背景铺满全屏，Scaffold 透明以透出背景层；右滑呼出在线搜索面板
+    // 沉浸式页面背景铺满全屏，Scaffold 透明以透出背景层；右滑呼出在线搜索面板，左滑呼出歌单面板
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                // 拖动期间实时跟手更新进度；松开时按 25% 阈值决定展开或回弹
+                // 拖动期间实时跟手更新进度；松开时按 35% 阈值决定展开或回弹
                 detectHorizontalDragGestures(
+                    onDragStart = {
+                        gestureSearchOpen = showOnlineSearch
+                        gesturePlaylistOpen = showPlaylist
+                    },
                     onDragEnd = {
-                        val open = searchProgress >= SWIPE_OPEN_RATIO
-                        if (open != showOnlineSearch) {
-                            showOnlineSearch = open
-                            if (!open) {
+                        // 展开按滑动比例判定；从已展开面板回滑时按相同的 35% 比例判定关闭，保证来回切换阈值统一、跟手
+                        val searchOpen = if (gestureSearchOpen) {
+                            searchProgress <= 1f - SWIPE_OPEN_RATIO
+                        } else {
+                            searchProgress >= SWIPE_OPEN_RATIO
+                        }
+                        if (searchOpen != showOnlineSearch) {
+                            showOnlineSearch = searchOpen
+                            if (!searchOpen) {
                                 playbackState.setSearchResultsVisible(false)
                                 playbackState.setErrorMsg(null)
                             }
                         }
+                        val playlistOpen = if (gesturePlaylistOpen) {
+                            playlistProgress <= 1f - SWIPE_OPEN_RATIO
+                        } else {
+                            playlistProgress >= SWIPE_OPEN_RATIO
+                        }
+                        if (playlistOpen != showPlaylist) showPlaylist = playlistOpen
                         settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
                     },
                     onDragCancel = { settleKey++ }, // 手势被打断按回弹处理
                 ) { change, dragAmount ->
                     change.consume()
-                    if (contentWidthPx > 0f) {
-                        searchProgress =
+                    if (contentWidthPx <= 0f) return@detectHorizontalDragGestures
+                    // 已展开的面板优先回拽；播放器页按滑动方向分配进度（右滑搜索、左滑歌单）
+                    when {
+                        searchProgress > 0f -> searchProgress =
                             (searchProgress + dragAmount / contentWidthPx).coerceIn(0f, 1f)
+                        playlistProgress > 0f -> playlistProgress =
+                            (playlistProgress - dragAmount / contentWidthPx).coerceIn(0f, 1f)
+                        dragAmount > 0f -> searchProgress =
+                            (dragAmount / contentWidthPx).coerceIn(0f, 1f)
+                        else -> playlistProgress =
+                            (-dragAmount / contentWidthPx).coerceIn(0f, 1f)
                     }
                 }
             }
@@ -236,12 +283,13 @@ fun HomeAssembly(
                     .padding(innerPadding)
                     .clipToBounds(),
             ) {
-                // 播放器页：保持原布局，展开搜索时向右平移隐藏
+                // 播放器页：展开搜索时向右平移、展开歌单时向左平移，露出对应面板
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            translationX = contentWidth.toPx() * searchProgress
+                            translationX = contentWidth.toPx() * searchProgress -
+                                    contentWidth.toPx() * playlistProgress
                         }
                 ) {
                     if (isLandscapeMode) {
@@ -262,6 +310,17 @@ fun HomeAssembly(
                         .fillMaxSize()
                         .graphicsLayer {
                             translationX = -contentWidth.toPx() * (1f - searchProgress)
+                        },
+                )
+                // 歌单面板：自右侧滑入顶替播放器位置
+                PlaylistPanel(
+                    visible = showPlaylist,
+                    playbackState = playbackState,
+                    onClose = { showPlaylist = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX = contentWidth.toPx() * (1f - playlistProgress)
                         },
                 )
                 // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局

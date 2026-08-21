@@ -40,8 +40,19 @@ data class AudioSignalPathFormat(
     val channels: Int,
 )
 
+// 播放列表来源歌单：key 标识来源，name 为副标题显示名
+data class PlaylistSource(
+    val key: String,
+    val name: String,
+)
+
 // 音乐播放器状态持有者（悬浮窗级共享状态）
 class MusicPlaybackState {
+
+    // 常听歌单保留的最近播放曲目上限
+    private companion object {
+        const val RECENT_PLAYED_LIMIT = 50
+    }
 
     private val savedUriKey = stringPreferencesKey("music_saved_uri")
     private val savedPositionKey = longPreferencesKey("music_saved_position")
@@ -335,6 +346,36 @@ class MusicPlaybackState {
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
 
+    // 常听：最近播放的歌曲 ID（最新在前），用于首页智能歌单
+    var recentPlayedIds by mutableStateOf<List<Long>>(emptyList())
+    private val recentPlayedPreferences = "music_recent_played_preferences"
+    private val recentPlayedKey = "music_recent_played_ids"
+
+    // 当前播放列表来源歌单（null = 默认全量播放列表）
+    var playlistSource by mutableStateOf<PlaylistSource?>(null)
+    // 默认全量播放列表备份：首次切到歌单时快照，供快捷切回默认
+    var defaultPlaylistBackup by mutableStateOf<List<MusicTrack>?>(null)
+    // 全量库：优先备份，否则为当前播放列表
+    val libraryTracks: List<MusicTrack>
+        get() = defaultPlaylistBackup ?: playlist
+
+    // 记录一次播放：最新置顶、去重并持久化，上限 RECENT_PLAYED_LIMIT 首
+    fun recordPlayed(trackId: Long) {
+        recentPlayedIds = (listOf(trackId) + recentPlayedIds.filterNot { it == trackId })
+            .take(RECENT_PLAYED_LIMIT)
+        persistRecentPlayed()
+    }
+
+    private fun persistRecentPlayed() {
+        val context = appContext ?: return
+        playbackScope.launch(Dispatchers.IO) {
+            context.getSharedPreferences(recentPlayedPreferences, Context.MODE_PRIVATE)
+                .edit()
+                .putString(recentPlayedKey, recentPlayedIds.joinToString(","))
+                .apply()
+        }
+    }
+
     // 下一首播放插队队列：自然播完后依次播放队列曲目，再接续原播放位置
     var playNextQueue by mutableStateOf<List<MusicTrack>>(emptyList())
     // 建立队列时记录的当前曲目 ID，队列播完后据此接续原播放位置
@@ -390,6 +431,13 @@ class MusicPlaybackState {
                 ?.filter(String::isNotBlank)
                 .orEmpty()
         }
+        recentPlayedIds = withContext(Dispatchers.IO) {
+            context.getSharedPreferences(recentPlayedPreferences, Context.MODE_PRIVATE)
+                .getString(recentPlayedKey, "")
+                ?.split(",")
+                ?.mapNotNull(String::toLongOrNull)
+                .orEmpty()
+        }
         val preferences = withContext(Dispatchers.IO) {
             context.settingsDataStore.data.first()
         }
@@ -400,6 +448,9 @@ class MusicPlaybackState {
         val savedPosition = preferences[savedPositionKey] ?: 0L
         val savedMode = preferences[savedModeKey] ?: PlayMode.RepeatAll.ordinal
         withContext(Dispatchers.Main) {
+            // 冷启动恢复后默认处于全量播放列表，歌单来源与备份归零
+            playlistSource = null
+            defaultPlaylistBackup = null
             if (cachedPlaylist.isNotEmpty()) {
                 likedIds = cachedPlaylist
                     .filter { it.isFavorite }
@@ -478,6 +529,7 @@ class MusicPlaybackState {
                     artist = item.getString("artist"),
                     duration = item.getLong("duration"),
                     albumId = item.getLong("albumId"),
+                    albumName = item.optString("albumName", ""),
                     neteaseId = item.optLong("neteaseId", 0L),
                     neteaseCoverUrl = item.optString("neteaseCoverUrl", ""),
                     coverCachePath = item.optString("coverCachePath", ""),
@@ -504,6 +556,7 @@ class MusicPlaybackState {
                 put("artist", track.artist)
                 put("duration", track.duration)
                 put("albumId", track.albumId)
+                put("albumName", track.albumName)
                 put("neteaseId", track.neteaseId)
                 put("neteaseCoverUrl", track.neteaseCoverUrl)
                 put("coverCachePath", track.coverCachePath)

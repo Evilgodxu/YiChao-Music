@@ -158,6 +158,43 @@
     <string name="settings_mini_player_title">悬浮播放</string>
     <string name="settings_mini_player_desc">后台播放时显示迷你播放器</string>
 
+    <!-- 首页歌单 -->
+    <string name="playlist_title">歌单</string>
+    <string name="playlist_section_smart">智能歌单</string>
+    <string name="playlist_section_my">我的歌单</string>
+    <string name="playlist_smart_recent">常听</string>
+    <string name="playlist_smart_favorite">收藏</string>
+    <string name="playlist_smart_album">专辑</string>
+    <string name="playlist_smart_artist">艺术家</string>
+    <string name="playlist_create">新建歌单</string>
+    <string name="playlist_create_title">新建歌单</string>
+    <string name="playlist_create_confirm">创建</string>
+    <string name="playlist_name_hint">请输入歌单名称</string>
+    <string name="playlist_rename_title">重命名歌单</string>
+    <string name="playlist_rename">重命名</string>
+    <string name="playlist_delete">删除</string>
+    <string name="playlist_delete_title">删除歌单</string>
+    <string name="playlist_delete_message">确定删除「%1$s」？删除后不可恢复</string>
+    <string name="playlist_delete_confirm">删除</string>
+    <string name="playlist_play_all">播放全部</string>
+    <string name="playlist_add_songs">添加歌曲</string>
+    <string name="playlist_empty">暂无歌曲</string>
+    <string name="playlist_remove_track_title">从歌单移除这首歌曲？</string>
+    <string name="playlist_remove_track_confirm">移除</string>
+    <string name="playlist_picker_title">添加歌曲到「%1$s」</string>
+    <string name="playlist_picker_select_all">全选</string>
+    <string name="playlist_picker_select_none">取消全选</string>
+    <string name="playlist_picker_selected">已选 %1$d 首</string>
+    <string name="playlist_picker_add">添加 (%1$d)</string>
+    <string name="playlist_picker_empty">没有可添加的歌曲</string>
+    <string name="playlist_album_count">%1$d 张</string>
+    <string name="playlist_artist_count">%1$d 位</string>
+    <string name="playlist_unknown_album">未知专辑</string>
+    <string name="playlist_more">更多操作</string>
+    <string name="playlist_switch_title">切换歌单</string>
+    <string name="playlist_switch_default">默认歌单</string>
+
+
     <!-- 更新 -->
     <string name="update_dialog_title">发现新版本 %s</string>
     <string name="update_dialog_description_alt">是否下载并安装新版本？</string>

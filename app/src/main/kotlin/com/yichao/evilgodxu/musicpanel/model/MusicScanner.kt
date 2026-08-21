@@ -85,6 +85,7 @@ object MusicScanner {
                 MediaStore.Audio.Media.DATA,
                 MediaStore.Audio.Media.DURATION,
                 MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.ALBUM,
                 MediaStore.Audio.Media.IS_MUSIC,
             )
             val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND " +
@@ -102,6 +103,7 @@ object MusicScanner {
                 val dataIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
                 val durationIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DURATION)
                 val albumIdIdx = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
+                val albumNameIdx = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)
                 if (idIdx < 0 || titleIdx < 0) return@withContext tracks
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idIdx)
@@ -119,6 +121,7 @@ object MusicScanner {
                     } else context.getString(R.string.music_scanner_unknown_artist)
                     val duration = if (durationIdx >= 0) cursor.getLong(durationIdx) else 0L
                     val albumId = if (albumIdIdx >= 0) cursor.getLong(albumIdIdx) else 0L
+                    val albumName = if (albumNameIdx >= 0) cursor.getString(albumNameIdx).orEmpty() else ""
                     tracks.add(
                         MusicTrack(
                             id = id,
@@ -127,7 +130,8 @@ object MusicScanner {
                             title = title,
                             artist = artist,
                             duration = duration,
-                            albumId = albumId
+                            albumId = albumId,
+                            albumName = albumName,
                         )
                     )
                 }
@@ -256,6 +260,9 @@ object PlaylistRefresher {
                             )
                         }
                     state.setSortedPlaylist(mergedTracks)
+                    // 扫描重建全量库，播放列表来源回到默认，旧备份作废
+                    state.playlistSource = null
+                    state.defaultPlaylistBackup = null
                     state.persistPlaylist()
                     if (restoreCurrent) restoreCurrentTrack(state)
                 }

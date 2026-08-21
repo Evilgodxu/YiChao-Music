@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -107,6 +108,7 @@ import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
 import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
 import com.yichao.evilgodxu.musicpanel.togglePlayPause
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSwitcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -751,6 +753,8 @@ internal fun PlaylistSheet(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // 歌单副标题点击后的快捷切换弹层
+    var showSwitcher by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         // 遮罩，点击收起
         AnimatedVisibility(
@@ -788,7 +792,6 @@ internal fun PlaylistSheet(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -796,6 +799,20 @@ internal fun PlaylistSheet(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    // 歌单副标题：浅色小字常驻显示，点击快捷切换歌单；默认列表显示默认播放列表
+                    Text(
+                        text = playbackState.playlistSource?.name
+                            ?: stringResource(R.string.playlist_switch_default),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showSwitcher = true }
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -890,6 +907,11 @@ internal fun PlaylistSheet(
                 }
             }
         }
+        PlaylistSwitcher(
+            visible = showSwitcher,
+            playbackState = playbackState,
+            onDismiss = { showSwitcher = false },
+        )
     }
 }
 

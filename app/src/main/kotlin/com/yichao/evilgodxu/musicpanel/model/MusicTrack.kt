@@ -9,6 +9,7 @@ package com.yichao.evilgodxu.musicpanel
     val artist: String,
     val duration: Long,
     val albumId: Long,
+    val albumName: String = "",
     val neteaseId: Long = 0L,
     val neteaseCoverUrl: String = "",
     val coverCachePath: String = "",

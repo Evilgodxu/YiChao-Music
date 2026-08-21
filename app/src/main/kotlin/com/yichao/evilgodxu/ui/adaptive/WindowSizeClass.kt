@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.window.core.layout.WindowSizeClass
+import androidx.window.core.layout.computeWindowSizeClass
 
 // CompositionLocal 用于在 Compose 树中传递窗口尺寸类
 val LocalWindowSizeClass = compositionLocalOf<WindowSizeClass> {
@@ -16,7 +17,7 @@ val LocalWindowSizeClass = compositionLocalOf<WindowSizeClass> {
 @Composable
 fun ProvideWindowSizeClass(content: @Composable () -> Unit) {
     val config = LocalConfiguration.current
-    val windowSizeClass = WindowSizeClass.compute(
+    val windowSizeClass = WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(
         config.screenWidthDp.toFloat(),
         config.screenHeightDp.toFloat()
     )
