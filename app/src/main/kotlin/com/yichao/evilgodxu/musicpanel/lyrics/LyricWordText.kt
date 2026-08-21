@@ -116,10 +116,10 @@ private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {
     val row = mutableListOf<LyricWord>()
     var count = 0
     words.forEach { word ->
-        // 首行按 20 字换行；已换行后的行可能仍需再换行，上限放宽到 30 字；
-        // 单个长词保持完整位于行首，不做词内截断
-        val limit = if (rows.isEmpty()) MAX_LYRIC_CHARS else WRAP_LINE_CHARS
-        if (row.isNotEmpty() && count + word.text.length > limit) {
+        // 优先每行最多 7 个词换行；若 7 个词总长超过 30 字，则在上一个词断点提前换行
+        if (row.isNotEmpty() &&
+            (row.size >= WORDS_PER_LINE || count + word.text.length > MAX_LYRIC_CHARS)
+        ) {
             rows.add(row.toList())
             row.clear()
             count = 0
@@ -131,8 +131,8 @@ private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {
     return rows
 }
 
-// 逐字歌词首行按字符计数上限换行（中文按字计数，英文词不截断）
-private const val MAX_LYRIC_CHARS = 40
+// 逐字歌词每行最多承载的词数（优先按词数换行）
+private const val WORDS_PER_LINE = 7
 
-// 逐字歌词换行后的行容忍上限：后续行可能仍需再次换行
-private const val WRAP_LINE_CHARS = 30
+// 逐字歌词每行字符数上限（中文按字计数，英文词不截断）
+private const val MAX_LYRIC_CHARS = 30
