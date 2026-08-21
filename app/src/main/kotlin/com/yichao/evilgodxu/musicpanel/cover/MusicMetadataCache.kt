@@ -10,7 +10,8 @@ import org.json.JSONObject
 import java.io.File
 
 internal object MusicMetadataCache {
-    private const val COVER_MAX_EDGE = 512
+    // 封面铺满大屏（首页横竖屏大封面），按最长边 1024px 采样，兼顾清晰度与内存
+    private const val COVER_MAX_EDGE = 1024
 
     // 使用应用私有目录，免外部存储权限（Android 10+ 分区存储下公共 Download 目录不可直接写）
     private fun downloadsDir(context: Context): File =
@@ -41,7 +42,7 @@ internal object MusicMetadataCache {
         return parent.isDirectory || parent.mkdirs()
     }
 
-    /** 封面在面板中只显示 64dp 小图，解码前按最长边 512px 采样，避免全尺寸位图的内存峰值 */
+    /** 封面会铺满大屏显示，解码前按最长边采样，避免全尺寸位图的内存峰值 */
     fun decodeSampledBitmap(bytes: ByteArray): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)

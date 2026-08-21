@@ -93,7 +93,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // 右滑呼出在线搜索的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
-private const val SWIPE_OPEN_RATIO = 0.45f
+private const val SWIPE_OPEN_RATIO = 0.25f
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @OptIn(ExperimentalMaterial3Api::class)
@@ -179,7 +179,7 @@ fun HomeAssembly(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                // 拖动期间实时跟手更新进度；松开时按 45% 阈值决定展开或回弹
+                // 拖动期间实时跟手更新进度；松开时按 25% 阈值决定展开或回弹
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         val open = searchProgress >= SWIPE_OPEN_RATIO
