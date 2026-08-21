@@ -28,7 +28,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.graphicsLayer
@@ -81,7 +88,8 @@ internal fun LyricsPanel(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(top = 4.dp, bottom = 0.dp),
+            .padding(top = 4.dp, bottom = 0.dp)
+            .verticalFadeMask(),
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
@@ -221,3 +229,21 @@ private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
 // 歌词面板默认可见行数
 private const val DEFAULT_VISIBLE_LINES = 5
+
+// 上下边缘淡出：按纵向透明度梯度对内容做 DstIn 蒙层，使上下行渐变消失
+private fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {
+    val brush = Brush.verticalGradient(
+        colorStops = arrayOf(
+            0.0f to Color.Transparent,
+            fadeFraction to Color.Black,
+            1f - fadeFraction to Color.Black,
+            1f to Color.Transparent,
+        )
+    )
+    onDrawWithContent {
+        drawIntoCanvas { canvas -> canvas.saveLayer(Rect(Offset.Zero, size), Paint()) }
+        drawContent()
+        drawRect(brush = brush, size = size, blendMode = BlendMode.DstIn)
+        drawIntoCanvas { canvas -> canvas.restore() }
+    }
+}
