@@ -24,14 +24,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -201,43 +199,39 @@ fun HomeAssembly(
                     .padding(innerPadding)
                     .clipToBounds(),
             ) {
-                // 双页面横向布局 [在线搜索 | 播放器]：搜索页占满原播放器位置，播放器页置于其右
-                Row(
+                // 播放器页：保持原布局，展开搜索时向右平移隐藏
+                Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .width(contentWidth * 2)
+                        .fillMaxSize()
                         .graphicsLayer {
-                            translationX = -contentWidth.toPx() * (1f - searchPanelProgress)
+                            translationX = contentWidth.toPx() * searchPanelProgress
                         }
                 ) {
-                    OnlineSearchPanel(
-                        playbackState = playbackState,
-                        onClose = {
-                            showOnlineSearch = false
-                            playbackState.setSearchResultsVisible(false)
-                            playbackState.setErrorMsg(null)
-                        },
-                        modifier = Modifier
-                            .width(contentWidth)
-                            .fillMaxHeight(),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(contentWidth)
-                            .fillMaxHeight(),
-                    ) {
-                        if (isLandscapeMode) {
-                            LandscapePlayerArea(
-                                playbackState = playbackState,
-                                chromeVisible = landscapeChromeVisible,
-                                onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        } else {
-                            PlayerArea(modifier = Modifier.fillMaxSize())
-                        }
+                    if (isLandscapeMode) {
+                        LandscapePlayerArea(
+                            playbackState = playbackState,
+                            chromeVisible = landscapeChromeVisible,
+                            onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        PlayerArea(modifier = Modifier.fillMaxSize())
                     }
                 }
+                // 在线搜索页：自左侧滑入顶替播放器位置
+                OnlineSearchPanel(
+                    playbackState = playbackState,
+                    onClose = {
+                        showOnlineSearch = false
+                        playbackState.setSearchResultsVisible(false)
+                        playbackState.setErrorMsg(null)
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX = -contentWidth.toPx() * (1f - searchPanelProgress)
+                        },
+                )
                 // 横屏标题栏悬浮于内容顶部，随控制栏一起显隐，不挤压播放器布局
                 if (isLandscapeMode) {
                     AnimatedVisibility(

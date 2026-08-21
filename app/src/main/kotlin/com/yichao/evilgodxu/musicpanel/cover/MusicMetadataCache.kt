@@ -26,6 +26,12 @@ internal object MusicMetadataCache {
         File(dir, ".nomedia").apply { if (!exists()) createNewFile() }
     }
 
+    // 父目录已存在则直接可用，否则尝试创建；创建失败返回 false
+    private fun ensureParentDir(file: File): Boolean {
+        val parent = file.parentFile ?: return false
+        return parent.isDirectory || parent.mkdirs()
+    }
+
     /** 封面在面板中只显示 64dp 小图，解码前按最长边 512px 采样，避免全尺寸位图的内存峰值 */
     fun decodeSampledBitmap(bytes: ByteArray): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -54,7 +60,11 @@ internal object MusicMetadataCache {
 
     fun saveCover(context: Context, id: Long, bitmap: Bitmap): String? = try {
         val convertedFile = coverFile(context, id)
-        convertedFile.parentFile?.mkdirs()
+        // 目标目录未能创建（如缺少全文件权限）时直接返回，避免写入抛 ENOENT
+        if (!ensureParentDir(convertedFile)) {
+            CrashLogManager.logException("MusicMetadataCache", "创建封面目录失败: 路径=${convertedFile.parentFile?.absolutePath}")
+            return null
+        }
         ensureNoMedia(convertedFile.parentFile!!)
         // compress 返回值已反映编码结果，配合文件长度校验即可，无需再解码验证
         val success = convertedFile.outputStream().use { output ->
@@ -64,10 +74,13 @@ internal object MusicMetadataCache {
             return convertedFile.absolutePath
         }
         // WEBP 编码失败，回退为 PNG 原样保存
-        originalCoverFile(context, id).apply {
-            parentFile?.mkdirs()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream())
-        }.absolutePath
+        val fallbackFile = originalCoverFile(context, id)
+        if (!ensureParentDir(fallbackFile)) {
+            CrashLogManager.logException("MusicMetadataCache", "创建封面目录失败: 路径=${fallbackFile.parentFile?.absolutePath}")
+            return null
+        }
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fallbackFile.outputStream())
+        fallbackFile.absolutePath
     } catch (e: Exception) {
         CrashLogManager.logException("MusicMetadataCache", "保存封面失败: 路径=${coverFile(context, id).absolutePath}", e)
         null

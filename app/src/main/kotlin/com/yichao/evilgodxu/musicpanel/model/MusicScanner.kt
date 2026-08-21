@@ -106,6 +106,8 @@ object MusicScanner {
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idIdx)
                     val path = if (dataIdx >= 0) cursor.getString(dataIdx).orEmpty() else ""
+                    // 跳过 APK 抽取目录下的资源包音频（音效/环境声等），避免被误判为音乐
+                    if (isNonMusicPath(path)) continue
                     val audioUri = ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                         id
@@ -204,6 +206,16 @@ object MusicScanner {
         }
     }
 }
+
+// 音频文件路径片段标记：命中即视为非音乐的应用程序资源/解压包音频（如游戏资源包音效）
+private val NON_MUSIC_PATH_MARKERS = listOf(
+    "/resource_packs/", // 游戏资源包（材质/声音包）
+    "/apks/",           // APK 反编译/解压目录
+)
+
+// 判断是否为非音乐的应用程序资源音频
+private fun isNonMusicPath(path: String): Boolean =
+    path.isNotBlank() && NON_MUSIC_PATH_MARKERS.any { marker -> path.contains(marker, ignoreCase = true) }
 
 // 播放列表刷新器：首页与音乐面板共用扫描入口，串行执行避免并发重复扫描
 object PlaylistRefresher {
