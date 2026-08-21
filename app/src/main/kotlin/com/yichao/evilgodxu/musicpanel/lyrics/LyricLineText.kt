@@ -1,22 +1,25 @@
 package com.yichao.evilgodxu.musicpanel
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 
-// 普通歌词（无逐字时序）：按字符占比整行平滑点亮，保持原有渲染效果
+// 普通歌词（无逐字时序）：按字均分时间整行顺序点亮，正在演唱的字叠加弹簧跳动
 @Composable
 internal fun LineFillLyricText(
     line: LyricLine,
@@ -31,76 +34,79 @@ internal fun LineFillLyricText(
 ) {
     val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
     val totalLen = line.text.length.coerceAtLeast(1)
-    val segments = wrapLyricText(line.text).split('\n')
+    val perCharMs = duration / totalLen.toFloat()
+    val rows = wrapLyricText(line.text).split('\n')
+
+    // 当前正在演唱的字下标：仅当前行且已开唱才计算，唱完时停在末字
+    val currentCharIdx = if (isCurrent && positionMs > line.timeMs) {
+        ((positionMs - line.timeMs).toFloat() / perCharMs).toInt().coerceIn(0, totalLen - 1)
+    } else {
+        -1
+    }
 
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        var acc = 0
-        segments.forEach { segment ->
-            val segStart = line.timeMs + duration * acc / totalLen
-            val segEnd = line.timeMs + duration * (acc + segment.length) / totalLen
-            acc += segment.length
-            // 当前行内已唱比例：仅当前行且已进入该段才有高亮推进
-            val progress = when {
-                !isCurrent || positionMs <= segStart -> 0f
-                positionMs >= segEnd -> 1f
-                else -> ((positionMs - segStart).toFloat() / (segEnd - segStart)).coerceIn(0f, 1f)
+        var globalIdx = 0
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                row.forEach { ch ->
+                    val idx = globalIdx++
+                    LineChar(
+                        text = ch.toString(),
+                        active = currentCharIdx >= 0 && idx <= currentCharIdx,
+                        filling = currentCharIdx == idx,
+                        fontSize = fontSize,
+                        fontWeight = fontWeight,
+                        activeColor = activeColor,
+                        pendingColor = pendingColor,
+                    )
+                }
             }
-            HighlightLine(
-                text = segment,
-                progress = progress,
-                isCurrent = isCurrent,
-                fontSize = fontSize,
-                fontWeight = fontWeight,
-                activeColor = activeColor,
-                pendingColor = pendingColor,
-            )
         }
     }
 }
 
-// 单行歌词高亮：底层整行待唱色，上层按已唱比例从左往右裁剪的已唱色覆盖层。
-// 覆盖层与被裁剪文字同为固有宽度，裁剪边界与字形对齐，避免居中留白导致高亮错位不可见。
+// 单行歌词单个字：已唱为高亮色、未唱为待唱色；正在演唱的字用弹簧放大带过冲 + 轻微上浮跳动
 @Composable
-private fun HighlightLine(
+private fun LineChar(
     text: String,
-    progress: Float,
-    isCurrent: Boolean,
+    active: Boolean,
+    filling: Boolean,
     fontSize: TextUnit,
     fontWeight: FontWeight,
     activeColor: Color,
     pendingColor: Color,
 ) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            text = text,
-            textAlign = TextAlign.Center,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            color = pendingColor,
-        )
-        // 已唱覆盖层：按 progress 自右向左裁剪，只显示从左端开始的已唱部分
-        if (isCurrent && progress > 0f) {
-            Text(
-                text = text,
-                textAlign = TextAlign.Center,
-                fontSize = fontSize,
-                fontWeight = fontWeight,
-                color = activeColor,
-                style = TextStyle(
-                    shadow = Shadow(activeColor.copy(alpha = 0.65f), blurRadius = 7f)
-                ),
-                modifier = Modifier.drawWithContent {
-                    clipRect(right = size.width * progress) { this@drawWithContent.drawContent() }
-                }
-            )
+    val emphasis by animateFloatAsState(
+        targetValue = if (filling) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.5f,
+            stiffness = 500f,
+        ),
+        label = "line_char_jump",
+    )
+    val floatPx = with(LocalDensity.current) { 0.05f * fontSize.toPx() }
+    Text(
+        text = text,
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        color = if (active) activeColor else pendingColor,
+        style = if (active) {
+            TextStyle(shadow = Shadow(activeColor.copy(alpha = 0.65f), blurRadius = 5f))
+        } else {
+            TextStyle()
+        },
+        modifier = Modifier.graphicsLayer {
+            scaleX = 1f + 0.14f * emphasis
+            scaleY = 1f + 0.14f * emphasis
+            translationY = -floatPx * emphasis
         }
-    }
+    )
 }
 
 // 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
