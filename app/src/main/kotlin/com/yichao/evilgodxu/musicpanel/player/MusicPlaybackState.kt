@@ -408,8 +408,10 @@ class MusicPlaybackState {
             List(array.length()) { index ->
                 val item = array.getJSONObject(index)
                 val savedLyricPath = item.optString("lyricCachePath", "")
+                val lyricOffset = item.optLong("lyricOffsetMs", 0L)
                 val lyricLines = if (MusicMetadataCache.isValid(savedLyricPath)) {
-                    MusicMetadataCache.loadLyrics(savedLyricPath)
+                    val rawLines = MusicMetadataCache.loadLyrics(savedLyricPath)
+                    if (lyricOffset != 0L) shiftLyrics(rawLines, lyricOffset) else rawLines
                 } else {
                     emptyList()
                 }
@@ -426,7 +428,8 @@ class MusicPlaybackState {
                     coverCachePath = item.optString("coverCachePath", ""),
                     isFavorite = item.optBoolean("isFavorite", false),
                     lyricCachePath = savedLyricPath.takeIf { lyricLines.isNotEmpty() }.orEmpty(),
-                    lyricLines = lyricLines
+                    lyricLines = lyricLines,
+                    lyricOffsetMs = lyricOffset,
                 )
             }
         } catch (e: Exception) {
@@ -451,6 +454,7 @@ class MusicPlaybackState {
                 put("coverCachePath", track.coverCachePath)
                 put("lyricCachePath", track.lyricCachePath)
                 put("isFavorite", track.isFavorite)
+                put("lyricOffsetMs", track.lyricOffsetMs)
             })
         }
         context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
@@ -603,14 +607,18 @@ class MusicPlaybackState {
     fun adjustLyricsOffset(stepMs: Long) {
         val track = currentTrack ?: return
         if (track.lyricLines.isEmpty()) return
-        val shifted = track.lyricLines.map { line ->
+        val shifted = shiftLyrics(track.lyricLines, stepMs)
+        updateTrack(track.copy(lyricLines = shifted, lyricOffsetMs = track.lyricOffsetMs + stepMs))
+    }
+
+    // 整体平移歌词时间轴
+    private fun shiftLyrics(lines: List<LyricLine>, deltaMs: Long): List<LyricLine> =
+        lines.map { line ->
             line.copy(
-                timeMs = (line.timeMs + stepMs).coerceAtLeast(0),
-                words = line.words.map { word -> word.copy(startMs = (word.startMs + stepMs).coerceAtLeast(0)) },
+                timeMs = (line.timeMs + deltaMs).coerceAtLeast(0),
+                words = line.words.map { word -> word.copy(startMs = (word.startMs + deltaMs).coerceAtLeast(0)) },
             )
         }
-        updateTrack(track.copy(lyricLines = shifted))
-    }
 
     fun syncPlaybackState() {
         val controller = mediaController ?: return
