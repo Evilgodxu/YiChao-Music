@@ -690,6 +690,16 @@ class MusicPlaybackState {
         persistPlaylist()
     }
 
+    // 按新顺序重排当前播放队列，保持当前曲目与播放索引同步
+    fun reorderPlaylist(ordered: List<MusicTrack>) {
+        if (ordered.isEmpty()) return
+        val currentId = currentTrack?.id
+        val tracks = ordered.map { it.copy(isFavorite = likedIds.contains(it.id)) }
+        playlist = tracks
+        currentIndex = tracks.indexOfFirst { it.id == currentId }
+        persistPlaylist()
+    }
+
     // 更新当前播放位置（用于 UI 进度条）
     fun updateTrack(updated: MusicTrack) {
         playlist = playlist.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }

@@ -316,7 +316,6 @@ fun HomeAssembly(
                 PlaylistPanel(
                     visible = showPlaylist,
                     playbackState = playbackState,
-                    onClose = { showPlaylist = false },
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {

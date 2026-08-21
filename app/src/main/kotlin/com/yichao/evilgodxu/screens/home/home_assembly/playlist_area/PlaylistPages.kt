@@ -3,6 +3,9 @@ package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,13 +17,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pause
@@ -30,6 +36,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,13 +51,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.musicpanel.MetadataDialogCard
+import com.yichao.evilgodxu.musicpanel.MusicMetadataWriter
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.PlaylistArt
@@ -60,6 +73,7 @@ import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -93,6 +107,10 @@ internal fun PlaylistGroupsPage(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(groups, key = { it.key }) { group ->
+                // 专辑歌单封面统一采用该歌单内第一首歌曲的封面
+                val coverTrack = if (type == SmartPlaylistType.ALBUM) {
+                    playbackState.libraryTracks.firstOrNull { it.id == group.trackIds.firstOrNull() }
+                } else null
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -109,12 +127,16 @@ internal fun PlaylistGroupsPage(
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp),
-                        )
+                        if (coverTrack != null) {
+                            PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+                        } else {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -172,6 +194,9 @@ internal fun PlaylistTracksPage(
             }
         },
         onTrackLongClick = { removeTrack = it },
+        onReorder = { ordered ->
+            PlaylistStore.setTrackOrder(context, playlist.id, ordered.map { it.id })
+        },
     )
     AddSongsPicker(
         visible = showPicker,
@@ -227,6 +252,7 @@ internal fun PlaylistGroupTracksPage(
     playbackState: MusicPlaybackState,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val tracks = remember(playbackState.libraryTracks, group.key) {
         if (type == SmartPlaylistType.ALBUM) {
             val albumId = group.key.removePrefix("album:").toLongOrNull()
@@ -235,17 +261,33 @@ internal fun PlaylistGroupTracksPage(
             playbackState.libraryTracks.filter { it.artist == group.name }
         }
     }
+    // 专辑视图长按歌曲：编辑该歌曲的专辑元数据
+    var editAlbumTrack by remember { mutableStateOf<MusicTrack?>(null) }
     TracksContent(
         tracks = tracks,
         source = PlaylistSource(group.key, group.name),
         playbackState = playbackState,
         scope = scope,
         trailingAction = {},
-        onTrackLongClick = {},
+        onTrackLongClick = { track ->
+            if (type == SmartPlaylistType.ALBUM) editAlbumTrack = track
+        },
+    )
+    EditAlbumDialog(
+        track = editAlbumTrack,
+        onConfirm = { track, albumName ->
+            playbackState.updateTrack(track.copy(albumName = albumName))
+            editAlbumTrack = null
+            // 将专辑名写回音频文件标签
+            scope.launch {
+                MusicMetadataWriter.writeAlbum(context, track, albumName)
+            }
+        },
+        onDismiss = { editAlbumTrack = null },
     )
 }
 
-// 曲目页共享主体：播放全部 + 操作栏 + 曲目列表
+// 曲目页共享主体：播放全部 + 操作栏 + 曲目列表（支持长按手柄拖拽排序）
 @Composable
 private fun TracksContent(
     tracks: List<MusicTrack>,
@@ -254,8 +296,16 @@ private fun TracksContent(
     scope: CoroutineScope,
     trailingAction: @Composable () -> Unit,
     onTrackLongClick: (MusicTrack) -> Unit,
+    onReorder: ((List<MusicTrack>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val listState = rememberLazyListState()
+    // 可排序的本地列表：拖拽实时重排，随数据源变化重置
+    var orderedTracks by remember(tracks) { mutableStateOf(tracks) }
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    val rowHeightPx = with(density) { 42.dp.toPx() }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -264,8 +314,8 @@ private fun TracksContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(
-                onClick = { playQueue(context, playbackState, scope, tracks, 0, source) },
-                enabled = tracks.isNotEmpty(),
+                onClick = { playQueue(context, playbackState, scope, orderedTracks, 0, source) },
+                enabled = orderedTracks.isNotEmpty(),
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
@@ -283,21 +333,80 @@ private fun TracksContent(
             Spacer(modifier = Modifier.weight(1f))
             trailingAction()
             Text(
-                text = stringResource(R.string.music_panel_track_count, tracks.size),
+                text = stringResource(R.string.music_panel_track_count, orderedTracks.size),
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 10.sp,
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
-        if (tracks.isEmpty()) {
+        if (orderedTracks.isEmpty()) {
             EmptyHint(text = stringResource(R.string.playlist_empty))
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                itemsIndexed(tracks, key = { _, track -> track.audioUri }) { index, track ->
+                itemsIndexed(orderedTracks, key = { _, track -> track.audioUri }) { index, track ->
                     val isActive = track.id == playbackState.currentTrack?.id
+                    val dragModifier = Modifier.pointerInput(track.audioUri, orderedTracks.size) {
+                        awaitEachGesture {
+                            // 手柄按下即消费事件，避免与行级长按冲突；长按后进入垂直拖拽排序
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            val startIndex = orderedTracks.indexOfFirst { it.audioUri == track.audioUri }
+                            if (startIndex < 0) return@awaitEachGesture
+                            draggingIndex = startIndex
+                            val longPress = awaitLongPressOrCancellation(down.id)
+                            if (longPress != null) {
+                                // 以列表内容坐标系跟踪手指，重排或滚动均不改变该坐标
+                                val startFingerY = startIndex.let { idx ->
+                                    listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }?.offset ?: 0
+                                } + longPress.position.y
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) break
+                                    change.consume()
+                                    val itemInfo = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { it.key == track.audioUri }
+                                        ?: break
+                                    val fingerY = itemInfo.offset + change.position.y
+                                    val target = (startIndex + ((fingerY - startFingerY) / rowHeightPx).roundToInt())
+                                        .coerceIn(0, orderedTracks.lastIndex)
+                                    val current = draggingIndex ?: break
+                                    if (target != current) {
+                                        val list = orderedTracks.toMutableList()
+                                        val moved = list.removeAt(current)
+                                        list.add(target, moved)
+                                        orderedTracks = list
+                                        draggingIndex = target
+                                        // 与当前播放来源一致时实时同步播放队列顺序
+                                        if (playbackState.playlistSource?.key == source?.key) {
+                                            playbackState.reorderPlaylist(list)
+                                        }
+                                        onReorder?.invoke(list)
+                                    }
+                                    // 拖拽越过可视区上下边缘时逐行自动滚动
+                                    val visible = listState.layoutInfo.visibleItemsInfo
+                                    val firstVisible = visible.firstOrNull()?.index ?: 0
+                                    val lastVisible = visible.lastOrNull()?.index ?: 0
+                                    val cur = draggingIndex ?: break
+                                    when {
+                                        cur <= firstVisible && firstVisible > 0 ->
+                                            if (!listState.isScrollInProgress) scope.launch {
+                                                listState.animateScrollToItem((firstVisible - 1).coerceAtLeast(0))
+                                            }
+                                        cur >= lastVisible && lastVisible < orderedTracks.lastIndex ->
+                                            if (!listState.isScrollInProgress) scope.launch {
+                                                listState.animateScrollToItem(lastVisible + 1)
+                                            }
+                                    }
+                                }
+                            }
+                            draggingIndex = null
+                        }
+                    }
                     PlaylistTrackRow(
                         track = track,
                         isActive = isActive,
@@ -307,11 +416,12 @@ private fun TracksContent(
                             if (isActive) {
                                 togglePlayPause(playbackState)
                             } else {
-                                playQueue(context, playbackState, scope, tracks, index, source)
+                                playQueue(context, playbackState, scope, orderedTracks, index, source)
                             }
                         },
                         onLongClick = { onTrackLongClick(track) },
                         onFavoriteClick = { playbackState.toggleFavorite(track.id) },
+                        dragHandleModifier = dragModifier,
                     )
                 }
             }
@@ -319,7 +429,7 @@ private fun TracksContent(
     }
 }
 
-// 歌单曲目行：对齐在线搜索结果行样式，封面 + 主次文字 + 收藏
+// 歌单曲目行：对齐在线搜索结果行样式，封面 + 主次文字 + 排序手柄 + 收藏
 @Composable
 private fun PlaylistTrackRow(
     track: MusicTrack,
@@ -329,6 +439,7 @@ private fun PlaylistTrackRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
+    dragHandleModifier: Modifier = Modifier,
 ) {
     Row(
         modifier = Modifier
@@ -376,6 +487,20 @@ private fun PlaylistTrackRow(
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // 排序调整手柄：长按后垂直拖拽实时变更歌单内播放次序，位于收藏按钮左侧
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .then(dragHandleModifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.DragHandle,
+                contentDescription = stringResource(R.string.playlist_sort_handle),
+                tint = Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp),
             )
         }
         IconButton(onClick = onFavoriteClick, modifier = Modifier.size(30.dp)) {
@@ -444,4 +569,76 @@ internal fun RemoveTrackDialog(
             }
         },
     )
+}
+
+// 专辑视图长按歌曲：编辑该歌曲的专辑元数据
+@Composable
+internal fun EditAlbumDialog(
+    track: MusicTrack?,
+    onConfirm: (MusicTrack, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (track == null) return
+    MetadataDialogCard(onDismiss = onDismiss) {
+        var value by remember(track.id) { mutableStateOf(track.albumName) }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.playlist_edit_album_title),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.widthIn(max = 200.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    onClick = onDismiss,
+                ) {
+                    Text(
+                        text = stringResource(R.string.music_panel_rename_cancel),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = {
+                        val trimmed = value.trim()
+                        if (trimmed.isNotEmpty()) onConfirm(track, trimmed)
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.music_panel_rename_confirm),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
+            }
+        }
+    }
 }

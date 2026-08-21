@@ -52,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
+import com.yichao.evilgodxu.musicpanel.PlaylistArt
 import com.yichao.evilgodxu.musicpanel.PlaylistSource
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
@@ -252,6 +253,7 @@ private fun PlaylistSwitchList(
                 title = playlist.name,
                 subtitle = stringResource(R.string.music_panel_track_count, playlist.trackIds.size),
                 isCurrent = currentKey == "custom:${playlist.id}",
+                coverTrack = library.firstOrNull { it.id == playlist.trackIds.firstOrNull() },
                 onClick = {
                     onSwitch(
                         resolveTracks(library, playlist.trackIds),
@@ -297,13 +299,16 @@ private fun PlaylistSwitchGroups(
                 title = group.name,
                 subtitle = stringResource(R.string.music_panel_track_count, group.trackIds.size),
                 isCurrent = currentKey == group.key,
+                coverTrack = if (type == SmartPlaylistType.ALBUM) {
+                    library.firstOrNull { it.id == group.trackIds.firstOrNull() }
+                } else null,
                 onClick = { onSwitch(tracks, PlaylistSource(group.key, group.name)) },
             )
         }
     }
 }
 
-// 切换项行：图标 + 名称 + 数量 + 当前标识/下级箭头，几何与排版对齐歌单列表行
+// 切换项行：图标/封面 + 名称 + 数量 + 当前标识/下级箭头，几何与排版对齐歌单列表行
 @Composable
 private fun SwitchRow(
     icon: ImageVector,
@@ -312,6 +317,7 @@ private fun SwitchRow(
     isCurrent: Boolean,
     onClick: () -> Unit,
     showChevron: Boolean = false,
+    coverTrack: MusicTrack? = null,
 ) {
     Row(
         modifier = Modifier
@@ -333,12 +339,16 @@ private fun SwitchRow(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
-            )
+            if (coverTrack != null) {
+                PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
+import com.yichao.evilgodxu.musicpanel.PlaylistArt
 import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
@@ -64,7 +65,6 @@ import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 internal fun PlaylistPanel(
     visible: Boolean,
     playbackState: MusicPlaybackState,
-    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -72,6 +72,10 @@ internal fun PlaylistPanel(
     var backStack by remember { mutableStateOf(listOf<PlaylistPage>(PlaylistPage.Overview)) }
     LaunchedEffect(visible) { if (!visible) backStack = listOf(PlaylistPage.Overview) }
     val page = backStack.last()
+    // 二级/三级详情页系统返回键逐级回退；顶层页面由首页 BackHandler 关闭面板
+    BackHandler(enabled = visible && backStack.size > 1) {
+        backStack = backStack.dropLast(1)
+    }
     // 新建/重命名/删除歌单弹窗
     var showCreate by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Playlist?>(null) }
@@ -84,7 +88,6 @@ internal fun PlaylistPanel(
                 title = page.title(),
                 showBack = backStack.size > 1,
                 onBack = { backStack = backStack.dropLast(1) },
-                onClose = onClose,
             )
             when (page) {
                 is PlaylistPage.Overview -> PlaylistOverview(
@@ -150,13 +153,12 @@ private fun PlaylistPage.title(): String = when (this) {
     is PlaylistPage.GroupTracks -> group.name
 }
 
-// 面板顶部栏：返回按钮 + 标题 + 关闭按钮，样式对齐在线搜索面板标题
+// 面板顶部栏：返回按钮 + 标题，关闭统一走系统返回键
 @Composable
 private fun PanelHeader(
     title: String,
     showBack: Boolean,
     onBack: () -> Unit,
-    onClose: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -183,14 +185,6 @@ private fun PanelHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = onClose, modifier = Modifier.size(40.dp)) {
-            Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = stringResource(R.string.back),
-                tint = Color.White,
-                modifier = Modifier.size(22.dp),
-            )
-        }
     }
 }
 
@@ -235,6 +229,7 @@ private fun PlaylistOverview(
                         countText = stringResource(R.string.playlist_album_count, distinctAlbumCount(allTracks)),
                         onClick = { onOpenSmart(SmartPlaylistType.ALBUM) },
                         modifier = Modifier.weight(1f),
+                        coverTrack = allTracks.firstOrNull(),
                     )
                     SmartPlaylistCard(
                         type = SmartPlaylistType.ARTIST,
@@ -254,6 +249,7 @@ private fun PlaylistOverview(
             PlaylistListRow(
                 playlist = playlist,
                 count = resolveTracks(allTracks, playlist.trackIds).size,
+                coverTrack = resolveTracks(allTracks, playlist.trackIds).firstOrNull(),
                 onClick = { onOpenCustom(playlist) },
                 onRename = { onRename(playlist) },
                 onDelete = { onDelete(playlist) },
@@ -284,6 +280,7 @@ private fun SmartPlaylistCard(
     countText: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    coverTrack: MusicTrack? = null,
 ) {
     Column(
         modifier = modifier
@@ -296,12 +293,22 @@ private fun SmartPlaylistCard(
             .clickable(onClick = onClick)
             .padding(14.dp),
     ) {
-        Icon(
-            imageVector = smartTypeIcon(type),
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(22.dp),
-        )
+        if (coverTrack != null) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            ) {
+                PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+            }
+        } else {
+            Icon(
+                imageVector = smartTypeIcon(type),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = smartTypeLabel(type),
@@ -319,7 +326,7 @@ private fun SmartPlaylistCard(
     }
 }
 
-// 自定义歌单行：无背景 + 小圆角 + 图标与主次文字，对齐在线搜索结果行
+// 自定义歌单行：无背景 + 小圆角 + 封面或图标与主次文字，对齐在线搜索结果行
 @Composable
 private fun PlaylistListRow(
     playlist: Playlist,
@@ -327,6 +334,7 @@ private fun PlaylistListRow(
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    coverTrack: MusicTrack? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Row(
@@ -345,12 +353,16 @@ private fun PlaylistListRow(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
-            )
+            if (coverTrack != null) {
+                PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(

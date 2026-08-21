@@ -193,6 +193,8 @@
     <string name="playlist_more">更多操作</string>
     <string name="playlist_switch_title">切换歌单</string>
     <string name="playlist_switch_default">默认歌单</string>
+    <string name="playlist_sort_handle">排序调整</string>
+    <string name="playlist_edit_album_title">编辑专辑元数据</string>
 
 
     <!-- 更新 -->

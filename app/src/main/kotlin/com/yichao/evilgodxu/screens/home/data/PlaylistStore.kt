@@ -67,6 +67,14 @@ object PlaylistStore {
         persist(context)
     }
 
+    // 按新顺序重排歌单曲目并持久化
+    fun setTrackOrder(context: Context, id: Long, orderedIds: List<Long>) {
+        playlists = playlists.map { playlist ->
+            if (playlist.id == id) playlist.copy(trackIds = orderedIds.distinct()) else playlist
+        }
+        persist(context)
+    }
+
     private fun persist(context: Context) {
         val array = JSONArray()
         playlists.forEach { playlist ->

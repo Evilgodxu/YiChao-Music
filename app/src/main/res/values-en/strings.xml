@@ -192,6 +192,8 @@
     <string name="playlist_more">More options</string>
     <string name="playlist_switch_title">Switch playlist</string>
     <string name="playlist_switch_default">Default playlist</string>
+    <string name="playlist_sort_handle">Reorder</string>
+    <string name="playlist_edit_album_title">Edit album metadata</string>
 
     <!-- Update -->
     <string name="update_dialog_title">New version %s</string>
