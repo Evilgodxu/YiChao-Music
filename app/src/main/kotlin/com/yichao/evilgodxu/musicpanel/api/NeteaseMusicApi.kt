@@ -131,7 +131,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
             val residue = nq.replace(nt, "")
             if (residue.isNotEmpty() && normArtist.isNotEmpty() && !nq.contains(normArtist)) score += 80
             score
-        }
+        }.distinctBy { it.id }
     }
 
     // 原曲以外的版本/翻唱等标记，命中即降权

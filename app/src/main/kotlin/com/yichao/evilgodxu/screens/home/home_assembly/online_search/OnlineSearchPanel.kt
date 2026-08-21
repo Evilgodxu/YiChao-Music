@@ -33,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,7 @@ import com.yichao.evilgodxu.musicpanel.SearchResultRow
 import com.yichao.evilgodxu.musicpanel.performSearch
 import com.yichao.evilgodxu.musicpanel.playSearchResult
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // 左滑关闭在线搜索面板的触发距离
@@ -303,6 +305,13 @@ private fun SearchResultList(
             }
         }
         val errorMsg = playbackState.errorMsg
+        // 错误提示展示 2 秒后自动清除；新错误到来会重置计时
+        LaunchedEffect(errorMsg) {
+            if (errorMsg != null) {
+                delay(2000)
+                playbackState.setErrorMsg(null)
+            }
+        }
         if (errorMsg != null) {
             Text(
                 text = errorMsg,

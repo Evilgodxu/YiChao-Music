@@ -116,6 +116,12 @@ fun HomeAssembly(
         playbackState.setSearchResultsVisible(false)
         playbackState.setErrorMsg(null)
     }
+    // 只有播放器真正开始播放(无错误)时才收起在线搜索覆盖层；播放失败出现错误提示时保持面板打开
+    LaunchedEffect(playbackState.isPlaying) {
+        if (playbackState.isPlaying && showOnlineSearch) {
+            showOnlineSearch = false
+        }
+    }
     // LocalContext 为本地化包装 context，宿主 Activity 需从注册表所有者获取
     val activity = LocalActivityResultRegistryOwner.current as? Activity
     val currentTrackId = playbackState.currentTrack?.id
