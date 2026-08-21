@@ -40,9 +40,6 @@ data class AudioSignalPathFormat(
     val channels: Int,
 )
 
-// 在线搜索结果曲目的 ID 偏移量（见 MusicPanelSearchLogic 的 downloadAndPlay）
-private const val ONLINE_TRACK_ID_OFFSET = 1000000L
-
 // 音乐播放器状态持有者（悬浮窗级共享状态）
 class MusicPlaybackState {
 
@@ -257,11 +254,20 @@ class MusicPlaybackState {
     // 自动清理未在播放的在线歌曲：在线曲目不常驻播放列表，仅当前正在播放时保留
     fun cleanupIdleOnlineTracks() {
         val activeId = currentTrack?.id
-        val kept = playlist.filter { it.id == activeId || it.id < ONLINE_TRACK_ID_OFFSET }
+        val kept = playlist.filter { track ->
+            track.id == activeId || !isOnlineStreaming(track)
+        }
         if (kept.size == playlist.size) return
         playlist = kept
         currentIndex = kept.indexOfFirst { it.id == activeId }
         persistPlaylist()
+    }
+
+    // 判定是否为在线流媒体曲目：无本地路径且音频地址为 http(s)
+    private fun isOnlineStreaming(track: MusicTrack): Boolean {
+        if (track.path.isNotBlank()) return false
+        val scheme = runCatching { Uri.parse(track.audioUri).scheme }.getOrNull()
+        return scheme == "http" || scheme == "https"
     }
 
     fun removeTrack(trackId: Long) {
