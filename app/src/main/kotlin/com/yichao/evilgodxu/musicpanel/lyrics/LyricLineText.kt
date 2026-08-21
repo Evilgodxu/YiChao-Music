@@ -117,15 +117,18 @@ private fun wrapLyricText(text: String): String {
         while (i < text.length) {
             if (i > 0) append('\n')
             val end = minOf(i + MAX_LYRIC_CHARS, text.length)
-            // 在本行范围内取最近空格断行，避免截断完整单词
             var breakAt = end
-            var j = end
-            while (j > i) {
-                if (text[j - 1].isWhitespace()) {
-                    breakAt = j
-                    break
+            // 剩余内容整段可放入当前行时不再回退断行，避免提前换行
+            if (end < text.length) {
+                // 行尾截断单词时回退到最近空格，避免截断完整单词
+                var j = end
+                while (j > i) {
+                    if (text[j - 1].isWhitespace()) {
+                        breakAt = j
+                        break
+                    }
+                    j--
                 }
-                j--
             }
             append(text, i, breakAt)
             i = breakAt
@@ -136,4 +139,4 @@ private fun wrapLyricText(text: String): String {
 }
 
 // 单行歌词超过该字符数则手动换行
-private const val MAX_LYRIC_CHARS = 20
+private const val MAX_LYRIC_CHARS = 30
