@@ -116,6 +116,13 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
         }
     }
 
+    /** 返回今日日志文件，不存在时返回 null */
+    fun todayLogFile(): File? {
+        val dir = logDir ?: return null
+        val today = LocalDate.now().format(dateFormat)
+        return File(dir, "$LOG_FILE_PREFIX$today.log").takeIf { it.exists() }
+    }
+
     /** 清理超过保留天数的旧日志文件 */
     private fun cleanOldLogs() {
         val dir = logDir ?: return

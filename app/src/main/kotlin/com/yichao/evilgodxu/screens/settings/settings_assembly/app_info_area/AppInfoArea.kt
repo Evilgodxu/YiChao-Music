@@ -22,8 +22,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.log.CrashLogManager
 
 // 关于分区：应用信息，点击版本号主动检查更新
 @Composable
@@ -32,6 +34,23 @@ fun AppInfoArea(
     onVersionClick: () -> Unit,
 ) {
     val context = LocalContext.current
+
+    // 分享今日日志；无日志文件时直接忽略点击
+    fun shareLog() {
+        val file = CrashLogManager.todayLogFile() ?: return
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "今日日志")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(sendIntent, "分享今日日志")
+        // LocalContext 为本地化包装 context，非 Activity 时需加 NEW_TASK
+        if (context !is Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -53,6 +72,16 @@ fun AppInfoArea(
                 .clickable(onClick = onVersionClick),
             textAlign = TextAlign.Center,
             fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
+        Text(
+            text = "[日志]",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+                .clickable { shareLog() },
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
         Row(

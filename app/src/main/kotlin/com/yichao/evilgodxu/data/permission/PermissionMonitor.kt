@@ -41,7 +41,8 @@ class PermissionMonitor(private val context: Context) {
 
     fun isOverlayGranted(): Boolean = Settings.canDrawOverlays(context)
 
-    fun isAllFilesGranted(): Boolean = Environment.isExternalStorageManager()
+    fun isAllFilesGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
 
     fun isMediaAudioGranted(): Boolean =
         ContextCompat.checkSelfPermission(context, mediaAudioPermission()) == PackageManager.PERMISSION_GRANTED
@@ -50,7 +51,8 @@ class PermissionMonitor(private val context: Context) {
         ContextCompat.checkSelfPermission(context, mediaImagePermission()) == PackageManager.PERMISSION_GRANTED
 
     fun isBluetoothGranted(): Boolean =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     fun isGranted(permissionType: PermissionType): Boolean = when (permissionType) {
         PermissionType.OVERLAY -> isOverlayGranted()
