@@ -35,14 +35,18 @@ internal object MusicMetadataWriter {
             }
         }
 
-    private fun writeCoverByUri(context: Context, uriString: String, coverBytes: ByteArray): Boolean {
+    private fun writeCoverByUri(context: Context, uriString: String, coverBytes: ByteArray): Boolean =
+        rewriteByUri(context, uriString) { bytes -> writeMetadata(bytes, null, null, coverBytes) }
+
+    // 就地重写 content URI 音频文件，非 content 协议不可写时返回 false
+    private fun rewriteByUri(context: Context, uriString: String, block: (ByteArray) -> ByteArray?): Boolean {
         if (uriString.isBlank()) return false
         return try {
             val uri = Uri.parse(uriString)
             if (uri.scheme != "content") return false
             val resolver = context.contentResolver
             val source = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return false
-            val result = writeMetadata(source, null, null, coverBytes) ?: return false
+            val result = block(source) ?: return false
             resolver.openOutputStream(uri, "wt")?.use { it.write(result) } ?: return false
             true
         } catch (e: Throwable) {
@@ -227,7 +231,9 @@ internal object MusicMetadataWriter {
                     if (length >= 0 && p + length <= original.size) {
                         val value = String(original, p, length, StandardCharsets.UTF_8)
                         val key = value.substringBefore('=').uppercase()
-                        if ((title == null || key != "TITLE") && (artist == null || key != "ARTIST")) fields += value
+                        if ((title == null || key != "TITLE") &&
+                            (artist == null || key != "ARTIST")
+                        ) fields += value
                         p += length
                     }
                 }

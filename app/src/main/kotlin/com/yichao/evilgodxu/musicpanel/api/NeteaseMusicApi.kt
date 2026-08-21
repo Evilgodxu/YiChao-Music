@@ -170,8 +170,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         }
     }
 
-    // 获取歌曲播放 URL，返回 null 表示完全不可播。
-    // 与 QPlayer 的 songUrlInfo() 对应：即使返回试听片段也如实告知调用方。
+    // 获取歌曲播放 URL，返回 null 表示完全不可播；试听片段也如实返回
     suspend fun getSongUrlInfo(songId: Long, level: String = "standard"): SongUrlInfo? = withContext(Dispatchers.IO) {
         try {
             val body = JSONObject().apply {
@@ -191,18 +190,16 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         }
     }
 
-    /** 歌曲播放 URL 信息，与 QPlayer 的 UrlInfo 对应 */
+    /** 歌曲播放 URL 信息 */
     data class SongUrlInfo(val url: String, val trial: Boolean)
 
-    // 多音质回退获取播放 URL：standard → higher → exhigh
-    // 返回值策略与 QPlayer 的 resolveAndPlayNetease() 一致：
-    //   优先返回非试听完整 URL → 无完整 URL 时返回试听片段（至少可以预览）
+    // 多音质回退获取播放 URL：优先非试听完整 URL，全为试听时降级返回试听片段
     suspend fun getSongUrlWithFallback(songId: Long): String? {
         for (level in arrayOf("standard", "higher", "exhigh")) {
             val info = getSongUrlInfo(songId, level) ?: continue
             if (!info.trial && info.url.isNotBlank()) return info.url
         }
-        // 所有音质都是试听片段时，降级返回第一个试听 URL（与 QPlayer 一致）
+        // 全为试听片段时降级返回第一个试听 URL
         for (level in arrayOf("standard", "higher", "exhigh")) {
             val info = getSongUrlInfo(songId, level) ?: continue
             if (info.url.isNotBlank()) return info.url
@@ -210,7 +207,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         return null
     }
 
-    /** 补全歌曲元数据（标题/艺术家/封面等），与 QPlayer 的 songDetail() 对应 */
+    /** 补全歌曲元数据（标题/艺术家/封面等） */
     suspend fun songDetail(songId: Long): NeteaseSongSearchResult? = withContext(Dispatchers.IO) {
         try {
             val root = request("v3/song/detail", JSONObject().put("c", "[{\"id\":$songId}]"))
@@ -330,7 +327,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         return "$a.${kotlin.random.Random.nextInt(256)}.${kotlin.random.Random.nextInt(256)}.${1 + kotlin.random.Random.nextInt(254)}"
     }
 
-    // CDN 缩略图 URL，与 QPlayer 的 thumbUrl() 一致：追加 ?param=128y128
+    // CDN 缩略图 URL：追加 ?param=128y128 请求小图
     internal fun thumbUrl(coverUrl: String): String {
         return coverUrl + if (coverUrl.contains("?")) "&param=128y128" else "?param=128y128"
     }

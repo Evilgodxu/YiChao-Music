@@ -20,7 +20,15 @@ internal object MusicMetadataCache {
     private fun lyricRoot(context: Context): File = File(downloadsDir(context), "YiChao/Lyrics")
     private fun coverFile(context: Context, id: Long) = File(coverRoot(context), "$id.webp")
     private fun originalCoverFile(context: Context, id: Long) = File(coverRoot(context), "$id.image")
-    private fun lyricFile(context: Context, id: Long) = File(lyricRoot(context), "$id.json")
+
+    // 歌词文件按“标题 - 艺术家”命名，空字段自动忽略，保证可读且避免同名覆盖
+    private fun lyricFile(context: Context, title: String, artist: String): File {
+        val name = listOf(title, artist)
+            .filter { it.isNotBlank() }
+            .joinToString(" - ")
+            .ifBlank { "unknown" }
+        return File(lyricRoot(context), "${sanitizeFileName(name)}.lrc")
+    }
 
     // 标记目录不被系统媒体扫描器收录，避免封面图出现在相册
     private fun ensureNoMedia(dir: File) = runCatching {
@@ -87,36 +95,68 @@ internal object MusicMetadataCache {
         null
     }
 
-    fun saveLyrics(context: Context, id: Long, lines: List<LyricLine>): String? = try {
-        val file = lyricFile(context, id)
+    fun saveLyrics(context: Context, title: String, artist: String, lines: List<LyricLine>): String? = try {
+        val file = lyricFile(context, title, artist)
         file.parentFile?.mkdirs()
         ensureNoMedia(file.parentFile!!)
-        val array = JSONArray()
-        lines.forEach { line ->
-            array.put(JSONObject().apply {
-                put("timeMs", line.timeMs)
-                put("text", line.text)
-                put("words", JSONArray().also { words ->
-                    line.words.forEach { word ->
-                        words.put(JSONObject().apply {
-                            put("startMs", word.startMs)
-                            put("durationMs", word.durationMs)
-                            put("text", word.text)
-                        })
-                    }
-                })
-            })
-        }
-        file.writeText(array.toString())
+        file.writeText(encodeLyrics(lines))
         file.absolutePath
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicMetadataCache", "保存歌词失败: 路径=${lyricFile(context, id).absolutePath}", e)
+        CrashLogManager.logException("MusicMetadataCache", "保存歌词失败: 路径=${lyricFile(context, title, artist).absolutePath}", e)
         null
     }
 
+    // 歌词按增强 LRC 文本序列化：标准 [mm:ss.xx] 行 + 行内 <mm:ss.xx> 逐字时间戳
+    internal fun encodeLyrics(lines: List<LyricLine>): String =
+        lines.joinToString("\n") { line ->
+            val timestamp = lrcTimestamp(line.timeMs)
+            if (line.words.isEmpty()) "[$timestamp]${line.text}"
+            else "[$timestamp]" + line.words.joinToString("") { "<${lrcTimestamp(it.startMs)}>${it.text}" }
+        }
+
     fun loadLyrics(path: String): List<LyricLine> = try {
-        val array = JSONArray(File(path).readText())
-        List(array.length()) { index ->
+        val text = File(path).readText()
+        parseEnhancedLrc(text).ifEmpty { parseJsonLyrics(text) }
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicMetadataCache", "加载歌词失败: 路径=$path", e)
+        emptyList()
+    }
+
+    private fun lrcTimestamp(ms: Long): String {
+        val minutes = ms / 60_000
+        val seconds = ms % 60_000 / 1000
+        val hundredths = ms % 1000 / 10
+        return "%02d:%02d.%02d".format(minutes, seconds, hundredths)
+    }
+
+    // 增强 LRC 解析：兼容纯文本行与行内 <mm:ss.xx> 逐字标签
+    private fun parseEnhancedLrc(lrc: String): List<LyricLine> {
+        val linePattern = Regex("""\[(\d+):(\d+)(?:\.(\d+))?](.*)""")
+        val wordPattern = Regex("""<(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
+        return lrc.lineSequence().mapNotNull { rawLine ->
+            val match = linePattern.find(rawLine) ?: return@mapNotNull null
+            val timeMs = match.groupValues[1].toLong() * 60_000 +
+                match.groupValues[2].toLong() * 1000 +
+                match.groupValues[3].padEnd(3, '0').take(3).toLong()
+            val content = match.groupValues[4]
+            val words = wordPattern.findAll(content).map { word ->
+                LyricWord(
+                    startMs = word.groupValues[1].toLong() * 60_000 +
+                        word.groupValues[2].toLong() * 1000 +
+                        word.groupValues[3].padEnd(3, '0').take(3).toLong(),
+                    durationMs = 0L,
+                    text = word.groupValues[4]
+                )
+            }.filter { it.text.isNotEmpty() }.toList()
+            val text = if (words.isNotEmpty()) words.joinToString("") { it.text } else content.trim()
+            LyricLine(timeMs, text, words).takeIf { it.text.isNotBlank() }
+        }.sortedBy { it.timeMs }.toList()
+    }
+
+    // 旧版 JSON 缓存回退解析
+    private fun parseJsonLyrics(text: String): List<LyricLine> {
+        val array = JSONArray(text)
+        return List(array.length()) { index ->
             val item = array.getJSONObject(index)
             val words = item.optJSONArray("words") ?: JSONArray()
             LyricLine(
@@ -128,9 +168,6 @@ internal object MusicMetadataCache {
                 }
             )
         }
-    } catch (e: Exception) {
-        CrashLogManager.logException("MusicMetadataCache", "加载歌词失败: 路径=$path", e)
-        emptyList()
     }
 
     fun isValid(path: String): Boolean = path.isNotBlank() && File(path).let { it.isFile && it.length() > 0 }

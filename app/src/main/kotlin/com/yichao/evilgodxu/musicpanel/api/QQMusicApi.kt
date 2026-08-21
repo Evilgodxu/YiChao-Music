@@ -84,7 +84,7 @@ internal object QQMusicApi : OnlineMusicSource {
                 title = item.optString("title").ifBlank { item.optString("name") },
                 artist = artist,
                 coverUrl = cover,
-                // QQ 封面 CDN 支持直接改尺寸段生成小图，128 尺寸段无效(404)，使用合法的 150
+                // 封面 CDN 按尺寸段生成小图，使用可用的 150x150
                 coverThumbUrl = if (albumMid.isNotBlank()) {
                     "https://y.gtimg.cn/music/photo_new/T002R150x150M000$albumMid.jpg"
                 } else null,
@@ -193,7 +193,7 @@ internal object QQMusicApi : OnlineMusicSource {
         }
     }
 
-    // 与官方客户端的 searchid 生成方式一致：按时间戳与随机数拼出大整数
+    // searchid 按时间戳与随机数拼出大整数
     private fun randomSearchId(): String {
         val t = (1 + Random.nextInt(20)) * 18014398509481984L
         val n = Random.nextInt(0, 4194305) * 4294967296L

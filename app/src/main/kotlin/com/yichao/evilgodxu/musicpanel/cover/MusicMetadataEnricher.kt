@@ -180,7 +180,8 @@ object MetadataEnricher {
                             ?: return@async null
                         val lyric = NeteaseMusicApi.lyric(match.id)
                         if (lyric.lines.isEmpty()) return@async null
-                        val lyricPath = MusicMetadataCache.saveLyrics(context, match.id, lyric.lines).orEmpty()
+                        // 自动补全仅缓存歌词文件，不写音频元数据（元数据只由在线播放流程写入）
+                        val lyricPath = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lyric.lines).orEmpty()
                         track.copy(lyricCachePath = lyricPath, lyricLines = lyric.lines)
                     } catch (e: Exception) {
                         CrashLogManager.logException(

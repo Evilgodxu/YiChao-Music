@@ -2,6 +2,7 @@ package com.yichao.evilgodxu.musicpanel
 
 import android.content.ContentValues
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
@@ -13,6 +14,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.URL
 
 // 封面/歌词刷新候选的来源（网易云+QQ+酷狗；Jamendo 无独立元数据/歌词接口，不参与）
@@ -50,7 +52,7 @@ internal suspend fun searchLyricsCandidates(
         val titleOnly = if (track.title.isBlank()) emptyList() else searchMetadataCandidates(track.title)
             .filter { it.id !in occupiedIds && !it.coverUrl.isNullOrBlank() }
         playbackState.lyricsCandidates = NeteaseMusicApi.rankSearchResults(
-            (occupied + titleOnly).distinctBy { it.id },
+            occupied + titleOnly,
             combined.ifBlank { track.title }
         ).take(30)
     } catch (e: Exception) {
@@ -77,7 +79,7 @@ internal suspend fun applyLyricsCandidate(
                 else -> NeteaseMusicApi.lyric(candidate.id).lines
             }
             if (lines.isEmpty()) return@withContext null
-            val path = MusicMetadataCache.saveLyrics(context, candidate.id, lines).orEmpty()
+            val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lines).orEmpty()
             if (path.isBlank()) return@withContext null
             track.copy(
                 lyricCachePath = path,
@@ -119,8 +121,7 @@ internal suspend fun searchCoverCandidates(
                 .filter { !it.coverUrl.isNullOrBlank() }
         }
         playbackState.coverCandidates = NeteaseMusicApi.rankSearchResults(
-            (titleArtistCandidates + titleCandidates)
-                .distinctBy { it.id },
+            titleArtistCandidates + titleCandidates,
             titleArtist.ifBlank { track.title }
         ).take(30)
     } catch (e: Exception) {
@@ -247,7 +248,7 @@ internal suspend fun downloadAndPlay(
                     MusicSearchSource.JAMENDO -> emptyList()
                 }
                 if (lines.isNotEmpty()) {
-                    val lyricPath = MusicMetadataCache.saveLyrics(context, result.id, lines).orEmpty()
+                    val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
                     withContext(Dispatchers.Main) {
                         val idx = playbackState.playlist.indexOfFirst { it.id == trackId }
                         if (idx >= 0) {
@@ -283,7 +284,12 @@ internal suspend fun cacheToDownloads(
     playbackState: MusicPlaybackState,
 ) {
     try {
-        val fileName = "${sanitizeFileName(result.title)} - ${sanitizeFileName(result.artist)}.mp3"
+        // 按实际 URL 后缀推断格式，避免高音质文件误存为 mp3
+        val extension = url.substringBefore('?')
+            .substringAfterLast('.', "")
+            .lowercase()
+            .takeIf { it in AUDIO_EXTENSIONS } ?: "mp3"
+        val fileName = "${sanitizeFileName(result.title)} - ${sanitizeFileName(result.artist)}.$extension"
 
         val existingUri = findExistingDownload(context, fileName)
         if (existingUri != null) {
@@ -298,11 +304,14 @@ internal suspend fun cacheToDownloads(
         connection.readTimeout = 60000
         val bytes = (connection as java.net.HttpURLConnection).inputStream.use { it.readBytes() }
 
+        // 试听片段(≤30秒)不缓存，保持在线播放
+        if (isTrialAudio(bytes)) return
+
         val audioUri: String
 
         val contentValues = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-            put(MediaStore.Downloads.MIME_TYPE, "audio/mpeg")
+            put(MediaStore.Downloads.MIME_TYPE, audioMimeType(extension))
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
         }
         val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
@@ -329,6 +338,39 @@ internal fun sanitizeFileName(name: String): String {
         .trim()
 }
 
+// 支持的音频扩展名，用于按实际 URL 推断缓存格式
+private val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "m4a", "wav", "aac", "opus")
+
+// 探测音频时长是否 ≤30 秒的试听片段
+private fun isTrialAudio(bytes: ByteArray): Boolean {
+    val tmp = File.createTempFile("probe", ".audio")
+    return try {
+        tmp.writeBytes(bytes)
+        val retriever = MediaMetadataRetriever()
+        val durationMs = try {
+            retriever.setDataSource(tmp.absolutePath)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+        } finally {
+            retriever.release()
+        }
+        durationMs in 1..30_000
+    } catch (e: Exception) {
+        false
+    } finally {
+        tmp.delete()
+    }
+}
+
+private fun audioMimeType(extension: String): String = when (extension) {
+    "flac" -> "audio/flac"
+    "ogg" -> "audio/ogg"
+    "m4a" -> "audio/mp4"
+    "wav" -> "audio/x-wav"
+    "aac" -> "audio/aac"
+    "opus" -> "audio/opus"
+    else -> "audio/mpeg"
+}
+
 internal fun normalizeTitle(value: String): String {
     return value.lowercase()
         .replace(Regex("""[\s　（）()\[\]【】「」『』《》〈〉、，。！？"'""'']+"""), "")
@@ -345,7 +387,7 @@ internal suspend fun enrichOnlineMetadata(
     try {
         val lyric = NeteaseMusicApi.lyric(result.id)
         val lyricPath = if (lyric.lines.isNotEmpty()) {
-            MusicMetadataCache.saveLyrics(context, result.id, lyric.lines).orEmpty()
+            MusicMetadataCache.saveLyrics(context, track.title, track.artist, lyric.lines).orEmpty()
         } else ""
         withContext(Dispatchers.Main) {
             val idx = playbackState.playlist.indexOfFirst { it.id == track.id }
