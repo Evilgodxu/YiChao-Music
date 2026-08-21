@@ -60,7 +60,7 @@ import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 
-// 首页左滑呼出的歌单面板：智能歌单 + 自定义歌单，支持页面栈导航
+// 首页左滑呼出的歌单面板：系统歌单 + 自定义歌单，支持页面栈导航
 @Composable
 internal fun PlaylistPanel(
     visible: Boolean,
@@ -188,7 +188,7 @@ private fun PanelHeader(
     }
 }
 
-// 总览页：智能歌单卡片 + 我的歌单列表 + 新建歌单入口
+// 总览页：系统歌单卡片 + 我的歌单列表 + 新建歌单入口
 @Composable
 private fun PlaylistOverview(
     playbackState: MusicPlaybackState,
@@ -273,7 +273,7 @@ private fun SectionLabel(text: String) {
     )
 }
 
-// 智能歌单卡片：白色描边圆角卡片 + 白色图标与文字，与在线搜索输入框风格一致
+// 系统歌单卡片：白色描边圆角卡片 + 白色图标与文字，与在线搜索输入框风格一致
 @Composable
 private fun SmartPlaylistCard(
     type: SmartPlaylistType,
@@ -406,7 +406,7 @@ private fun PlaylistListRow(
     }
 }
 
-// 新建歌单入口：白色描边圆角卡片，与智能歌单卡片一致
+// 新建歌单入口：白色描边圆角卡片，与系统歌单卡片一致
 @Composable
 private fun CreatePlaylistRow(onClick: () -> Unit) {
     Row(
@@ -438,7 +438,7 @@ private fun CreatePlaylistRow(onClick: () -> Unit) {
     }
 }
 
-// 智能歌单名称文案
+// 系统歌单名称文案
 @Composable
 internal fun smartTypeLabel(type: SmartPlaylistType): String = when (type) {
     SmartPlaylistType.RECENT -> stringResource(R.string.playlist_smart_recent)

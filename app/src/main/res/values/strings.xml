@@ -160,7 +160,7 @@
 
     <!-- 首页歌单 -->
     <string name="playlist_title">歌单</string>
-    <string name="playlist_section_smart">智能歌单</string>
+    <string name="playlist_section_smart">系统歌单</string>
     <string name="playlist_section_my">我的歌单</string>
     <string name="playlist_smart_recent">常听</string>
     <string name="playlist_smart_favorite">收藏</string>

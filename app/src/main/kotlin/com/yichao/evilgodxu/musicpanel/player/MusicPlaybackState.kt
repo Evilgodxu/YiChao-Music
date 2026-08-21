@@ -346,7 +346,7 @@ class MusicPlaybackState {
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
 
-    // 常听：最近播放的歌曲 ID（最新在前），用于首页智能歌单
+    // 常听：最近播放的歌曲 ID（最新在前），用于首页系统歌单
     var recentPlayedIds by mutableStateOf<List<Long>>(emptyList())
     private val recentPlayedPreferences = "music_recent_played_preferences"
     private val recentPlayedKey = "music_recent_played_ids"

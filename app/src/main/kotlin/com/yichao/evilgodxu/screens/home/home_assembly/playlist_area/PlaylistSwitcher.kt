@@ -88,7 +88,7 @@ internal fun switchToPlaylistQueue(
     scope.launch { playTrackAt(context, state, index) }
 }
 
-// 播放列表副标题快捷切换歌单弹层：默认 + 智能歌单 + 自定义歌单，专辑/艺术家支持分组二级导航
+// 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航
 @Composable
 internal fun PlaylistSwitcher(
     visible: Boolean,

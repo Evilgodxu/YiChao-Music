@@ -219,7 +219,7 @@ internal fun PlaylistTracksPage(
     )
 }
 
-// 智能歌单曲目页（常听/收藏）
+// 系统歌单曲目页（常听/收藏）
 @Composable
 internal fun PlaylistSmartTracksPage(
     type: SmartPlaylistType,

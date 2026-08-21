@@ -8,10 +8,10 @@ data class Playlist(
     val createdAt: Long,
 )
 
-// 智能歌单类型
+// 系统歌单类型
 enum class SmartPlaylistType { RECENT, FAVORITE, ALBUM, ARTIST }
 
-// 智能歌单分组（专辑/艺术家）
+// 系统歌单分组（专辑/艺术家）
 data class PlaylistGroup(
     val key: String,
     val name: String,
