@@ -76,6 +76,11 @@ fun LandscapePlayerArea(
                     )
                 }
             }
+            // 中：三合一垂直进度条，水平居中
+            VerticalProgressTrack(
+                playbackState = playbackState,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
             // 右：歌词透视区，水平居中
             LyricsPerspectiveZone(
                 playbackState = playbackState,

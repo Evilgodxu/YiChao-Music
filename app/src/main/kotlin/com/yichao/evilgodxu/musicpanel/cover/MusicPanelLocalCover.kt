@@ -162,7 +162,7 @@ private fun LocalCoverContent(
                     AsyncImage(
                         model = cover.uri,
                         contentDescription = stringResource(R.string.music_panel_local_cover),
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.FillBounds,
                         modifier = Modifier.fillMaxSize()
                     )
                     if (cover == selected) {
