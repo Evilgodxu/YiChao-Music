@@ -1,17 +1,19 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -19,15 +21,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,14 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -51,11 +43,13 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
+import com.yichao.evilgodxu.musicpanel.verticalFadeMask
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -115,11 +109,42 @@ fun LandscapePlayerArea(
                 },
         )
 
-        // 封面与歌词区域中间的三合一进度块：艺术家(上/右) + 垂直进度条 + 歌曲标题(下/左)
-        LandscapeThreeInOneProgress(
-            playbackState = playbackState,
-            modifier = Modifier.align(Alignment.Center),
-        )
+        // 封面与歌词之间的竖向进度条（白色样式，不带时间文本，拖动可跳转）；
+        // 竖排标题置于进度条左上角，竖排艺术家置于右下角
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxHeight(0.7f)
+                .width(80.dp),
+        ) {
+            VerticalProgressBar(
+                playbackState = playbackState,
+                contentColor = Color.White,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxHeight(),
+            )
+            if (playbackState.currentTrack != null) {
+                VerticalTrackText(
+                    text = playbackState.currentTrack?.title.orEmpty(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 16.dp),
+                )
+                VerticalTrackText(
+                    text = playbackState.currentTrack?.artist.orEmpty(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp),
+                )
+            }
+        }
 
         // 底部控制栏
         AnimatedVisibility(
@@ -184,146 +209,74 @@ private fun LyricsPerspectiveZone(
     }
 }
 
-// 横屏封面与歌词区域中间的三合一进度块：
-// 垂直进度条居中；艺术家与歌曲标题纵向旋转 90° 贴合进度条轴线，
-// 艺术家在进度条右侧上部、歌曲标题在左侧下部；
-// 条厚取实测行高避免裁切字形，文本条宽贴合实际文本宽度使首尾渐变落在内容两端
+// 竖排文本：标题/艺术家逐字竖排显示，最多展示 7 字；
+// 超出后以跑马灯方式上下往返滚动，顶部与底部复用歌词的边缘渐变淡出效果
+private const val VERTICAL_TEXT_MAX_CHARS = 7
+private const val VERTICAL_MARQUEE_MS = 3500
+
 @Composable
-private fun LandscapeThreeInOneProgress(
-    playbackState: MusicPlaybackState,
+private fun VerticalTrackText(
+    text: String,
+    fontSize: TextUnit,
+    fontWeight: FontWeight,
+    color: Color,
     modifier: Modifier = Modifier,
 ) {
-    val track = playbackState.currentTrack
-    val dimColor = Color.White.copy(alpha = 0.7f)
-    // 旋转后文本沿进度条轴线纵向排布，长度上限 80dp，超长启用跑马灯
-    val maxTextLength = 80.dp
-    // 文本条与进度条间距
-    val textGap = 4.dp
-    val progress by remember {
-        derivedStateOf {
-            if (playbackState.duration > 0) {
-                (playbackState.currentPosition.toFloat() / playbackState.duration).coerceIn(0f, 1f)
-            } else 0f
-        }
-    }
-    val artist = track?.artist ?: ""
-    val title = track?.title ?: ""
-
-    // 实测单行文本宽高：条厚取行高保证字形完整，条宽取实际文本宽度
-    val density = LocalDensity.current
+    if (text.isBlank()) return
+    val chars = text.toCharArray().toList()
     val textMeasurer = rememberTextMeasurer()
-    val artistText = with(density) {
-        val r = textMeasurer.measure(AnnotatedString(artist), TextStyle(fontSize = 12.sp))
-        r.size.width.toDp() to r.size.height.toDp()
+    val density = LocalDensity.current
+    // 以单个字测量作为行高与列宽基准，保证视口固定为 7 字高度
+    val sample = remember(fontSize) {
+        textMeasurer.measure(AnnotatedString("字"), TextStyle(fontSize = fontSize))
     }
-    val titleText = with(density) {
-        val r = textMeasurer.measure(
-            AnnotatedString(title),
-            TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
-        )
-        r.size.width.toDp() to r.size.height.toDp()
-    }
-    val textThickness = maxOf(artistText.second, titleText.second)
-    val artistW = artistText.first
-    val titleW = titleText.first
+    val lineHeight = with(density) { sample.size.height.toDp() }
+    val charWidth = with(density) { sample.size.width.toDp() }
+    val overflowChars = (chars.size - VERTICAL_TEXT_MAX_CHARS).coerceAtLeast(0)
+    val overflowPx = with(density) { (overflowChars * lineHeight.value).toFloat() }
 
-    BoxWithConstraints(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
+    // 跑马灯：内容超出视口时上下往返滚动，逐字循环显示
+    val transition = rememberInfiniteTransition(label = "vertical_marquee_$text")
+    val scrollY by if (overflowChars > 0) {
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = -overflowPx,
+            animationSpec = infiniteRepeatable(
+                animation = tween(VERTICAL_MARQUEE_MS),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "vertical_marquee_y_$text",
+        )
+    } else {
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 0f,
+            animationSpec = infiniteRepeatable(animation = tween(1)),
+            label = "vertical_marquee_y_static_$text",
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .width(charWidth)
+            .height(lineHeight * VERTICAL_TEXT_MAX_CHARS)
+            .clipToBounds()
+            .verticalFadeMask(),
     ) {
-        // 旋转后进度条长度：取当前可用高度的 80%
-        val barHeight = maxHeight * 0.8f
-        // 组合整体限定为进度条范围，艺术家/标题均不越出进度条上下界
-        Box(
-            modifier = Modifier
-                .width(maxTextLength)
-                .height(barHeight),
+        Column(
+            modifier = Modifier.graphicsLayer { translationY = scrollY },
         ) {
-            // 垂直进度条：样式对齐竖屏进度条（细条 + 高透明度轨道 + 圆角）
-            // 填充自下而上（反转水平左→右的填充方向）
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .width(4.dp)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)),
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(progress)
-                        .background(Color.White, RoundedCornerShape(50)),
+            chars.forEach { ch ->
+                Text(
+                    text = ch.toString(),
+                    fontSize = fontSize,
+                    fontWeight = fontWeight,
+                    color = color,
+                    maxLines = 1,
                 )
             }
-
-            // 进度条半径与文本条贴进度条的间距
-            val barHalf = 2.dp
-            // 文本条中心相对进度条中心的水平偏移：进度条半径 + 间距 + 文本条半厚
-            val textOffset = barHalf + textGap + textThickness / 2
-            // 旋转后文本条纵向长度（贴实际文本宽度，超限则封顶）
-            val artistLen = minOf(artistW, maxTextLength)
-            val titleLen = minOf(titleW, maxTextLength)
-            // 使上/下对齐所依的布局轴心（条中心）补偿回边缘，令文本首尾贴合条界
-            val artistShift = (artistLen - textThickness) / 2
-            val titleShift = (titleLen - textThickness) / 2
-
-            // 艺术家：进度条右侧上部，文字以自身宽度排版后旋转 90° 纵向呈现
-            Text(
-                text = artist,
-                color = dimColor,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(x = textOffset, y = artistShift)
-                    .graphicsLayer { rotationZ = 90f }
-                    .width(artistLen)
-                    .height(textThickness)
-                    .then(if (artistW > maxTextLength) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                    .horizontalFadeMask(),
-            )
-
-            // 歌曲标题：进度条左侧下部，文字以自身宽度排版后旋转 90° 纵向呈现
-            Text(
-                text = title,
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(x = -textOffset, y = -titleShift)
-                    .graphicsLayer { rotationZ = 90f }
-                    .width(titleLen)
-                    .height(textThickness)
-                    .then(if (titleW > maxTextLength) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                    .horizontalFadeMask(),
-            )
         }
     }
 }
 
-// 水平边缘淡出：与歌词纵向淡出同款的 DstIn 蒙层，对文本内容自身横向的首末两端同时渐变淡出
-private fun Modifier.horizontalFadeMask(fadeFraction: Float = 0.2f): Modifier = drawWithCache {
-    val brush = Brush.horizontalGradient(
-        colorStops = arrayOf(
-            0.0f to Color.Transparent,
-            fadeFraction to Color.Black,
-            1f - fadeFraction to Color.Black,
-            1f to Color.Transparent,
-        )
-    )
-    onDrawWithContent {
-        drawIntoCanvas { canvas -> canvas.saveLayer(Rect(Offset.Zero, size), Paint()) }
-        drawContent()
-        drawRect(brush = brush, size = size, blendMode = BlendMode.DstIn)
-        drawIntoCanvas { canvas -> canvas.restore() }
-    }
-}
+

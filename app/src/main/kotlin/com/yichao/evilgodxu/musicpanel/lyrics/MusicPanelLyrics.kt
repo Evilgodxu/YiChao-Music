@@ -276,7 +276,7 @@ private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 private const val DEFAULT_VISIBLE_LINES = 5
 
 // 上下边缘淡出：按纵向透明度梯度对内容做 DstIn 蒙层，使上下行渐变消失
-private fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {
+internal fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {
     val brush = Brush.verticalGradient(
         colorStops = arrayOf(
             0.0f to Color.Transparent,

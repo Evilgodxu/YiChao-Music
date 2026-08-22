@@ -128,6 +128,64 @@ internal fun ProgressSection(
     }
 }
 
+// 竖向进度条：复用横向进度条样式（圆角轨道 + 主色填充），不带时间文本
+@Composable
+internal fun VerticalProgressBar(
+    playbackState: MusicPlaybackState,
+    modifier: Modifier = Modifier,
+    contentColor: Color? = null,
+) {
+    val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
+    val progress by remember {
+        derivedStateOf {
+            if (playbackState.duration > 0) {
+                (playbackState.currentPosition.toFloat() / playbackState.duration).coerceIn(0f, 1f)
+            } else 0f
+        }
+    }
+    var seekFraction by remember { mutableFloatStateOf(progress) }
+    var isSeeking by remember { mutableStateOf(false) }
+    val displayProgress = if (isSeeking) seekFraction else progress
+
+    Box(
+        modifier = modifier
+            .width(20.dp)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pos = event.changes.first().position.y / size.height
+                        seekFraction = (1f - pos).coerceIn(0f, 1f)
+                        isSeeking = true
+                        if (event.changes.first().pressed) {
+                            seekTo(playbackState, (seekFraction * playbackState.duration).toLong())
+                            playbackState.setCurrentPosition(
+                                (seekFraction * playbackState.duration).toLong().coerceIn(0L, playbackState.duration)
+                            )
+                        }
+                        if (event.changes.all { !it.pressed }) {
+                            isSeeking = false
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(3.dp)
+                .background(activeColor.copy(alpha = 0.08f), RoundedCornerShape(2.dp))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight(displayProgress)
+                .width(3.dp)
+                .background(activeColor, RoundedCornerShape(2.dp))
+        )
+    }
+}
+
 @Composable
 internal fun VisualizerSection(
     isPlaying: Boolean,
