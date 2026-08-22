@@ -8,7 +8,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,12 +16,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,11 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.musicpanel.AlbumArt
@@ -45,7 +38,7 @@ import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
-// 横屏播放器：三栏结构（封面视觉区 → 信息轴区 → 歌词透视区），标题栏与控制栏点击弹出、3 秒无操作自动隐藏
+// 横屏播放器：双栏结构（封面视觉区 → 歌词透视区）左右居中，标题栏与控制栏点击弹出
 @Composable
 fun LandscapePlayerArea(
     playbackState: MusicPlaybackState,
@@ -55,7 +48,7 @@ fun LandscapePlayerArea(
 ) {
     var playlistVisible by remember { mutableStateOf(false) }
 
-    // 播放期间周期性同步播放位置，驱动进度条与歌词
+    // 播放期间周期性同步播放位置，驱动歌词滚动
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
         while (isActive && playbackState.isPlaying) {
             playbackState.updatePosition()
@@ -65,13 +58,13 @@ fun LandscapePlayerArea(
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // 左：封面视觉区，圆角矩形封面
+            // 左：封面视觉区，圆角矩形封面，水平居中
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(start = 56.dp, end = 16.dp),
-                contentAlignment = Alignment.CenterEnd,
+                    .padding(start = 24.dp, end = 12.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 if (playbackState.currentTrack != null) {
                     AlbumArt(
@@ -83,18 +76,11 @@ fun LandscapePlayerArea(
                     )
                 }
             }
-            // 中：信息轴区
-            MetadataAxis(
-                playbackState = playbackState,
-                modifier = Modifier
-                    .weight(0.5f)
-                    .fillMaxHeight(),
-            )
-            // 右：歌词透视区
+            // 右：歌词透视区，水平居中
             LyricsPerspectiveZone(
                 playbackState = playbackState,
                 modifier = Modifier
-                    .weight(1.4f)
+                    .weight(1f)
                     .fillMaxHeight(),
             )
         }
@@ -134,89 +120,6 @@ fun LandscapePlayerArea(
         )
     }
 }
-
-// 信息轴区：标题、进度条、艺术家三合一整体居中，内部 1dp 间距
-@Composable
-private fun MetadataAxis(
-    playbackState: MusicPlaybackState,
-    modifier: Modifier = Modifier,
-) {
-    val progress by remember {
-        derivedStateOf {
-            if (playbackState.duration > 0) {
-                (playbackState.currentPosition.toFloat() / playbackState.duration).coerceIn(0f, 1f)
-            } else 0f
-        }
-    }
-    Box(
-        modifier = modifier.padding(start = 36.dp, end = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxHeight(0.72f),
-            horizontalArrangement = Arrangement.spacedBy(1.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 标题：组内顶部；以右缘为锚点旋转，使竖排文字紧贴其右侧的进度条
-            VerticalLabel(
-                text = playbackState.currentTrack?.title.orEmpty(),
-                modifier = Modifier
-                    .align(Alignment.Top)
-                    .graphicsLayer {
-                        rotationZ = 90f
-                        transformOrigin = TransformOrigin(1f, 0.5f)
-                    },
-            )
-            // 进度条：组内居中，从底部向上填充
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight(1f)
-                    .width(3.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.25f)),
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(progress)
-                        .background(Color.White, RoundedCornerShape(2.dp)),
-                )
-            }
-            // 艺术家：组内底部；以左缘为锚点旋转，使竖排文字紧贴其左侧的进度条
-            VerticalLabel(
-                text = playbackState.currentTrack?.artist.orEmpty(),
-                modifier = Modifier
-                    .align(Alignment.Bottom)
-                    .graphicsLayer {
-                        rotationZ = 90f
-                        transformOrigin = TransformOrigin(0f, 0.5f)
-                    },
-            )
-        }
-    }
-}
-
-// 文本标签：按字体竖排显示于标签盒内，超长截断；旋转及贴靠由调用方按锚点设置
-@Composable
-private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
-    val visible = if (text.length > MAX_LABEL_CHARS) {
-        text.take(MAX_LABEL_CHARS - 1) + "…"
-    } else {
-        text
-    }
-    Text(
-        text = visible,
-        color = Color.White,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.SemiBold,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier,
-    )
-}
-
-private const val MAX_LABEL_CHARS = 20
 
 // 歌词透视参数：绕 Y 轴角度与相机距离系数；cameraDistance 越小透视越强，
 // 大视角下取值过大会让旋转透视近乎消失，故用较小的宽度比例以获得明显左远右近；
