@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -180,7 +182,8 @@ private fun LyricsPerspectiveZone(
 }
 
 // 横屏封面与歌词区域中间的三合一进度块：
-// 垂直进度条居中，艺术家位于其上方偏右、歌曲标题位于其下方偏左，三者间距 2dp
+// 垂直进度条居中；艺术家与歌曲标题纵向旋转 90° 贴合进度条轴线，
+// 艺术家在上方偏右、歌曲标题在下方偏左，三者间距 2dp
 @Composable
 private fun LandscapeThreeInOneProgress(
     playbackState: MusicPlaybackState,
@@ -188,8 +191,11 @@ private fun LandscapeThreeInOneProgress(
 ) {
     val track = playbackState.currentTrack
     val dimColor = Color.White.copy(alpha = 0.7f)
-    // 标题/艺术家显示宽度：约 7 个字符；超长文本启用跑马灯并叠加左右边缘渐变
+    // 旋转后文本沿进度条轴线纵向排布，长度上限约 7 个字符，超长启用跑马灯；
+    // 文本内容首尾（相对自身横向的首末边缘）恒做渐变淡出
     val textWidth = 80.dp
+    // 旋转后的单行纸面厚度（对应未旋转文本的行高）
+    val textThickness = 14.dp
     val progress by remember {
         derivedStateOf {
             if (playbackState.duration > 0) {
@@ -200,33 +206,37 @@ private fun LandscapeThreeInOneProgress(
     val artist = track?.artist ?: ""
     val title = track?.title ?: ""
 
-    // 收缩宽度整体居中，避免标题/艺术家被推到两侧产生偏移
     BoxWithConstraints(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        // 旋转后进度条高度：取当前可用高度的 80%
+        // 旋转后进度条长度：取当前可用高度的 80%
         val barHeight = maxHeight * 0.8f
         Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(
-                text = artist,
-                color = dimColor,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
+            // 艺术家：位于进度条上方偏右
+            Box(
                 modifier = Modifier
-                    .align(Alignment.End)
-                    .width(textWidth)
-                    .then(
-                        if (artist.length > 7) {
-                            Modifier
-                                .basicMarquee(iterations = Int.MAX_VALUE)
-                                .horizontalFadeMask()
-                        } else Modifier
-                    ),
-            )
+                    .offset(x = 16.dp)
+                    .width(textThickness)
+                    .height(textWidth),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = artist,
+                    color = dimColor,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier
+                        .graphicsLayer { rotationZ = 90f }
+                        .widthIn(max = textWidth)
+                        .then(if (artist.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                        .horizontalFadeMask(),
+                )
+            }
 
             // 垂直进度条：窄而高，样式对齐竖屏进度条（细条 + 高透明度轨道 + 圆角）
             // 填充自下而上（反转水平左→右的填充方向）
@@ -250,30 +260,34 @@ private fun LandscapeThreeInOneProgress(
                 )
             }
 
-            Text(
-                text = title,
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
+            // 歌曲标题：位于进度条下方偏左
+            Box(
                 modifier = Modifier
-                    .align(Alignment.Start)
-                    .width(textWidth)
-                    .then(
-                        if (title.length > 7) {
-                            Modifier
-                                .basicMarquee(iterations = Int.MAX_VALUE)
-                                .horizontalFadeMask()
-                        } else Modifier
-                    ),
-            )
+                    .offset(x = -16.dp)
+                    .width(textThickness)
+                    .height(textWidth),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier
+                        .graphicsLayer { rotationZ = 90f }
+                        .widthIn(max = textWidth)
+                        .then(if (title.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                        .horizontalFadeMask(),
+                )
+            }
         }
     }
 }
 
-// 水平边缘淡出：与歌词纵向淡出同款的 DstIn 蒙层，使跑马灯文本左右渐变淡出
-private fun Modifier.horizontalFadeMask(fadeFraction: Float = 0.15f): Modifier = drawWithCache {
+// 水平边缘淡出：与歌词纵向淡出同款的 DstIn 蒙层，对文本内容自身横向的首末两端同时渐变淡出
+private fun Modifier.horizontalFadeMask(fadeFraction: Float = 0.2f): Modifier = drawWithCache {
     val brush = Brush.horizontalGradient(
         colorStops = arrayOf(
             0.0f to Color.Transparent,
