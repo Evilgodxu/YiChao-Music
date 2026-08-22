@@ -155,7 +155,7 @@ private fun LyricsRefreshContent(
                         verticalArrangement = Arrangement.spacedBy(1.dp)
                     ) {
                         Surface(shape = RoundedCornerShape(8.dp), border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
-                            AsyncImage(model = ImageRequest.Builder(context).data(candidate.coverUrl).diskCachePolicy(CachePolicy.DISABLED).build(), contentDescription = candidate.title, contentScale = ContentScale.FillBounds, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
+                            AsyncImage(model = ImageRequest.Builder(context).data(candidate.coverUrl).diskCachePolicy(CachePolicy.DISABLED).build(), contentDescription = candidate.title, contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
                         }
                         Text(
                             text = candidate.title,

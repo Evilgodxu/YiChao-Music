@@ -376,7 +376,7 @@ internal fun SearchResultRow(
                         .diskCachePolicy(CachePolicy.DISABLED)
                         .build(),
                     contentDescription = result.title,
-                    contentScale = ContentScale.FillBounds,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

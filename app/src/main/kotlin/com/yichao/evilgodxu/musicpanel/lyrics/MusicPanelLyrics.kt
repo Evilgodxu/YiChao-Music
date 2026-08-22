@@ -61,16 +61,25 @@ internal fun LyricsPanel(
     val pendingColor = (contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.72f)
     var lyricPosition by remember { mutableLongStateOf(playbackState.currentPosition) }
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
+        var lastSyncMs = 0L
         while (isActive) {
             val candidate = playbackState.mediaController?.currentPosition
                 ?.takeIf { it >= 0L }
                 ?: playbackState.currentPosition
-            // 播放中保持单调前进，避免控制器位置抖动导致高亮回退；大幅回退视为手动拖动
-            lyricPosition = when {
-                !playbackState.isPlaying -> candidate
-                candidate >= lyricPosition -> candidate
-                lyricPosition - candidate > LYRIC_SEEK_TOLERANCE_MS -> candidate
-                else -> lyricPosition
+            if (playbackState.isPlaying) {
+                val now = System.currentTimeMillis()
+                val elapsed = if (lastSyncMs == 0L) 0L else (now - lastSyncMs).coerceAtLeast(0L)
+                // 播放中以真实流逝时间推进，控制器位置仅作锚点：熄屏唤醒后控制器
+                // 位置可能停滞，本地位置仍持续前进避免冻结；大幅回退视为手动拖动
+                lyricPosition = when {
+                    candidate >= lyricPosition -> candidate
+                    lyricPosition - candidate > LYRIC_SEEK_TOLERANCE_MS -> candidate
+                    else -> lyricPosition + elapsed
+                }
+                lastSyncMs = now
+            } else {
+                lyricPosition = candidate
+                lastSyncMs = 0L
             }
             delay(if (playbackState.isPlaying) 50L else 200L)
         }

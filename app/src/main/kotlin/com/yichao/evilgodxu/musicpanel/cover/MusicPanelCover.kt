@@ -95,7 +95,7 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
         AsyncImage(
             model = model,
             contentDescription = track?.title,
-            contentScale = ContentScale.FillBounds,
+            contentScale = ContentScale.Crop,
             modifier = modifier.background(Color.Black),
         )
     } else {
@@ -128,7 +128,7 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
         AsyncImage(
             model = model,
             contentDescription = track?.title,
-            contentScale = ContentScale.FillBounds,
+            contentScale = ContentScale.Crop,
             modifier = modifier.background(Color.Black),
         )
     } else {

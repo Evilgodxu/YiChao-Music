@@ -576,9 +576,20 @@ private fun MiniPlayerBar(
     var lyricPosition by remember { mutableStateOf(playbackState.currentPosition) }
     LaunchedEffect(controlsVisible, playbackState.currentTrack?.id) {
         if (controlsVisible) return@LaunchedEffect
+        var lastSyncMs = 0L
         while (isActive) {
-            lyricPosition = playbackState.mediaController?.currentPosition
+            val candidate = playbackState.mediaController?.currentPosition
                 ?.takeIf { it >= 0L } ?: playbackState.currentPosition
+            if (playbackState.isPlaying) {
+                // 播放中以真实流逝时间推进，控制器位置仅作锚点，避免熄屏唤醒后位置停滞
+                val now = System.currentTimeMillis()
+                val elapsed = if (lastSyncMs == 0L) 0L else (now - lastSyncMs).coerceAtLeast(0L)
+                lyricPosition = if (candidate >= lyricPosition) candidate else lyricPosition + elapsed
+                lastSyncMs = now
+            } else {
+                lyricPosition = candidate
+                lastSyncMs = 0L
+            }
             delay(if (playbackState.isPlaying) 50L else 200L)
         }
     }

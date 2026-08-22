@@ -57,6 +57,7 @@
     <string name="music_panel_search_history_clear">清理全部历史</string>
     <string name="music_panel_search_history_delete">删除历史</string>
     <string name="music_panel_search_no_results">未找到相关歌曲</string>
+    <string name="music_panel_search_loading">正在搜索...</string>
     <string name="music_panel_search_source">网易云</string>
     <string name="music_panel_search_source_jamendo">Jamendo</string>
     <string name="music_panel_search_source_qq">QQ音乐</string>

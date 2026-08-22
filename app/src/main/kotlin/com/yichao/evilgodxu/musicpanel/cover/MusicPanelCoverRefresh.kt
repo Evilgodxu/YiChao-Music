@@ -146,7 +146,7 @@ private fun CoverRefreshContent(
                                     .diskCachePolicy(CachePolicy.DISABLED)
                                     .build(),
                                 contentDescription = candidate.title,
-                                contentScale = ContentScale.FillBounds,
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(84.dp).clip(RoundedCornerShape(8.dp))
                             )
                         }
@@ -258,7 +258,7 @@ private fun CoverReplaceContent(
                     .diskCachePolicy(CachePolicy.DISABLED)
                     .build(),
                 contentDescription = candidate.title,
-                contentScale = ContentScale.FillBounds,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier.size(96.dp).clip(RoundedCornerShape(10.dp))
             )
         }
