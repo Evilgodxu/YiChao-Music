@@ -1,11 +1,11 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListItemInfo
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,25 +44,31 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -76,9 +85,14 @@ import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
-import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 
 // 专辑/艺术家分组列表页
 @Composable
@@ -302,14 +316,21 @@ private fun TracksContent(
     onReorder: ((List<MusicTrack>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
     val listState = rememberLazyListState()
     // 可排序的本地列表：拖拽实时重排，随数据源变化重置
     var orderedTracks by remember(tracks) { mutableStateOf(tracks) }
-    var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    // 拖拽项相对其槽位的像素位移，用于 graphicsLayer 跟随手指
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    val rowHeightPx = with(density) { 42.dp.toPx() }
+    // 自实现 reorderable 状态：拖拽项跟随手指，其余项使用 animateItem 平滑让位
+    val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
+        val list = orderedTracks.toMutableList()
+        val moved = list.removeAt(from)
+        list.add(to, moved)
+        orderedTracks = list
+        // 与当前播放来源一致时实时同步播放队列顺序
+        if (playbackState.playlistSource?.key == source?.key) {
+            playbackState.reorderPlaylist(list)
+        }
+        onReorder?.invoke(list)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -354,89 +375,25 @@ private fun TracksContent(
             ) {
                 itemsIndexed(orderedTracks, key = { _, track -> track.audioUri }) { index, track ->
                     val isActive = track.id == playbackState.currentTrack?.id
-                    val isDragging = draggingIndex == index
-                    // 拖拽项背景变白并随手指平移，其余项以 animateItem 平滑换位
-                    val itemModifier = if (isDragging) {
-                        Modifier
-                            .zIndex(1f)
-                            .background(Color.White, RoundedCornerShape(8.dp))
-                            .graphicsLayer { translationY = dragOffset }
-                    } else {
-                        Modifier.animateItem()
-                    }
-                    val dragModifier = Modifier.pointerInput(track.audioUri, orderedTracks.size) {
-                        awaitEachGesture {
-                            // 手柄按下即消费事件，避免与行级长按冲突；长按后进入垂直拖拽排序
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            down.consume()
-                            val startIndex = orderedTracks.indexOfFirst { it.audioUri == track.audioUri }
-                            if (startIndex < 0) return@awaitEachGesture
-                            val longPress = awaitLongPressOrCancellation(down.id)
-                            if (longPress != null) {
-                                draggingIndex = startIndex
-                                // 以手柄内坐标跟踪手指：重排/滚动引起的布局位移会在 position.y 中抵消，保证拖拽项始终跟手
-                                val grabOffset = longPress.position.y
-                                dragOffset = 0f
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    if (!change.pressed) break
-                                    change.consume()
-                                    dragOffset = change.position.y - grabOffset
-                                    val current = draggingIndex ?: break
-                                    val target = (current + (dragOffset / rowHeightPx).roundToInt())
-                                        .coerceIn(0, orderedTracks.lastIndex)
-                                    if (target != current) {
-                                        val list = orderedTracks.toMutableList()
-                                        val moved = list.removeAt(current)
-                                        list.add(target, moved)
-                                        orderedTracks = list
-                                        draggingIndex = target
-                                        // 与当前播放来源一致时实时同步播放队列顺序
-                                        if (playbackState.playlistSource?.key == source?.key) {
-                                            playbackState.reorderPlaylist(list)
-                                        }
-                                        onReorder?.invoke(list)
-                                    }
-                                    // 拖拽越过可视区上下边缘时逐行自动滚动
-                                    val visible = listState.layoutInfo.visibleItemsInfo
-                                    val firstVisible = visible.firstOrNull()?.index ?: 0
-                                    val lastVisible = visible.lastOrNull()?.index ?: 0
-                                    val cur = draggingIndex ?: break
-                                    when {
-                                        cur <= firstVisible && firstVisible > 0 ->
-                                            if (!listState.isScrollInProgress) scope.launch {
-                                                listState.animateScrollToItem((firstVisible - 1).coerceAtLeast(0))
-                                            }
-                                        cur >= lastVisible && lastVisible < orderedTracks.lastIndex ->
-                                            if (!listState.isScrollInProgress) scope.launch {
-                                                listState.animateScrollToItem(lastVisible + 1)
-                                            }
-                                    }
+                    ReorderableItem(reorderableState, key = track.audioUri) { isDragging ->
+                        PlaylistTrackRow(
+                            track = track,
+                            isActive = isActive,
+                            isPlaying = isActive && playbackState.isPlaying,
+                            isLiked = track.id in playbackState.likedIds,
+                            isDragging = isDragging,
+                            onClick = {
+                                if (isActive) {
+                                    togglePlayPause(playbackState)
+                                } else {
+                                    playQueue(context, playbackState, scope, orderedTracks, index, source)
                                 }
-                            }
-                            draggingIndex = null
-                            dragOffset = 0f
-                        }
+                            },
+                            onLongClick = { onTrackLongClick(track) },
+                            onFavoriteClick = { playbackState.toggleFavorite(track.id) },
+                            dragHandleModifier = Modifier.longPressDraggableHandle(reorderableState, track.audioUri),
+                        )
                     }
-                    PlaylistTrackRow(
-                        track = track,
-                        isActive = isActive,
-                        isPlaying = isActive && playbackState.isPlaying,
-                        isLiked = track.id in playbackState.likedIds,
-                        isDragging = isDragging,
-                        modifier = itemModifier,
-                        onClick = {
-                            if (isActive) {
-                                togglePlayPause(playbackState)
-                            } else {
-                                playQueue(context, playbackState, scope, orderedTracks, index, source)
-                            }
-                        },
-                        onLongClick = { onTrackLongClick(track) },
-                        onFavoriteClick = { playbackState.toggleFavorite(track.id) },
-                        dragHandleModifier = dragModifier,
-                    )
                 }
             }
         }
@@ -462,6 +419,10 @@ private fun PlaylistTrackRow(
     val fgDim = if (isDragging) Color(0xFF1A1A1A).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.6f)
     Row(
         modifier = modifier
+            .then(
+                if (isDragging) Modifier.background(Color.White, RoundedCornerShape(8.dp))
+                else Modifier
+            )
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
@@ -659,5 +620,190 @@ internal fun EditAlbumDialog(
                 }
             }
         }
+    }
+}
+
+// ===== 自实现 Reorderable（算法等价 sh.calvin.reorderable）=====
+
+/**
+ * 可排序列表状态：跟踪当前拖拽项，计算其相对原始位置的视觉偏移，并在互斥锁定下调用 onMove 重排。
+ */
+@Stable
+internal class ReorderableLazyListState internal constructor(
+    private val listState: LazyListState,
+    private val scope: CoroutineScope,
+    private val onMove: (from: Int, to: Int) -> Unit,
+) {
+    private val onMoveMutex = Mutex()
+    private var draggingItemKey by mutableStateOf<Any?>(null)
+    private var draggingItemDraggedDelta by mutableStateOf(Offset.Zero)
+    private var draggingItemInitialOffset by mutableStateOf(IntOffset.Zero)
+    private var oldDraggingItemIndex by mutableStateOf<Int?>(null)
+    private var predictedDraggingItemOffset by mutableStateOf<IntOffset?>(null)
+
+    private val draggingItemInfo: LazyListItemInfo?
+        get() = draggingItemKey?.let { key ->
+            listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+        }
+
+    internal val isAnyItemDragging by derivedStateOf { draggingItemKey != null }
+
+    /**
+     * 拖拽项相对其原始布局位置的偏移：
+     * 手指累计位移 - 重排/滚动引起的布局位移，二者抵消后拖拽项始终跟手。
+     */
+    internal val draggingItemOffset: Offset
+        get() {
+            val info = draggingItemInfo ?: return Offset.Zero
+            val offsetPx = if (info.index != oldDraggingItemIndex || oldDraggingItemIndex == null) {
+                oldDraggingItemIndex = null
+                predictedDraggingItemOffset = null
+                info.offset
+            } else {
+                predictedDraggingItemOffset?.y ?: info.offset
+            }
+            // 手指累计位移 - 布局位移（重排/滚动），抵消后拖拽项始终跟手
+            return draggingItemDraggedDelta + Offset(0f, (draggingItemInitialOffset.y - offsetPx).toFloat())
+        }
+
+    internal fun onDragStart(key: Any) {
+        draggingItemKey = key
+        draggingItemInitialOffset = IntOffset(0, draggingItemInfo?.offset ?: 0)
+    }
+
+    internal fun onDragStop() {
+        draggingItemDraggedDelta = Offset.Zero
+        draggingItemKey = null
+        oldDraggingItemIndex = null
+        predictedDraggingItemOffset = null
+    }
+
+    internal fun onDrag(dragAmount: Offset) {
+        draggingItemDraggedDelta += dragAmount
+        val draggingItem = draggingItemInfo ?: return
+        if (!onMoveMutex.tryLock()) return
+        try {
+            val startOffset = draggingItem.offset + draggingItemOffset.y.toInt()
+            val endOffset = startOffset + draggingItem.size
+            val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                item.key != draggingItem.key &&
+                    item.offset + item.size / 2 >= startOffset &&
+                    item.offset + item.size / 2 < endOffset
+            }
+            if (target != null && target.index != draggingItem.index) {
+                scope.launch { moveItems(draggingItem, target) }
+            }
+        } finally {
+            onMoveMutex.unlock()
+        }
+    }
+
+    private suspend fun moveItems(
+        from: LazyListItemInfo,
+        to: LazyListItemInfo,
+    ) {
+        try {
+            onMoveMutex.withLock {
+                if (draggingItemKey == null) return
+                oldDraggingItemIndex = from.index
+                onMove(from.index, to.index)
+                predictedDraggingItemOffset = if (to.index > from.index) {
+                    IntOffset(0, to.offset + to.size - from.size)
+                } else {
+                    IntOffset(0, to.offset)
+                }
+                try {
+                    // 等待重排后的布局落定，避免视觉偏移与布局错帧导致抖动
+                    withTimeout(ReorderableStateLayoutInfoUpdateMaxWaitDuration) {
+                        snapshotFlow { listState.layoutInfo }.take(2).collect()
+                    }
+                } finally {
+                    oldDraggingItemIndex = null
+                    predictedDraggingItemOffset = null
+                }
+            }
+        } catch (e: CancellationException) {
+            // 重排布局更新等待被取消，属于预期
+        }
+    }
+
+    internal fun isItemDragging(key: Any): State<Boolean> = derivedStateOf { key == draggingItemKey }
+
+    companion object {
+        const val ReorderableStateLayoutInfoUpdateMaxWaitDuration = 1000L
+    }
+}
+
+/**
+ * 创建可排序列表状态；onMove 在拖拽项需移动时由内部按交集顺序调用。
+ */
+@Composable
+internal fun rememberReorderableLazyListState(
+    listState: LazyListState,
+    onMove: (from: Int, to: Int) -> Unit,
+): ReorderableLazyListState {
+    val scope = rememberCoroutineScope()
+    val currentOnMove by rememberUpdatedState(onMove)
+    return remember(listState) {
+        ReorderableLazyListState(
+            listState = listState,
+            scope = scope,
+            onMove = { from, to -> currentOnMove(from, to) },
+        )
+    }
+}
+
+/**
+ * 每个可排序项的包装：拖拽项以 zIndex + graphicsLayer 跟随手指，其余项以 animateItem 平滑让位。
+ */
+@Composable
+internal fun LazyItemScope.ReorderableItem(
+    state: ReorderableLazyListState,
+    key: Any,
+    content: @Composable (isDragging: Boolean) -> Unit,
+) {
+    val dragging by state.isItemDragging(key)
+    val offsetModifier = if (dragging) {
+        Modifier
+            .zIndex(1f)
+            .graphicsLayer {
+                translationY = state.draggingItemOffset.y
+            }
+    } else {
+        Modifier.animateItem(
+            placementSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            )
+        )
+    }
+    Box(modifier = offsetModifier) {
+        content(dragging)
+    }
+}
+
+/**
+ * 拖拽手柄：长按后开始拖拽排序（等价 reorderable 的 longPressDraggableHandle）。
+ */
+internal fun Modifier.longPressDraggableHandle(
+    state: ReorderableLazyListState,
+    key: Any,
+): Modifier = composed {
+    this.pointerInput(state, key) {
+        detectDragGesturesAfterLongPress(
+            onDragStart = {
+                state.onDragStart(key)
+            },
+            onDragEnd = {
+                state.onDragStop()
+            },
+            onDragCancel = {
+                state.onDragStop()
+            },
+            onDrag = { change, dragAmount ->
+                change.consume()
+                state.onDrag(dragAmount)
+            }
+        )
     }
 }
