@@ -170,7 +170,8 @@ fun MyApplicationTheme(
             // view.context 可能非 Activity，判空避免崩溃
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !isDarkTheme
+                // 状态栏字体固定白色，不随主题变化；深色状态栏图标保持浅色
+                isAppearanceLightStatusBars = false
                 isAppearanceLightNavigationBars = !isDarkTheme
             }
         }
