@@ -111,12 +111,13 @@ private fun LineChar(
 
 // 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
 internal fun wrapLyricText(text: String): String {
-    if (text.length <= MAX_LYRIC_CHARS) return text
+    val maxChars = lyricMaxChars(text)
+    if (text.length <= maxChars) return text
     return buildString {
         var i = 0
         while (i < text.length) {
             if (i > 0) append('\n')
-            val end = minOf(i + MAX_LYRIC_CHARS, text.length)
+            val end = minOf(i + maxChars, text.length)
             var breakAt = end
             // 剩余内容整段可放入当前行时不再回退断行，避免提前换行
             if (end < text.length) {
@@ -138,5 +139,12 @@ internal fun wrapLyricText(text: String): String {
     }
 }
 
-// 单行歌词超过该字符数则手动换行
-private const val MAX_LYRIC_CHARS = 30
+// 英文按 40 字、非英文按 20 字断行：根据英文文字占比判断语言
+internal fun lyricMaxChars(text: String): Int {
+    var letters = 0
+    for (ch in text) if (ch.code in 'A'.code..'Z'.code || ch.code in 'a'.code..'z'.code) letters++
+    return if (letters * 2 >= text.length) MAX_LYRIC_CHARS_EN else MAX_LYRIC_CHARS_INTL
+}
+
+private const val MAX_LYRIC_CHARS_EN = 40
+private const val MAX_LYRIC_CHARS_INTL = 20

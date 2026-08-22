@@ -26,8 +26,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
@@ -44,6 +46,8 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -52,12 +56,15 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yichao.evilgodxu.musicpanel.CoverCarouselOverlay
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
+import com.yichao.evilgodxu.musicpanel.playTrackAt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 // 横屏播放器：双栏结构（封面视觉区 → 歌词透视区）左右居中，标题栏与控制栏点击弹出
 @Composable
@@ -68,6 +75,10 @@ fun LandscapePlayerArea(
     modifier: Modifier = Modifier,
 ) {
     var playlistVisible by remember { mutableStateOf(false) }
+    var coverCarouselVisible by remember { mutableStateOf(false) }
+    var containerWidth by remember { mutableFloatStateOf(0f) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // 播放期间周期性同步播放位置，驱动歌词滚动
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
@@ -104,12 +115,20 @@ fun LandscapePlayerArea(
             )
         }
 
-        // 全屏点击检测：点击空白处切换标题栏与控制栏显隐
+        // 全屏点击检测：左半区为封面交互区，点击进入 3D 轮播；右半区点击切换标题栏与控制栏显隐
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .onSizeChanged { containerWidth = it.width.toFloat() }
                 .pointerInput(Unit) {
-                    detectTapGestures { onToggleChrome() }
+                    detectTapGestures { offset ->
+                        if (coverCarouselVisible) return@detectTapGestures
+                        if (offset.x < containerWidth / 2f) {
+                            coverCarouselVisible = true
+                        } else {
+                            onToggleChrome()
+                        }
+                    }
                 },
         )
 
@@ -117,7 +136,7 @@ fun LandscapePlayerArea(
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxHeight(0.7f)
+                .fillMaxHeight(0.5f)
                 .width(80.dp),
         ) {
             VerticalProgressBar(
@@ -153,6 +172,19 @@ fun LandscapePlayerArea(
             playbackState = playbackState,
             onDismiss = { playlistVisible = false },
         )
+
+        // 3D 封面轮播覆盖全屏，隐藏界面其他元素
+        if (coverCarouselVisible && playbackState.playlist.isNotEmpty()) {
+            CoverCarouselOverlay(
+                playlist = playbackState.playlist,
+                currentIndex = playbackState.currentIndex.coerceAtLeast(0),
+                onTrackSelected = { index ->
+                    scope.launch { playTrackAt(context, playbackState, index) }
+                    coverCarouselVisible = false
+                },
+                onDismiss = { coverCarouselVisible = false },
+            )
+        }
     }
 }
 

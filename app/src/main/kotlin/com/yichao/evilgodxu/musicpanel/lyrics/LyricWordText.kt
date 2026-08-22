@@ -112,12 +112,13 @@ internal fun WordSplitLyricText(
 
 // 逐字歌词按字符上限分行的辅助函数：把整行词分成多行，且不把单个词截断到两行
 private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {
+    val maxChars = lyricMaxChars(words.joinToString(separator = " ") { it.text })
     val rows = mutableListOf<List<LyricWord>>()
     val row = mutableListOf<LyricWord>()
     var count = 0
     words.forEach { word ->
-        // 当前行加上下一个词会超过 30 字时提前换行，单词保持完整不截断
-        if (row.isNotEmpty() && count + word.text.length > MAX_LYRIC_CHARS) {
+        // 当前行加上下一个词会超过上限时提前换行，单词保持完整不截断
+        if (row.isNotEmpty() && count + word.text.length > maxChars) {
             rows.add(row.toList())
             row.clear()
             count = 0
@@ -128,6 +129,3 @@ private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {
     if (row.isNotEmpty()) rows.add(row)
     return rows
 }
-
-// 逐字歌词每行字符数上限（中文按字计数，英文词不截断）
-private const val MAX_LYRIC_CHARS = 30
