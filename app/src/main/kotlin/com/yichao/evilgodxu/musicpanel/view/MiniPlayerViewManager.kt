@@ -572,8 +572,8 @@ private fun MiniPlayerBar(
         delay(3000)
         controlsVisible = false
     }
-    // 隐藏控件期间跟随播放进度刷新当前歌词
-    var lyricPosition by remember { mutableStateOf(playbackState.currentPosition) }
+    // 隐藏控件期间跟随播放进度刷新当前歌词；跟随当前曲目，切换歌曲时重置到曲目起点
+    var lyricPosition by remember(playbackState.currentTrack?.id) { mutableStateOf(0L) }
     LaunchedEffect(controlsVisible, playbackState.currentTrack?.id) {
         if (controlsVisible) return@LaunchedEffect
         var lastSyncMs = 0L

@@ -46,7 +46,11 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -182,7 +186,8 @@ private fun LyricsPerspectiveZone(
 
 // 横屏封面与歌词区域中间的三合一进度块：
 // 垂直进度条居中；艺术家与歌曲标题纵向旋转 90° 贴合进度条轴线，
-// 艺术家在进度条右侧、歌曲标题在左侧，文本与进度条间距 1dp
+// 艺术家在进度条右侧上部、歌曲标题在左侧下部；
+// 条厚取实测行高避免裁切字形，文本条宽贴合实际文本宽度使首尾渐变落在内容两端
 @Composable
 private fun LandscapeThreeInOneProgress(
     playbackState: MusicPlaybackState,
@@ -190,11 +195,10 @@ private fun LandscapeThreeInOneProgress(
 ) {
     val track = playbackState.currentTrack
     val dimColor = Color.White.copy(alpha = 0.7f)
-    // 旋转后文本沿进度条轴线纵向排布，长度上限约 7 个字符，超长启用跑马灯；
-    // 文本内容首尾（相对自身横向的首末边缘）恒做渐变淡出
-    val textWidth = 80.dp
-    // 旋转后的单行纸面厚度（对应未旋转文本的行高）
-    val textThickness = 14.dp
+    // 旋转后文本沿进度条轴线纵向排布，长度上限 80dp，超长启用跑马灯
+    val maxTextLength = 80.dp
+    // 文本条与进度条间距
+    val textGap = 4.dp
     val progress by remember {
         derivedStateOf {
             if (playbackState.duration > 0) {
@@ -205,6 +209,24 @@ private fun LandscapeThreeInOneProgress(
     val artist = track?.artist ?: ""
     val title = track?.title ?: ""
 
+    // 实测单行文本宽高：条厚取行高保证字形完整，条宽取实际文本宽度
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val artistText = with(density) {
+        val r = textMeasurer.measure(AnnotatedString(artist), TextStyle(fontSize = 12.sp))
+        r.size.width.toDp() to r.size.height.toDp()
+    }
+    val titleText = with(density) {
+        val r = textMeasurer.measure(
+            AnnotatedString(title),
+            TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+        )
+        r.size.width.toDp() to r.size.height.toDp()
+    }
+    val textThickness = maxOf(artistText.second, titleText.second)
+    val artistW = artistText.first
+    val titleW = titleText.first
+
     BoxWithConstraints(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -214,7 +236,7 @@ private fun LandscapeThreeInOneProgress(
         // 组合整体限定为进度条范围，艺术家/标题均不越出进度条上下界
         Box(
             modifier = Modifier
-                .width(textWidth)
+                .width(maxTextLength)
                 .height(barHeight),
         ) {
             // 垂直进度条：样式对齐竖屏进度条（细条 + 高透明度轨道 + 圆角）
@@ -241,13 +263,16 @@ private fun LandscapeThreeInOneProgress(
 
             // 进度条半径与文本条贴进度条的间距
             val barHalf = 2.dp
-            val textGap = 1.dp
-            // 文本条中心相对进度条中心（外框中心）的水平偏移：进度条半径 + 间距 + 文本条半厚
+            // 文本条中心相对进度条中心的水平偏移：进度条半径 + 间距 + 文本条半厚
             val textOffset = barHalf + textGap + textThickness / 2
-            // 视觉条为 80dp 高后，需把上/下对齐所依的布局轴心（条中心）补偿回边缘
-            val textShift = (textWidth - textThickness) / 2
+            // 旋转后文本条纵向长度（贴实际文本宽度，超限则封顶）
+            val artistLen = minOf(artistW, maxTextLength)
+            val titleLen = minOf(titleW, maxTextLength)
+            // 使上/下对齐所依的布局轴心（条中心）补偿回边缘，令文本首尾贴合条界
+            val artistShift = (artistLen - textThickness) / 2
+            val titleShift = (titleLen - textThickness) / 2
 
-            // 艺术家：进度条右侧上部，文字以 80dp 宽排版后旋转 90° 纵向呈现，距进度条 1dp
+            // 艺术家：进度条右侧上部，文字以自身宽度排版后旋转 90° 纵向呈现
             Text(
                 text = artist,
                 color = dimColor,
@@ -256,15 +281,15 @@ private fun LandscapeThreeInOneProgress(
                 overflow = TextOverflow.Clip,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset(x = textOffset, y = textShift)
+                    .offset(x = textOffset, y = artistShift)
                     .graphicsLayer { rotationZ = 90f }
-                    .width(textWidth)
+                    .width(artistLen)
                     .height(textThickness)
-                    .then(if (artist.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                    .then(if (artistW > maxTextLength) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
                     .horizontalFadeMask(),
             )
 
-            // 歌曲标题：进度条左侧下部，文字以 80dp 宽排版后旋转 90° 纵向呈现，距进度条 1dp
+            // 歌曲标题：进度条左侧下部，文字以自身宽度排版后旋转 90° 纵向呈现
             Text(
                 text = title,
                 color = Color.White,
@@ -274,11 +299,11 @@ private fun LandscapeThreeInOneProgress(
                 overflow = TextOverflow.Clip,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .offset(x = -textOffset, y = -textShift)
+                    .offset(x = -textOffset, y = -titleShift)
                     .graphicsLayer { rotationZ = 90f }
-                    .width(textWidth)
+                    .width(titleLen)
                     .height(textThickness)
-                    .then(if (title.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                    .then(if (titleW > maxTextLength) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
                     .horizontalFadeMask(),
             )
         }

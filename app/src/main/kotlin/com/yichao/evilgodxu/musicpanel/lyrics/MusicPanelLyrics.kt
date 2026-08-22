@@ -11,9 +11,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -39,10 +39,12 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import com.yichao.evilgodxu.R
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -59,7 +61,8 @@ internal fun LyricsPanel(
     // 已唱 / 未唱歌词颜色：默认取主题色，传入 contentColor 时（如首页）覆盖为指定色
     val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
     val pendingColor = (contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.72f)
-    var lyricPosition by remember { mutableLongStateOf(playbackState.currentPosition) }
+    // 跟随当前曲目：切换歌曲时重置到曲目起点，避免沿用上一首的播放位置定位错行
+    var lyricPosition by remember(playbackState.currentTrack?.id) { mutableLongStateOf(0L) }
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
         var lastSyncMs = 0L
         while (isActive) {
@@ -123,10 +126,9 @@ internal fun LyricsPanel(
                 },
                 label = "lyric_column_scroll"
             ) { renderedActiveIndex ->
-                Column(
+                LyricColumnLayout(
+                    currentRow = offset,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     repeat(visibleLines) { row ->
                         val index = renderedActiveIndex - offset + row
@@ -173,6 +175,40 @@ internal fun LyricsPanel(
 @Composable
 internal fun LyricSpacer() {
     Spacer(modifier = Modifier.height(18.dp))
+}
+
+// 歌词纵向布局：歌词行高度随换行而不同，按固定行偏移排版会使当前行偏离中线。
+// 测量所有行后整体平移，使当前行中心始终对齐面板垂直中线，内容不足时顶部对齐。
+@Composable
+private fun LyricColumnLayout(
+    currentRow: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val spacingPx = with(LocalDensity.current) { 2.dp.roundToPx() }
+    Layout(
+        modifier = modifier,
+        content = content,
+    ) { measurables, constraints ->
+        val placeables = measurables.map {
+            it.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+        }
+        val totalHeight = placeables.sumOf { it.height }
+        val currentTop = placeables.take(currentRow).sumOf { it.height }
+        val currentCenter = currentTop + (placeables.getOrNull(currentRow)?.height ?: 0) / 2f
+        val layoutHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else totalHeight
+        // 平移量 = 布局中线 - 当前行中心，使当前行保持居中
+        val shift = (layoutHeight / 2f - currentCenter).roundToInt()
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth
+        else placeables.maxOfOrNull { it.width } ?: 0
+        layout(width, layoutHeight) {
+            var y = shift
+            placeables.forEachIndexed { i, placeable ->
+                placeable.placeRelative(0, y)
+                y += placeable.height + if (i < placeables.lastIndex) spacingPx else 0
+            }
+        }
+    }
 }
 
 @Composable
