@@ -212,14 +212,38 @@ private fun LandscapeThreeInOneProgress(
     ) {
         // 旋转后进度条长度：取当前可用高度的 80%
         val barHeight = maxHeight * 0.8f
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+        // 组合整体限定为进度条范围，艺术家/标题均不越出进度条上下界
+        Box(
+            modifier = Modifier
+                .width(textWidth)
+                .height(barHeight),
         ) {
-            // 艺术家：位于进度条上方偏右
+            // 垂直进度条：样式对齐竖屏进度条（细条 + 高透明度轨道 + 圆角）
+            // 填充自下而上（反转水平左→右的填充方向）
             Box(
                 modifier = Modifier
-                    .offset(x = 16.dp)
+                    .align(Alignment.Center)
+                    .width(4.dp)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(progress)
+                        .background(Color.White, RoundedCornerShape(50)),
+                )
+            }
+
+            // 艺术家：进度条上部偏右
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
                     .width(textThickness)
                     .height(textWidth),
                 contentAlignment = Alignment.Center,
@@ -238,32 +262,10 @@ private fun LandscapeThreeInOneProgress(
                 )
             }
 
-            // 垂直进度条：窄而高，样式对齐竖屏进度条（细条 + 高透明度轨道 + 圆角）
-            // 填充自下而上（反转水平左→右的填充方向）
+            // 歌曲标题：进度条下部偏左
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(barHeight)
-                    .align(Alignment.CenterHorizontally),
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)),
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(progress)
-                        .background(Color.White, RoundedCornerShape(50)),
-                )
-            }
-
-            // 歌曲标题：位于进度条下方偏左
-            Box(
-                modifier = Modifier
-                    .offset(x = -16.dp)
+                    .align(Alignment.BottomStart)
                     .width(textThickness)
                     .height(textWidth),
                 contentAlignment = Alignment.Center,
