@@ -158,6 +158,8 @@
     <string name="settings_section_player">播放</string>
     <string name="settings_mini_player_title">悬浮播放</string>
     <string name="settings_mini_player_desc">后台播放时显示迷你播放器</string>
+    <string name="settings_word_by_word_title">逐字渲染</string>
+    <string name="settings_word_by_word_desc">歌词逐字高亮并跟随跳动，关闭后使用整行高亮</string>
 
     <!-- 首页歌单 -->
     <string name="playlist_section_smart">系统歌单</string>

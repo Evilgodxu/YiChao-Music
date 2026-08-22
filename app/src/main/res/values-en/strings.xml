@@ -156,6 +156,8 @@
     <string name="settings_section_player">Playback</string>
     <string name="settings_mini_player_title">Floating player</string>
     <string name="settings_mini_player_desc">Show mini player during background playback</string>
+    <string name="settings_word_by_word_title">Word-by-word lyrics</string>
+    <string name="settings_word_by_word_desc">Highlight lyrics word by word with bounce; off uses whole-line highlight</string>
 
     <!-- Home playlists -->
     <string name="playlist_section_smart">Smart playlists</string>

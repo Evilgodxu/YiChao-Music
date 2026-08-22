@@ -1,41 +1,47 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -43,13 +49,13 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.TextUnit
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
-import com.yichao.evilgodxu.musicpanel.verticalFadeMask
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -73,7 +79,7 @@ fun LandscapePlayerArea(
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // 左：封面视觉区，圆角矩形封面，水平居中
+            // 左：封面视觉区，封面下方叠放标题与艺术家两行信息，水平居中
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -81,13 +87,11 @@ fun LandscapePlayerArea(
                     .padding(start = 24.dp, end = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                if (playbackState.currentTrack != null) {
-                    HomeAlbumArt(
-                        track = playbackState.currentTrack,
-                        modifier = Modifier
-                            .fillMaxWidth(0.68f)
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(24.dp)),
+                val track = playbackState.currentTrack
+                if (track != null) {
+                    CoverInfo(
+                        track = track,
+                        modifier = Modifier.fillMaxWidth(LANDSCAPE_COVER_FRACTION),
                     )
                 }
             }
@@ -109,8 +113,7 @@ fun LandscapePlayerArea(
                 },
         )
 
-        // 封面与歌词之间的竖向进度条（白色样式，不带时间文本，拖动可跳转）；
-        // 竖排标题置于进度条左上角，竖排艺术家置于右下角
+        // 封面与歌词之间的竖向进度条（白色样式，不带时间文本，拖动可跳转）
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
@@ -124,26 +127,6 @@ fun LandscapePlayerArea(
                     .align(Alignment.Center)
                     .fillMaxHeight(),
             )
-            if (playbackState.currentTrack != null) {
-                VerticalTrackText(
-                    text = playbackState.currentTrack?.title.orEmpty(),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 16.dp),
-                )
-                VerticalTrackText(
-                    text = playbackState.currentTrack?.artist.orEmpty(),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp),
-                )
-            }
         }
 
         // 底部控制栏
@@ -209,82 +192,97 @@ private fun LyricsPerspectiveZone(
     }
 }
 
-// 竖排文本：标题/艺术家逐字竖排显示，最多展示 7 字；
-// 超出后以跑马灯方式上下往返滚动，顶部与底部复用歌词的边缘渐变淡出效果
-private const val VERTICAL_TEXT_MAX_CHARS = 7
-// 竖向行高压缩比率：将默认行距收窄以缩小字符上下间距
-private const val VERTICAL_TEXT_LINE_FACTOR = 0.85f
-private const val VERTICAL_MARQUEE_MS = 3500
+// 横屏封面宽度占比：原 0.68，按要求缩小 30%
+private const val LANDSCAPE_COVER_FRACTION = 0.68f * 0.7f
+// 封面下方文本行宽度 = 封面宽度的 80%
+private const val INFO_WIDTH_FRACTION = 0.8f
 
+// 封面信息区：封面 + 封面宽度 80% 的标题与艺术家两行，溢出时跑马灯滚动并叠加歌词同款边缘渐变
 @Composable
-private fun VerticalTrackText(
+private fun CoverInfo(
+    track: MusicTrack,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        HomeAlbumArt(
+            track = track,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(24.dp)),
+        )
+        Spacer(Modifier.height(16.dp))
+        MarqueeInfoLine(
+            text = track.title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            modifier = Modifier.fillMaxWidth(INFO_WIDTH_FRACTION),
+        )
+        Spacer(Modifier.height(6.dp))
+        MarqueeInfoLine(
+            text = track.artist,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White.copy(alpha = 0.72f),
+            modifier = Modifier.fillMaxWidth(INFO_WIDTH_FRACTION),
+        )
+    }
+}
+
+// 单行信息文本：宽度超出容器时启用跑马灯并叠加歌词同款水平边缘渐变，保证全文完整显示
+@Composable
+private fun MarqueeInfoLine(
     text: String,
     fontSize: TextUnit,
     fontWeight: FontWeight,
     color: Color,
     modifier: Modifier = Modifier,
 ) {
-    if (text.isBlank()) return
-    val chars = text.toCharArray().toList()
     val textMeasurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    // 显式收紧行高以压缩上下间距；测量与渲染使用同一字形风格，保证排布可控
-    val tightStyle = remember(fontSize) {
-        TextStyle(fontSize = fontSize, lineHeight = fontSize * VERTICAL_TEXT_LINE_FACTOR)
-    }
-    val sample = remember(fontSize) {
-        textMeasurer.measure(AnnotatedString("字"), tightStyle)
-    }
-    val lineHeightDp = with(density) { sample.size.height.toFloat().toDp() }
-    val charWidthDp = with(density) { sample.size.width.toFloat().toDp() }
-    val overflowChars = (chars.size - VERTICAL_TEXT_MAX_CHARS).coerceAtLeast(0)
-    val overflowPx = with(density) { (overflowChars * sample.size.height).toFloat() }
-    // 底部预留约半字高的缓冲，避免末字在渐变蒙层边缘被截断
-    val bufferDp = with(density) { (sample.size.height / 2f).toDp() }
-
-    // 跑马灯：内容超出视口时上下往返滚动，逐字循环显示
-    val transition = rememberInfiniteTransition(label = "vertical_marquee_$text")
-    val scrollY by if (overflowChars > 0) {
-        transition.animateFloat(
-            initialValue = 0f,
-            targetValue = -overflowPx,
-            animationSpec = infiniteRepeatable(
-                animation = tween(VERTICAL_MARQUEE_MS),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "vertical_marquee_y_$text",
-        )
-    } else {
-        transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 0f,
-            animationSpec = infiniteRepeatable(animation = tween(1)),
-            label = "vertical_marquee_y_static_$text",
-        )
-    }
-
-    Box(
-        modifier = modifier
-            .width(charWidthDp)
-            .height(lineHeightDp * VERTICAL_TEXT_MAX_CHARS + bufferDp)
-            .padding(bottom = bufferDp)
-            .clipToBounds()
-            .verticalFadeMask(),
-    ) {
-        Column(
-            modifier = Modifier.graphicsLayer { translationY = scrollY },
-        ) {
-            chars.forEach { ch ->
-                Text(
-                    text = ch.toString(),
-                    style = tightStyle,
-                    fontWeight = fontWeight,
-                    color = color,
-                    maxLines = 1,
-                )
-            }
+    BoxWithConstraints(modifier = modifier) {
+        val textWidthPx = textMeasurer.measure(
+            AnnotatedString(text),
+            TextStyle(fontSize = fontSize, fontWeight = fontWeight),
+        ).size.width
+        val overflows = maxWidth > 0.dp && with(LocalDensity.current) { textWidthPx.toDp() } > maxWidth
+        val textModifier = if (overflows) {
+            // 跑马灯需整体剪裁在容器内，再由下方歌词同款 DstIn 蒙层提供首尾边缘渐隐
+            Modifier
+                .fillMaxWidth()
+                .clipToBounds()
+                .horizontalFadeMask()
+                .basicMarquee(iterations = Int.MAX_VALUE)
+        } else {
+            Modifier
         }
+        Text(
+            text = text,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            modifier = textModifier,
+        )
     }
 }
 
+// 左右边缘淡出：与歌词上下边缘同款的 DstIn 蒙层，首尾渐变消失，保证文字不被截断
+private fun Modifier.horizontalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {
+    val brush = Brush.horizontalGradient(
+        colorStops = arrayOf(
+            0.0f to Color.Transparent,
+            fadeFraction to Color.Black,
+            1f - fadeFraction to Color.Black,
+            1f to Color.Transparent,
+        ),
+    )
+    onDrawWithContent {
+        drawIntoCanvas { canvas -> canvas.saveLayer(Rect(Offset.Zero, size), Paint()) }
+        drawContent()
+        drawRect(brush = brush, size = size, blendMode = BlendMode.DstIn)
+        drawIntoCanvas { canvas -> canvas.restore() }
+    }
+}
 

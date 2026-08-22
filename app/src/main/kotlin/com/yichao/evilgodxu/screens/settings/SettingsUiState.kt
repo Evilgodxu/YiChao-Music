@@ -7,5 +7,6 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val language: AppLanguage = AppLanguage.SYSTEM,
     val miniPlayerEnabled: Boolean = true,
+    val wordByWordRendering: Boolean = true,
     val version: String = "",
 )

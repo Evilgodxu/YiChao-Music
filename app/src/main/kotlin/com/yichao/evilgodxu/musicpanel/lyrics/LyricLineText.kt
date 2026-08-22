@@ -110,7 +110,7 @@ private fun LineChar(
 }
 
 // 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
-private fun wrapLyricText(text: String): String {
+internal fun wrapLyricText(text: String): String {
     if (text.length <= MAX_LYRIC_CHARS) return text
     return buildString {
         var i = 0

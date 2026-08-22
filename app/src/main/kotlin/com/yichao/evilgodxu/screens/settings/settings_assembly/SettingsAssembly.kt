@@ -47,6 +47,7 @@ fun SettingsAssembly(
     onLanguageSelected: (AppLanguage) -> Unit,
     onThemeClick: (Offset) -> Unit,
     onMiniPlayerEnabledChange: (Boolean) -> Unit,
+    onWordByWordRenderingChange: (Boolean) -> Unit,
     onVersionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -103,6 +104,8 @@ fun SettingsAssembly(
             PlayerArea(
                 miniPlayerEnabled = uiState.miniPlayerEnabled,
                 onMiniPlayerEnabledChange = onMiniPlayerEnabledChange,
+                wordByWordRendering = uiState.wordByWordRendering,
+                onWordByWordRenderingChange = onWordByWordRenderingChange,
             )
             AppInfoArea(uiState.version, onVersionClick)
         }

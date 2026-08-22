@@ -28,6 +28,7 @@ fun SettingsScreen(
         onLanguageSelected = viewModel::setLanguage,
         onThemeClick = onThemeClick,
         onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
+        onWordByWordRenderingChange = viewModel::setWordByWordRendering,
         onVersionClick = { updateViewModel.checkForUpdate(force = true) },
         modifier = modifier,
     )

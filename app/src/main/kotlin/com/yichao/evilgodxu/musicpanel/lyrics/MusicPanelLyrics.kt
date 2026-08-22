@@ -19,9 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -36,8 +35,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -61,6 +64,9 @@ internal fun LyricsPanel(
     // 已唱 / 未唱歌词颜色：默认取主题色，传入 contentColor 时（如首页）覆盖为指定色
     val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
     val pendingColor = (contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.72f)
+    // 逐字渲染开关：关闭后整行高亮，不再逐字跳动
+    val context = LocalContext.current
+    val wordByWordEnabled by context.wordByWordRenderingFlow().collectAsState(initial = true)
     // 跟随当前曲目：切换歌曲时重置到曲目起点，避免沿用上一首的播放位置定位错行
     var lyricPosition by remember(playbackState.currentTrack?.id) { mutableLongStateOf(0L) }
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
@@ -153,6 +159,7 @@ internal fun LyricsPanel(
                             nextTimeMs = nextTimeMs,
                             positionMs = lyricPosition,
                             isCurrent = isCurrent,
+                            wordByWordEnabled = wordByWordEnabled,
                             fontSize = fontSize,
                             fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
                             activeColor = activeColor,
@@ -217,13 +224,24 @@ internal fun LyricText(
     nextTimeMs: Long,
     positionMs: Long,
     isCurrent: Boolean,
+    wordByWordEnabled: Boolean,
     fontSize: TextUnit,
     fontWeight: FontWeight,
     activeColor: Color,
     pendingColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    if (line.words.isNotEmpty()) {
+    if (!wordByWordEnabled) {
+        WholeLineLyricText(
+            line = line,
+            isCurrent = isCurrent,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            activeColor = activeColor,
+            pendingColor = pendingColor,
+            modifier = modifier,
+        )
+    } else if (line.words.isNotEmpty()) {
         WordSplitLyricText(
             line = line,
             nextTimeMs = nextTimeMs,
@@ -248,6 +266,28 @@ internal fun LyricText(
             modifier = modifier,
         )
     }
+}
+
+// 关闭逐字渲染：整行统一着色，不逐字填充也不跳动
+@Composable
+private fun WholeLineLyricText(
+    line: LyricLine,
+    isCurrent: Boolean,
+    fontSize: TextUnit,
+    fontWeight: FontWeight,
+    activeColor: Color,
+    pendingColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = wrapLyricText(line.text),
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        color = if (isCurrent) activeColor else pendingColor,
+        textAlign = TextAlign.Center,
+        softWrap = true,
+        modifier = modifier,
+    )
 }
 
 internal fun splitLyricText(text: String): List<String> {
