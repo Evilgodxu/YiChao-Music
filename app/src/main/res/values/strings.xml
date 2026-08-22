@@ -179,6 +179,7 @@
     <string name="playlist_add_songs">添加歌曲</string>
     <string name="playlist_empty">暂无歌曲</string>
     <string name="playlist_remove_track_title">从歌单移除这首歌曲？</string>
+    <string name="playlist_remove_track_message">将移除歌曲「%1$s · %2$s」</string>
     <string name="playlist_remove_track_confirm">移除</string>
     <string name="playlist_picker_title">添加歌曲到「%1$s」</string>
     <string name="playlist_picker_select_all">全选</string>

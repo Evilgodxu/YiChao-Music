@@ -178,6 +178,7 @@
     <string name="playlist_add_songs">Add songs</string>
     <string name="playlist_empty">No songs</string>
     <string name="playlist_remove_track_title">Remove this song from the playlist?</string>
+    <string name="playlist_remove_track_message">Remove song "%1$s" by %2$s</string>
     <string name="playlist_remove_track_confirm">Remove</string>
     <string name="playlist_picker_title">Add songs to "%1$s"</string>
     <string name="playlist_picker_select_all">Select all</string>

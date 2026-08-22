@@ -31,8 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -157,10 +157,15 @@ private fun MetadataAxis(
             horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 标题：组内顶部
+            // 标题：组内顶部；以右缘为锚点旋转，使竖排文字紧贴其右侧的进度条
             VerticalLabel(
                 text = playbackState.currentTrack?.title.orEmpty(),
-                modifier = Modifier.align(Alignment.Top),
+                modifier = Modifier
+                    .align(Alignment.Top)
+                    .graphicsLayer {
+                        rotationZ = 90f
+                        transformOrigin = TransformOrigin(1f, 0.5f)
+                    },
             )
             // 进度条：组内居中，从底部向上填充
             Box(
@@ -168,7 +173,7 @@ private fun MetadataAxis(
                     .fillMaxHeight(1f)
                     .width(3.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.08f)),
+                    .background(Color.White.copy(alpha = 0.25f)),
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 Box(
@@ -178,16 +183,21 @@ private fun MetadataAxis(
                         .background(Color.White, RoundedCornerShape(2.dp)),
                 )
             }
-            // 艺术家：组内底部
+            // 艺术家：组内底部；以左缘为锚点旋转，使竖排文字紧贴其左侧的进度条
             VerticalLabel(
                 text = playbackState.currentTrack?.artist.orEmpty(),
-                modifier = Modifier.align(Alignment.Bottom),
+                modifier = Modifier
+                    .align(Alignment.Bottom)
+                    .graphicsLayer {
+                        rotationZ = 90f
+                        transformOrigin = TransformOrigin(0f, 0.5f)
+                    },
             )
         }
     }
 }
 
-// 文本整体向右旋转 90°：按正常横排排版，旋转后呈纵向贴靠进度条对角，超长截断
+// 文本标签：按字体竖排显示于标签盒内，超长截断；旋转及贴靠由调用方按锚点设置
 @Composable
 private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
     val visible = if (text.length > MAX_LABEL_CHARS) {
@@ -202,7 +212,7 @@ private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.SemiBold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.rotate(90f),
+        modifier = modifier,
     )
 }
 
