@@ -455,11 +455,15 @@ private fun PlaylistTrackRow(
                 }
             }
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+        ) {
             Text(
                 text = track.title,
                 color = if (isDragging) fg else if (isActive) MaterialTheme.colorScheme.primary else Color.White,
                 fontSize = 12.sp,
+                lineHeight = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -467,6 +471,7 @@ private fun PlaylistTrackRow(
                 text = track.artist,
                 color = fgDim,
                 fontSize = 10.sp,
+                lineHeight = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
