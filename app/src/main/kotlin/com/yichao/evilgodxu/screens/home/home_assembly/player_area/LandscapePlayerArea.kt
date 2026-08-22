@@ -240,7 +240,7 @@ private fun MarqueeInfoLine(
     modifier: Modifier = Modifier,
 ) {
     val textMeasurer = rememberTextMeasurer()
-    BoxWithConstraints(modifier = modifier) {
+    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
         val textWidthPx = textMeasurer.measure(
             AnnotatedString(text),
             TextStyle(fontSize = fontSize, fontWeight = fontWeight),
