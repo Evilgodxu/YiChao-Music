@@ -188,6 +188,7 @@ internal suspend fun applyCoverCandidate(
         } ?: return false
         withContext(Dispatchers.Main) {
             playbackState.updateTrack(updated)
+            playbackState.bumpCoverRevision()
             playbackState.coverCandidates = emptyList()
         }
         true

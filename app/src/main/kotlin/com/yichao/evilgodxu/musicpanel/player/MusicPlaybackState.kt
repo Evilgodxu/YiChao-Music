@@ -226,6 +226,8 @@ class MusicPlaybackState {
     var coverCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var isCoverSearching by mutableStateOf(false)
     var localCoverCandidates by mutableStateOf<List<RecentCover>>(emptyList())
+    // 封面写入版本号：每次成功写入新封面自增，驱动封面组件重新加载最新图
+    var coverRevision by mutableIntStateOf(0)
     var lyricsCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var isLyricsSearching by mutableStateOf(false)
     var isLyricsRefreshing by mutableStateOf(false)
@@ -741,6 +743,11 @@ class MusicPlaybackState {
         playlist = playlist.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }
         currentTrack = currentTrack?.let { if (it.id == updated.id) updated else it }
         persistPlaylist()
+    }
+
+    // 封面写入成功后自增，通知封面组件强制重载最新封面
+    fun bumpCoverRevision() {
+        coverRevision++
     }
 
     // 批量更新曲目元数据（封面等），一次触发重组 + 一次持久化

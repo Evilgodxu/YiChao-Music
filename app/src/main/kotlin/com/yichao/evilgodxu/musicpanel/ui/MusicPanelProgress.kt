@@ -89,6 +89,8 @@ internal fun ProgressSection(
                         awaitPointerEventScope {
                             while (true) {
                                 val event = awaitPointerEvent()
+                                // 消耗进度条上的指针事件，与全局左右滑动互斥，拖动进度条时不触发切换面板
+                                event.changes.forEach { if (!it.isConsumed) it.consume() }
                                 val pos = event.changes.first().position.x / size.width
                                 seekFraction = pos.coerceIn(0f, 1f)
                                 isSeeking = true
