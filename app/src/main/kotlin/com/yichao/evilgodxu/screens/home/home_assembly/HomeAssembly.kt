@@ -62,6 +62,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +104,7 @@ fun HomeAssembly(
 ) {
     val playbackState = MusicPanelStateHolder.state
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val gestureScope = rememberCoroutineScope()
     var showTimer by remember { mutableStateOf(false) }
     // 横屏模式：跟随窗口宽高比，旋转时窗口重布局由 onSizeChanged 更新
@@ -146,11 +148,21 @@ fun HomeAssembly(
             }
         }
     }
-    // 覆盖层打开时返回键优先关闭覆盖层，而非退出应用
+    // 覆盖层打开时返回键：优先清空搜索结果与输入框；搜索状态已清空时才关闭覆盖层返回播放器
     BackHandler(enabled = showOnlineSearch) {
-        showOnlineSearch = false
-        playbackState.setSearchResultsVisible(false)
-        playbackState.setErrorMsg(null)
+        val hasSearchContent = playbackState.searchQuery.isNotBlank() ||
+            playbackState.searchResults.isNotEmpty() ||
+            playbackState.showSearchResults
+        if (hasSearchContent) {
+            playbackState.setSearchQuery("")
+            playbackState.searchResults = emptyList()
+            playbackState.setSearchResultsVisible(false)
+            playbackState.setErrorMsg(null)
+        } else {
+            showOnlineSearch = false
+            playbackState.setSearchResultsVisible(false)
+            playbackState.setErrorMsg(null)
+        }
     }
     // 歌单面板打开时返回键关闭面板
     BackHandler(enabled = showPlaylist) {
@@ -221,7 +233,8 @@ fun HomeAssembly(
                         }
                     }
                     if (axis == 1) {
-                        // 横向主导：右滑搜索、左滑歌单，拖动全程跟手
+                        // 横向主导：右滑搜索、左滑歌单，拖动全程跟手；切换页面时自动收起键盘
+                        keyboardController?.hide()
                         if (contentWidthPx > 0f) {
                             when {
                                 searchProgress > 0f -> searchProgress =
