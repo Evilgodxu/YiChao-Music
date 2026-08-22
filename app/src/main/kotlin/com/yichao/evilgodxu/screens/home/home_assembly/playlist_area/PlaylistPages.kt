@@ -741,17 +741,28 @@ internal class ReorderableLazyListState internal constructor(
         }
     }
 
+    // 自动滚动每帧推进量：越贴近边缘带越深滚动越快（0.5x..1.5x 行高）
+    private fun autoScrollStep(): Float {
+        val item = draggingItemInfo ?: return 0f
+        val viewportHeight = listState.layoutInfo.viewportSize.height
+        val handleCenter = item.offset + (draggingItemOffset.y + item.size / 2f)
+        val threshold = item.size * 1.2f
+        val depth = when {
+            handleCenter < threshold -> (threshold - handleCenter) / threshold
+            handleCenter > viewportHeight - threshold -> (handleCenter - (viewportHeight - threshold)) / threshold
+            else -> 0.5f
+        }.coerceIn(0f, 1f)
+        return item.size * (0.5f + depth)
+    }
+
     private suspend fun autoScrollLoop() {
         // 由 updateAutoScroll() 在移出边缘时取消；无需额外退出条件
         while (true) {
             val dir = autoScrollDirection()
             if (dir == 0) break
-            // 以线性动画滚动半行，并向该方向推进拖拽项的排序位置
-            val step = (draggingItemInfo?.size ?: 0).toFloat() / 2f
-            if (step <= 0f) break
             // 先把拖拽项归位到滚动边缘再滚动，避免被滚出可视区导致拖拽中断
             moveDraggingItemToEnd(dir)
-            listState.animateScrollBy(step * dir)
+            listState.animateScrollBy(autoScrollStep() * dir)
             delay(AUTO_SCROLL_FRAME_MS)
         }
         autoScrollJob = null

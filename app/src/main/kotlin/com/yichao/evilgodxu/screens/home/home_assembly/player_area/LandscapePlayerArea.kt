@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.musicpanel.AlbumArt
@@ -153,7 +154,7 @@ private fun MetadataAxis(
     ) {
         Row(
             modifier = Modifier.fillMaxHeight(0.72f),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 标题：组内顶部
@@ -186,34 +187,19 @@ private fun MetadataAxis(
     }
 }
 
-// 旋转文字：逐字竖排后整体右旋 90°，字形侧躺并沿水平方向贴靠进度条
+// 文本整体向右旋转 90°：按正常横排排版，旋转后呈纵向贴靠进度条对角
 @Composable
 private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
-    if (text.isBlank()) return
-    val truncated = text.length > MAX_VERTICAL_CHARS
-    val visible = if (truncated) {
-        // 超长截断，末尾补省略号
-        text.take(MAX_VERTICAL_CHARS - 1) + "…"
-    } else {
-        text
-    }
-    Column(
+    Text(
+        text = text,
+        color = Color.White,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier.rotate(90f),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        visible.forEach { char ->
-            Text(
-                text = char.toString(),
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-            )
-        }
-    }
+    )
 }
-
-private const val MAX_VERTICAL_CHARS = 7
 
 // 歌词透视参数：绕 Y 轴角度与相机距离系数；cameraDistance 越小透视越强，
 // 大视角下取值过大会让旋转透视近乎消失，故用较小的宽度比例以获得明显左远右近；
