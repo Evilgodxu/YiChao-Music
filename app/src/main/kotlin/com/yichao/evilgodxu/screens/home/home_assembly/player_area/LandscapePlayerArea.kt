@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,7 +48,8 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -79,7 +79,9 @@ fun LandscapePlayerArea(
 ) {
     var playlistVisible by remember { mutableStateOf(false) }
     var coverCarouselVisible by remember { mutableStateOf(false) }
-    var containerWidth by remember { mutableFloatStateOf(0f) }
+    // 封面与点击检测层在窗口坐标系下的位置，用于判定点击是否命中封面
+    var tapBounds by remember { mutableStateOf<Rect?>(null) }
+    var coverBounds by remember { mutableStateOf<Rect?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -108,6 +110,7 @@ fun LandscapePlayerArea(
                 if (track != null) {
                     CoverInfo(
                         track = track,
+                        onCoverBounds = { coverBounds = it },
                         modifier = Modifier.fillMaxWidth(LANDSCAPE_COVER_FRACTION),
                     )
                 }
@@ -121,15 +124,18 @@ fun LandscapePlayerArea(
             )
         }
 
-        // 全屏点击检测：左半区为封面交互区，点击进入 3D 轮播；右半区点击切换标题栏与控制栏显隐
+        // 全屏点击检测：命中封面区域则进入 3D 轮播；点击其它区域切换标题栏与控制栏显隐
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { containerWidth = it.width.toFloat() }
+                .onGloballyPositioned { tapBounds = it.boundsInWindow() }
                 .pointerInput(Unit) {
                     detectTapGestures { offset ->
                         if (coverCarouselVisible) return@detectTapGestures
-                        if (offset.x < containerWidth / 2f) {
+                        val tap = tapBounds ?: return@detectTapGestures
+                        val cover = coverBounds ?: return@detectTapGestures
+                        val windowPoint = Offset(tap.left + offset.x, tap.top + offset.y)
+                        if (cover.contains(windowPoint)) {
                             coverCarouselVisible = true
                         } else {
                             onToggleChrome()
@@ -250,6 +256,7 @@ private const val INFO_WIDTH_FRACTION = 0.8f
 @Composable
 private fun CoverInfo(
     track: MusicTrack,
+    onCoverBounds: (Rect?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -258,7 +265,8 @@ private fun CoverInfo(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(24.dp)),
+                .clip(RoundedCornerShape(24.dp))
+                .onGloballyPositioned { coords -> onCoverBounds(coords.boundsInWindow()) },
         )
         Spacer(Modifier.height(16.dp))
         MarqueeInfoLine(
