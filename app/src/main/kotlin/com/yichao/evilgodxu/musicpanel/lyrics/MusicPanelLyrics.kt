@@ -12,6 +12,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -231,40 +232,54 @@ internal fun LyricText(
     pendingColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    if (!wordByWordEnabled) {
-        WholeLineLyricText(
-            line = line,
-            isCurrent = isCurrent,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            activeColor = activeColor,
-            pendingColor = pendingColor,
-            modifier = modifier,
-        )
-    } else if (line.words.isNotEmpty()) {
-        WordSplitLyricText(
-            line = line,
-            nextTimeMs = nextTimeMs,
-            positionMs = positionMs,
-            isCurrent = isCurrent,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            activeColor = activeColor,
-            pendingColor = pendingColor,
-            modifier = modifier,
-        )
-    } else {
-        LineFillLyricText(
-            line = line,
-            nextTimeMs = nextTimeMs,
-            positionMs = positionMs,
-            isCurrent = isCurrent,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            activeColor = activeColor,
-            pendingColor = pendingColor,
-            modifier = modifier,
-        )
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (!wordByWordEnabled) {
+            WholeLineLyricText(
+                line = line,
+                isCurrent = isCurrent,
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                activeColor = activeColor,
+                pendingColor = pendingColor,
+            )
+        } else if (line.words.isNotEmpty()) {
+            WordSplitLyricText(
+                line = line,
+                nextTimeMs = nextTimeMs,
+                positionMs = positionMs,
+                isCurrent = isCurrent,
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                activeColor = activeColor,
+                pendingColor = pendingColor,
+            )
+        } else {
+            LineFillLyricText(
+                line = line,
+                nextTimeMs = nextTimeMs,
+                positionMs = positionMs,
+                isCurrent = isCurrent,
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                activeColor = activeColor,
+                pendingColor = pendingColor,
+            )
+        }
+        line.translation?.takeIf { it.isNotBlank() }?.let { translation ->
+            // 翻译行以更小字号静置展示，主歌词高亮时翻译同步加深
+            Text(
+                text = wrapLyricText(translation),
+                fontSize = (fontSize.value * 0.68f).sp,
+                fontWeight = FontWeight.Normal,
+                color = if (isCurrent) activeColor.copy(alpha = 0.8f) else pendingColor.copy(alpha = 0.55f),
+                textAlign = TextAlign.Center,
+                softWrap = true,
+                modifier = Modifier.padding(top = 1.dp),
+            )
+        }
     }
 }
 
@@ -312,8 +327,8 @@ internal fun splitLyricText(text: String): List<String> {
 // 播放中位置回退容差：小于该值视为控制器位置抖动，大于视为手动拖动进度条
 private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
-// 歌词面板默认可见行数
-private const val DEFAULT_VISIBLE_LINES = 5
+// 歌词面板默认可见行数：双语显示下行高翻倍，竖屏取 6 行（3 组原文+译文）
+private const val DEFAULT_VISIBLE_LINES = 6
 
 // 上下边缘淡出：按纵向透明度梯度对内容做 DstIn 蒙层，使上下行渐变消失
 internal fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {

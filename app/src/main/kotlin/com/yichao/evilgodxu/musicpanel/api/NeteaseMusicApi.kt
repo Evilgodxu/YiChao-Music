@@ -40,7 +40,9 @@ data class LyricWord(val startMs: Long, val durationMs: Long, val text: String)
 data class LyricLine(
     val timeMs: Long,
     val text: String,
-    val words: List<LyricWord> = emptyList()
+    val words: List<LyricWord> = emptyList(),
+    /** 中文翻译（在线歌词接口的 tlyric/trans 字段按时间戳合并后写入） */
+    val translation: String? = null
 )
 
 internal object NeteaseMusicApi : OnlineMusicSource {
@@ -71,9 +73,12 @@ internal object NeteaseMusicApi : OnlineMusicSource {
             put("yv", 1)
         }
         val root = request("song/lyric/v1", body)
+        val lrc = root.optJSONObject("lrc")?.optString("lyric").orEmpty()
+        val tlyric = root.optJSONObject("tlyric")?.optString("lyric").orEmpty()
         parseLrc(
-            root.optJSONObject("lrc")?.optString("lyric").orEmpty(),
-            root.optJSONObject("yrc")?.optString("lyric").orEmpty()
+            lrc,
+            yrc = root.optJSONObject("yrc")?.optString("lyric").orEmpty(),
+            tlyric = tlyric
         )
     }
 
@@ -296,10 +301,10 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         }
     }
 
-    private fun parseLrc(lrc: String, yrc: String): NeteaseLyricData {
+    private fun parseLrc(lrc: String, yrc: String, tlyric: String): NeteaseLyricData {
         val wordLines = parseYrc(yrc)
-        if (wordLines.isNotEmpty()) return NeteaseLyricData(wordLines)
-        return NeteaseLyricData(parseLrcText(lrc))
+        if (wordLines.isNotEmpty()) return NeteaseLyricData(mergeTranslations(wordLines, parseLrcText(tlyric)))
+        return NeteaseLyricData(mergeTranslations(parseLrcText(lrc), parseLrcText(tlyric)))
     }
 
     private fun parseYrc(raw: String): List<LyricLine> {
@@ -349,6 +354,21 @@ internal fun parseLrcText(lrc: String): List<LyricLine> {
             text = match.groupValues[4].trim()
         ).takeIf { it.text.isNotBlank() }
     }.sortedBy { it.timeMs }.toList()
+}
+
+// 按时间戳把翻译歌词合并进原歌词：优先精确匹配，其次取 500ms 内最近的一条
+internal fun mergeTranslations(lines: List<LyricLine>, transLines: List<LyricLine>): List<LyricLine> {
+    if (lines.isEmpty() || transLines.isEmpty()) return lines
+    val byTime = transLines.associateBy { it.timeMs }
+    val sorted = transLines.sortedBy { it.timeMs }
+    return lines.map { line ->
+        val translation = byTime[line.timeMs]?.text
+            ?: sorted.minByOrNull { kotlin.math.abs(it.timeMs - line.timeMs) }
+                ?.takeIf { kotlin.math.abs(it.timeMs - line.timeMs) <= 500L }
+                ?.text
+            ?: return@map line
+        line.copy(translation = translation)
+    }
 }
 
 // 把字符串平台标识（QQ 的 songmid、酷狗的 hash）转成稳定的数字 id，

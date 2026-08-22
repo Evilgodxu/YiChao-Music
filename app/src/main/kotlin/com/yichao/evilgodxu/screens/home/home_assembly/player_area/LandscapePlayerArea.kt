@@ -210,8 +210,8 @@ fun LandscapePlayerArea(
 // rotationY 取负使左缘向前、右缘后退
 private const val ROTATION_Y_DEGREES = -45f
 private const val CAMERA_DISTANCE_FACTOR = 0.15f
-// 横屏歌词可见行数（当前行居中，上下各 4 行）
-private const val LYRICS_VISIBLE_LINES = 9
+// 横屏歌词可见行数（当前行居中，上下各 5 行）：双语显示下行高翻倍，取 10 行（5 组原文+译文）
+private const val LYRICS_VISIBLE_LINES = 10
 
 // 歌词透视区：rotationY 绕 Y 轴旋转，配合随宽度缩放的 cameraDistance 产生近大远小的真实 3D 透视
 @Composable

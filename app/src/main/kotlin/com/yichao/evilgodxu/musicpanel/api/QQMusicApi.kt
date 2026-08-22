@@ -149,9 +149,16 @@ internal object QQMusicApi : OnlineMusicSource {
             } finally {
                 connection.disconnect()
             }
-            val b64 = JSONObject(response).optString("lyric").ifBlank { return@withContext null }
+            val json = JSONObject(response)
+            val b64 = json.optString("lyric").ifBlank { return@withContext null }
             val lrc = String(Base64.getDecoder().decode(b64), Charsets.UTF_8)
-            parseLrcText(lrc).takeIf { it.isNotEmpty() }
+            // trans 字段为 base64 翻译歌词，取不到时静默跳过
+            val trans = runCatching {
+                json.optString("trans").takeIf { it.isNotBlank() }
+                    ?.let { String(Base64.getDecoder().decode(it), Charsets.UTF_8) }
+                    .orEmpty()
+            }.getOrDefault("")
+            mergeTranslations(parseLrcText(lrc), parseLrcText(trans)).takeIf { it.isNotEmpty() }
         } catch (e: Exception) {
             CrashLogManager.logException("QQMusicApi", "获取歌词失败", e)
             null

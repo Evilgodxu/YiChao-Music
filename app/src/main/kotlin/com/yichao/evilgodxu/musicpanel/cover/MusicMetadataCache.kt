@@ -107,12 +107,13 @@ internal object MusicMetadataCache {
         null
     }
 
-    // 歌词按增强 LRC 文本序列化：标准 [mm:ss.xx] 行 + 行内 <mm:ss.xx> 逐字时间戳
+    // 歌词按增强 LRC 文本序列化：标准 [mm:ss.xx] 行 + 行内 <mm:ss.xx> 逐字时间戳，翻译以 [tr][/tr] 追加
     internal fun encodeLyrics(lines: List<LyricLine>): String =
         lines.joinToString("\n") { line ->
             val timestamp = lrcTimestamp(line.timeMs)
-            if (line.words.isEmpty()) "[$timestamp]${line.text}"
-            else "[$timestamp]" + line.words.joinToString("") { "<${lrcTimestamp(it.startMs)}>${it.text}" }
+            val translation = line.translation?.takeIf { it.isNotBlank() }?.let { "[tr]$it[/tr]" }.orEmpty()
+            if (line.words.isEmpty()) "[$timestamp]${line.text}$translation"
+            else "[$timestamp]" + line.words.joinToString("") { "<${lrcTimestamp(it.startMs)}>${it.text}" } + translation
         }
 
     fun loadLyrics(path: String): List<LyricLine> = try {
@@ -133,17 +134,20 @@ internal object MusicMetadataCache {
         return "%02d:%02d.%02d".format(minutes, seconds, hundredths)
     }
 
-    // 增强 LRC 解析：兼容纯文本行与行内 <mm:ss.xx> 逐字标签
+    // 增强 LRC 解析：兼容纯文本行、行内 <mm:ss.xx> 逐字标签与 [tr][/tr] 翻译块
     private fun parseEnhancedLrc(lrc: String): List<LyricLine> {
         val linePattern = Regex("""\[(\d+):(\d+)(?:\.(\d+))?](.*)""")
         val wordPattern = Regex("""<(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
+        val transPattern = Regex("""\[tr](.*?)\[/tr]""")
         return lrc.lineSequence().mapNotNull { rawLine ->
             val match = linePattern.find(rawLine) ?: return@mapNotNull null
             val timeMs = match.groupValues[1].toLong() * 60_000 +
                 match.groupValues[2].toLong() * 1000 +
                 match.groupValues[3].padEnd(3, '0').take(3).toLong()
             val content = match.groupValues[4]
-            val words = wordPattern.findAll(content).map { word ->
+            val translation = transPattern.find(content)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
+            val cleanContent = transPattern.replace(content, "").trim()
+            val words = wordPattern.findAll(cleanContent).map { word ->
                 LyricWord(
                     startMs = word.groupValues[1].toLong() * 60_000 +
                         word.groupValues[2].toLong() * 1000 +
@@ -152,8 +156,8 @@ internal object MusicMetadataCache {
                     text = word.groupValues[4]
                 )
             }.filter { it.text.isNotEmpty() }.toList()
-            val text = if (words.isNotEmpty()) words.joinToString("") { it.text } else content.trim()
-            LyricLine(timeMs, text, words).takeIf { it.text.isNotBlank() }
+            val text = if (words.isNotEmpty()) words.joinToString("") { it.text } else cleanContent.trim()
+            LyricLine(timeMs, text, words, translation).takeIf { it.text.isNotBlank() }
         }.sortedBy { it.timeMs }.toList()
     }
 
