@@ -758,6 +758,7 @@ internal fun DiscArt(
     track: MusicTrack?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    coverArt: @Composable (MusicTrack?) -> Unit = { AlbumArt(it, Modifier.fillMaxSize()) },
 ) {
     val rotation = remember { Animatable(0f) }
     LaunchedEffect(isPlaying) {
@@ -778,13 +779,14 @@ internal fun DiscArt(
                 .clip(CircleShape)
         ) {
             // 专辑封面仅覆盖中间区域，外圈边缘留出透明材质
-            AlbumArt(
-                track = track,
+            Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .fillMaxSize(0.85f)
                     .clip(CircleShape)
-            )
+            ) {
+                coverArt(track)
+            }
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val r = size.minDimension / 2f
                 val center = this.center

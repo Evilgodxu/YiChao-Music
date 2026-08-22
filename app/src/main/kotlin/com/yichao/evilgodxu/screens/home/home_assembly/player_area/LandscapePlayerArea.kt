@@ -50,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.musicpanel.AlbumArt
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import kotlinx.coroutines.delay
@@ -85,7 +84,7 @@ fun LandscapePlayerArea(
                 contentAlignment = Alignment.Center,
             ) {
                 if (playbackState.currentTrack != null) {
-                    AlbumArt(
+                    HomeAlbumArt(
                         track = playbackState.currentTrack,
                         modifier = Modifier
                             .fillMaxWidth(0.68f)
@@ -183,7 +182,7 @@ private fun LyricsPerspectiveZone(
 
 // 横屏封面与歌词区域中间的三合一进度块：
 // 垂直进度条居中；艺术家与歌曲标题纵向旋转 90° 贴合进度条轴线，
-// 艺术家在上方偏右、歌曲标题在下方偏左，三者间距 2dp
+// 艺术家在进度条右侧、歌曲标题在左侧，文本与进度条间距 1dp
 @Composable
 private fun LandscapeThreeInOneProgress(
     playbackState: MusicPlaybackState,
@@ -240,50 +239,48 @@ private fun LandscapeThreeInOneProgress(
                 )
             }
 
-            // 艺术家：进度条上部偏右
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .width(textThickness)
-                    .height(textWidth),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = artist,
-                    color = dimColor,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip,
-                    modifier = Modifier
-                        .graphicsLayer { rotationZ = 90f }
-                        .widthIn(max = textWidth)
-                        .then(if (artist.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                        .horizontalFadeMask(),
-                )
-            }
+            // 进度条半径与文本条贴进度条的间距
+            val barHalf = 2.dp
+            val textGap = 1.dp
+            // 文本条中心相对进度条中心（外框中心）的水平偏移：进度条半径 + 间距 + 文本条半厚
+            val textOffset = barHalf + textGap + textThickness / 2
+            // 视觉条为 80dp 高后，需把上/下对齐所依的布局轴心（条中心）补偿回边缘
+            val textShift = (textWidth - textThickness) / 2
 
-            // 歌曲标题：进度条下部偏左
-            Box(
+            // 艺术家：进度条右侧上部，文字以 80dp 宽排版后旋转 90° 纵向呈现，距进度条 1dp
+            Text(
+                text = artist,
+                color = dimColor,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .width(textThickness)
-                    .height(textWidth),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip,
-                    modifier = Modifier
-                        .graphicsLayer { rotationZ = 90f }
-                        .widthIn(max = textWidth)
-                        .then(if (title.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                        .horizontalFadeMask(),
-                )
-            }
+                    .align(Alignment.TopCenter)
+                    .offset(x = textOffset, y = textShift)
+                    .graphicsLayer { rotationZ = 90f }
+                    .width(textWidth)
+                    .height(textThickness)
+                    .then(if (artist.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                    .horizontalFadeMask(),
+            )
+
+            // 歌曲标题：进度条左侧下部，文字以 80dp 宽排版后旋转 90° 纵向呈现，距进度条 1dp
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .offset(x = -textOffset, y = -textShift)
+                    .graphicsLayer { rotationZ = 90f }
+                    .width(textWidth)
+                    .height(textThickness)
+                    .then(if (title.length > 7) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                    .horizontalFadeMask(),
+            )
         }
     }
 }

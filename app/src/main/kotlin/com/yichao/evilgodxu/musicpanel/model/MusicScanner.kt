@@ -209,6 +209,17 @@ object MusicScanner {
             }
         }
     }
+
+    // 读取本地音频内嵌封面原图（最长边 1024 采样）：首页大封面优先使用内嵌原图；
+    // 本地文件路径优先，其次 content/file URI；纯在线流无内嵌封面返回 null
+    internal fun loadEmbeddedCover(context: Context, audioUri: Uri, path: String): Bitmap? {
+        if (path.isNotBlank()) {
+            extractEmbeddedArt(path)?.let { return it }
+        }
+        val scheme = audioUri.scheme
+        if (scheme != "content" && scheme != "file") return null
+        return extractEmbeddedArt(context, audioUri)
+    }
 }
 
 // 音频文件路径片段标记：命中即视为非音乐的应用程序资源/解压包音频（如游戏资源包音效）

@@ -222,6 +222,7 @@ fun PlayerArea(
                     modifier = Modifier
                         .fillMaxWidth(0.58f)
                         .aspectRatio(1f),
+                    coverArt = { track -> HomeAlbumArt(track, Modifier.fillMaxSize()) },
                 )
                 CoverContextMenu(
                     visible = showCoverMenu,
