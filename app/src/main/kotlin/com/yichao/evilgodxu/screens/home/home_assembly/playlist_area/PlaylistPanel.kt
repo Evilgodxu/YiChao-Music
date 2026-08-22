@@ -236,6 +236,7 @@ private fun PlaylistOverview(
                         countText = stringResource(R.string.playlist_artist_count, distinctArtistCount(allTracks)),
                         onClick = { onOpenSmart(SmartPlaylistType.ARTIST) },
                         modifier = Modifier.weight(1f),
+                        coverTrack = allTracks.firstOrNull(),
                     )
                 }
             }
@@ -244,6 +245,12 @@ private fun PlaylistOverview(
             Spacer(modifier = Modifier.height(12.dp))
             SectionLabel(text = stringResource(R.string.playlist_section_my))
             Spacer(modifier = Modifier.height(6.dp))
+        }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            // 新建歌单入口固定置于“我的歌单”列表顶部，不随列表变动移动
+            CreatePlaylistRow(onClick = onCreatePlaylist)
+            Spacer(modifier = Modifier.height(8.dp))
         }
         items(PlaylistStore.playlists, key = { it.id }) { playlist ->
             PlaylistListRow(
@@ -256,8 +263,6 @@ private fun PlaylistOverview(
             )
         }
         item {
-            Spacer(modifier = Modifier.height(8.dp))
-            CreatePlaylistRow(onClick = onCreatePlaylist)
             Spacer(modifier = Modifier.height(14.dp))
         }
     }
@@ -421,6 +426,7 @@ private fun CreatePlaylistRow(onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         Icon(
             imageVector = Icons.Filled.Add,

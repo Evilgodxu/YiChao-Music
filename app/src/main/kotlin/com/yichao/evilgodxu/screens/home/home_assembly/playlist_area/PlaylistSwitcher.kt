@@ -104,7 +104,7 @@ internal fun PlaylistSwitcher(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.72f)
+                .fillMaxHeight(0.36f)
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
@@ -299,9 +299,7 @@ private fun PlaylistSwitchGroups(
                 title = group.name,
                 subtitle = stringResource(R.string.music_panel_track_count, group.trackIds.size),
                 isCurrent = currentKey == group.key,
-                coverTrack = if (type == SmartPlaylistType.ALBUM) {
-                    library.firstOrNull { it.id == group.trackIds.firstOrNull() }
-                } else null,
+                coverTrack = library.firstOrNull { it.id == group.trackIds.firstOrNull() },
                 onClick = { onSwitch(tracks, PlaylistSource(group.key, group.name)) },
             )
         }

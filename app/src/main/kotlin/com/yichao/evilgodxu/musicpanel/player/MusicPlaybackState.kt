@@ -46,12 +46,19 @@ data class PlaylistSource(
     val name: String,
 )
 
+// 单次播放记录：曲目 ID + 播放时间戳（毫秒）
+data class PlayEvent(
+    val trackId: Long,
+    val timestamp: Long,
+)
+
 // 音乐播放器状态持有者（悬浮窗级共享状态）
 class MusicPlaybackState {
 
-    // 常听歌单保留的最近播放曲目上限
+    // 常听收录窗口：仅统计 3 天内播放次数超过 3 次的歌曲
     private companion object {
-        const val RECENT_PLAYED_LIMIT = 50
+        const val RECENT_WINDOW_DAYS = 3
+        const val RECENT_MIN_PLAYS = 3
     }
 
     private val savedUriKey = stringPreferencesKey("music_saved_uri")
@@ -346,10 +353,23 @@ class MusicPlaybackState {
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
 
-    // 常听：最近播放的歌曲 ID（最新在前），用于首页系统歌单
-    var recentPlayedIds by mutableStateOf<List<Long>>(emptyList())
+    // 常听：3 天内播放次数超过 3 次的歌曲，按最近一次播放时间倒序
+    private var recentPlayEvents by mutableStateOf<List<PlayEvent>>(emptyList())
     private val recentPlayedPreferences = "music_recent_played_preferences"
-    private val recentPlayedKey = "music_recent_played_ids"
+    private val recentPlayedKey = "music_recent_played_events"
+    private val recentWindowMs: Long
+        get() = RECENT_WINDOW_DAYS * 24L * 60 * 60 * 1000
+
+    val recentPlayedIds: List<Long>
+        get() {
+            val cutoff = System.currentTimeMillis() - recentWindowMs
+            val window = recentPlayEvents.filter { it.timestamp >= cutoff }
+            return window.groupBy { it.trackId }
+                .filterValues { it.size > RECENT_MIN_PLAYS }
+                .entries
+                .sortedByDescending { it.value.maxOf { e -> e.timestamp } }
+                .map { it.key }
+        }
 
     // 当前播放列表来源歌单（null = 默认全量播放列表）
     var playlistSource by mutableStateOf<PlaylistSource?>(null)
@@ -359,10 +379,11 @@ class MusicPlaybackState {
     val libraryTracks: List<MusicTrack>
         get() = defaultPlaylistBackup ?: playlist
 
-    // 记录一次播放：最新置顶、去重并持久化，上限 RECENT_PLAYED_LIMIT 首
+    // 记录一次播放：追加带时间戳的播放记录，并清理超出 3 天窗口的旧记录
     fun recordPlayed(trackId: Long) {
-        recentPlayedIds = (listOf(trackId) + recentPlayedIds.filterNot { it == trackId })
-            .take(RECENT_PLAYED_LIMIT)
+        val now = System.currentTimeMillis()
+        recentPlayEvents = listOf(PlayEvent(trackId, now)) +
+            recentPlayEvents.filter { it.timestamp >= now - recentWindowMs }
         persistRecentPlayed()
     }
 
@@ -371,8 +392,10 @@ class MusicPlaybackState {
         playbackScope.launch(Dispatchers.IO) {
             context.getSharedPreferences(recentPlayedPreferences, Context.MODE_PRIVATE)
                 .edit()
-                .putString(recentPlayedKey, recentPlayedIds.joinToString(","))
-                .apply()
+                .putString(
+                    recentPlayedKey,
+                    recentPlayEvents.joinToString(",") { "${it.trackId}:${it.timestamp}" },
+                ).apply()
         }
     }
 
@@ -431,11 +454,17 @@ class MusicPlaybackState {
                 ?.filter(String::isNotBlank)
                 .orEmpty()
         }
-        recentPlayedIds = withContext(Dispatchers.IO) {
+        recentPlayEvents = withContext(Dispatchers.IO) {
             context.getSharedPreferences(recentPlayedPreferences, Context.MODE_PRIVATE)
                 .getString(recentPlayedKey, "")
                 ?.split(",")
-                ?.mapNotNull(String::toLongOrNull)
+                ?.mapNotNull { token ->
+                    val idx = token.lastIndexOf(':')
+                    if (idx <= 0) return@mapNotNull null
+                    val id = token.substring(0, idx).toLongOrNull() ?: return@mapNotNull null
+                    val ts = token.substring(idx + 1).toLongOrNull() ?: return@mapNotNull null
+                    PlayEvent(id, ts)
+                }
                 .orEmpty()
         }
         val preferences = withContext(Dispatchers.IO) {

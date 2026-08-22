@@ -128,10 +128,8 @@ internal fun PlaylistGroupsPage(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(groups, key = { it.key }) { group ->
-                // 专辑歌单封面统一采用该歌单内第一首歌曲的封面
-                val coverTrack = if (type == SmartPlaylistType.ALBUM) {
-                    playbackState.libraryTracks.firstOrNull { it.id == group.trackIds.firstOrNull() }
-                } else null
+                // 专辑/艺术家歌单封面统一采用该歌单内第一首歌曲的封面
+                val coverTrack = playbackState.libraryTracks.firstOrNull { it.id == group.trackIds.firstOrNull() }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

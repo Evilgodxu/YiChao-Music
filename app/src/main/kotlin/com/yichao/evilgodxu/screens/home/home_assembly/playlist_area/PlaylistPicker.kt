@@ -173,7 +173,7 @@ internal fun AddSongsPicker(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.85f)
+                .fillMaxHeight(0.425f)
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
