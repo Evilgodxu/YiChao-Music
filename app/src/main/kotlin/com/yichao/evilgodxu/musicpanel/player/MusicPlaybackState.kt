@@ -131,6 +131,8 @@ class MusicPlaybackState {
             }
             // 切换曲目后自动清理未在播放的在线歌曲，避免在线播放曲目在播放列表中常驻
             cleanupIdleOnlineTracks()
+            // 再次从控制器校正当前曲目，确保 UI 与真实音频一致（在线曲目切换时尤其关键）
+            syncPlaybackState()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -294,16 +296,19 @@ class MusicPlaybackState {
         }
     }
 
-    // 自动清理未在播放的在线歌曲：在线曲目不常驻播放列表，仅当前正在播放时保留
+    // 自动清理未在播放的在线歌曲：在线播放曲目（含已缓存的在线来源）不常驻播放列表，仅当前正在播放时保留
     fun cleanupIdleOnlineTracks() {
-        val activeId = currentTrack?.id
+        // 以控制器实际播放项为权威来源，避免 UI 状态与真实音频脱同步
+        val activeId = mediaController?.currentMediaItem?.mediaId?.toLongOrNull() ?: currentTrack?.id
         val kept = playlist.filter { track ->
-            track.id == activeId || !isOnlineStreaming(track)
+            track.id == activeId || !(isOnlineStreaming(track) || track.isOnlinePlay)
         }
         if (kept.size == playlist.size) return
         playlist = kept
         currentIndex = kept.indexOfFirst { it.id == activeId }
         persistPlaylist()
+        // 列表收缩后重新从控制器校正当前曲目，保证显示与实际播放一致
+        syncPlaybackState()
     }
 
     // 判定是否为在线流媒体曲目：无本地路径且音频地址为 http(s)
@@ -563,6 +568,7 @@ class MusicPlaybackState {
                     neteaseCoverUrl = item.optString("neteaseCoverUrl", ""),
                     coverCachePath = item.optString("coverCachePath", ""),
                     isFavorite = item.optBoolean("isFavorite", false),
+                    isOnlinePlay = item.optBoolean("isOnlinePlay", false),
                     lyricCachePath = savedLyricPath.takeIf { lyricLines.isNotEmpty() }.orEmpty(),
                     lyricLines = lyricLines,
                     lyricOffsetMs = lyricOffset,
@@ -590,6 +596,7 @@ class MusicPlaybackState {
                 put("neteaseCoverUrl", track.neteaseCoverUrl)
                 put("coverCachePath", track.coverCachePath)
                 put("lyricCachePath", track.lyricCachePath)
+                put("isOnlinePlay", track.isOnlinePlay)
                 put("isFavorite", track.isFavorite)
                 put("lyricOffsetMs", track.lyricOffsetMs)
             })

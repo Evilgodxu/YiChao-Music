@@ -256,7 +256,12 @@ object PlaylistRefresher {
             try {
                 val tracks = MusicScanner.scan(context)
                 withContext(Dispatchers.Main) {
-                    val externalTracks = state.playlist.filter { it.path.isBlank() }
+                    // 在线播放曲目（含已缓存）仅保留当前播放项，其余未播放的一律丢弃，
+                    // 其余外部曲目（path 为空）照常合并，避免刷新后在线歌曲常驻
+                    val activeId = state.currentTrack?.id
+                    val externalTracks = state.playlist.filter {
+                        it.path.isBlank() && (!it.isOnlinePlay || it.id == activeId)
+                    }
                     val previous = state.playlist.associateBy { normalizedUri(it.audioUri) }
                     val mergedTracks = (tracks + externalTracks)
                         .distinctBy { normalizedUri(it.audioUri) }

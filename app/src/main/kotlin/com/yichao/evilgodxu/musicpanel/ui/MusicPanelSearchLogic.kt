@@ -250,7 +250,8 @@ internal suspend fun downloadAndPlay(
         albumId = 0L,
         // Jamendo 结果不写入 neteaseId，避免播放失败重试时误向网易云请求
         neteaseId = if (result.source == MusicSearchSource.NETEASE) result.id else 0L,
-        neteaseCoverUrl = result.coverUrl.orEmpty()
+        neteaseCoverUrl = result.coverUrl.orEmpty(),
+        isOnlinePlay = true,
     )
 
     withContext(Dispatchers.Main) {
