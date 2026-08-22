@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -107,6 +108,7 @@ private fun SearchInput(
     context: Context,
     scope: CoroutineScope,
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -144,6 +146,8 @@ private fun SearchInput(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
+                    // 回车触发搜索时收起键盘
+                    keyboardController?.hide()
                     val query = playbackState.searchQuery.trim()
                     if (query.isNotBlank()) {
                         scope.launch { performSearch(playbackState, context) }

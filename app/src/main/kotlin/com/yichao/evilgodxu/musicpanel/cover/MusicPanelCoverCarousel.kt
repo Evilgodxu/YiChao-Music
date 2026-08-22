@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -64,15 +66,11 @@ internal fun CoverCarouselOverlay(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
     ) {
-        // 封面尺寸按宽度排布，保证 7 首封面同屏容纳
-        val gap = 28.dp
-        val coverSize = (
-                minOf(
-                    (maxWidth.value - 6f * gap.value) / 7f,
-                    maxHeight.value * 0.5f,
-                )
-                ).dp
-        val spacingPx = with(density) { (coverSize + gap).toPx() }
+        // 中心封面尺寸与横屏播放器封面一致：左栏宽度 × 封面占比，高度受限于时按高度收缩
+        val landscapeCoverWidth = maxWidth.value * 0.5f * 0.68f * 0.7f
+        val coverSize = minOf(landscapeCoverWidth, maxHeight.value * 0.55f).dp
+        // 相邻封面中心距小于封面尺寸，让左右两侧封面在视觉上部分重叠，形成前后交错
+        val spacingPx = with(density) { (coverSize * 0.72f).toPx() }
         // 吸附动效：低刚度弹簧，滑动释放与点击选取共用同一自然过渡
         val settleSpec = spring<Float>(
             dampingRatio = Spring.DampingRatioNoBouncy,
@@ -122,37 +120,43 @@ internal fun CoverCarouselOverlay(
             val windowStart = (windowCenter - VISIBLE_PER_SIDE - 1).coerceAtLeast(0)
             val windowEnd = (windowCenter + VISIBLE_PER_SIDE + 1).coerceAtMost(lastIndex)
             for (i in windowStart..windowEnd) {
-                val dist = i - rendered
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset((dist * spacingPx).roundToInt(), 0) }
-                        .size(coverSize)
-                        .graphicsLayer {
-                            rotationY = (-dist * 18f).coerceIn(-72f, 72f)
-                            scaleX = (1f - abs(dist) * 0.14f).coerceAtLeast(0.65f)
-                            scaleY = scaleX
-                            alpha = (1f - abs(dist) * 0.18f).coerceIn(0.45f, 1f)
-                        }
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {
-                                if (i == selectedIndex) {
-                                    onTrackSelected(i)
-                                } else {
-                                    // 点击侧边封面：弹簧过渡到其中，封面平滑移动并淡入淡出
-                                    scope.launch {
-                                        centerIndex.stop()
-                                        centerIndex.animateTo(i.toFloat(), animationSpec = settleSpec)
-                                        dragShift = 0f
-                                        selectedIndex = i
+                // 以歌曲 id 作为稳定 key，避免拖动/点击切换时窗口偏移导致封面重建而闪烁
+                key(playlist[i].id) {
+                    val dist = i - rendered
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset((dist * spacingPx).roundToInt(), 0) }
+                            .size(coverSize)
+                            // 越靠近中心的封面层级越高，左右的封面被居中封面压住
+                            .zIndex(-abs(dist))
+                            .graphicsLayer {
+                                // 前端封面几乎平放，远端封面旋转适度收敛，避免视角过陡
+                                rotationY = (-dist * 10f).coerceIn(-50f, 50f)
+                                scaleX = (1f - abs(dist) * 0.12f).coerceAtLeast(0.7f)
+                                scaleY = scaleX
+                                alpha = (1f - abs(dist) * 0.16f).coerceIn(0.5f, 1f)
+                            }
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    if (i == selectedIndex) {
+                                        onTrackSelected(i)
+                                    } else {
+                                        // 点击侧边封面：弹簧过渡到其中，封面平滑移动并淡入淡出
+                                        scope.launch {
+                                            centerIndex.stop()
+                                            centerIndex.animateTo(i.toFloat(), animationSpec = settleSpec)
+                                            dragShift = 0f
+                                            selectedIndex = i
+                                        }
                                     }
                                 }
-                            }
-                        )
-                ) {
-                    AlbumArt(playlist[i], Modifier.fillMaxSize())
+                            )
+                    ) {
+                        AlbumArt(playlist[i], Modifier.fillMaxSize())
+                    }
                 }
             }
         }

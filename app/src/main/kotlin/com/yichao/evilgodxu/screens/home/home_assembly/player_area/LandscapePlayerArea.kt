@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -177,8 +179,19 @@ fun LandscapePlayerArea(
             onDismiss = { playlistVisible = false },
         )
 
-        // 3D 封面轮播覆盖全屏，隐藏界面其他元素
-        if (coverCarouselVisible && playbackState.playlist.isNotEmpty()) {
+        // 3D 封面轮播覆盖全屏，淡入 + 轻微缩放过渡入场，避免闪屏且衔接自然
+        AnimatedVisibility(
+            visible = coverCarouselVisible && playbackState.playlist.isNotEmpty(),
+            enter = fadeIn(animationSpec = tween(300)) + scaleIn(
+                initialScale = 1.15f,
+                animationSpec = tween(300)
+            ),
+            exit = fadeOut(animationSpec = tween(200)) + scaleOut(
+                targetScale = 1.05f,
+                animationSpec = tween(200)
+            ),
+            modifier = Modifier.fillMaxSize(),
+        ) {
             CoverCarouselOverlay(
                 playlist = playbackState.playlist,
                 currentIndex = playbackState.currentIndex.coerceAtLeast(0),
