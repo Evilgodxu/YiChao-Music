@@ -9,6 +9,5 @@ data class SettingsUiState(
     val miniPlayerEnabled: Boolean = true,
     val wordByWordRendering: Boolean = true,
     val swipeToChangeTrack: Boolean = true,
-    val flowingLightEffect: Boolean = true,
     val version: String = "",
 )

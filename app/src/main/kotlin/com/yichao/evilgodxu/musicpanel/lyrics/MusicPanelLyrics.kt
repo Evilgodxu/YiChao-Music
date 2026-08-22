@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -108,6 +109,8 @@ internal fun LyricsPanel(
                 onLongClick = onLongClick,
             )
             .padding(top = 4.dp, bottom = 0.dp)
+            // 裁剪到蒙层范围，防溢出的行以未渐变原色出现在顶部导致闪烁
+            .clipToBounds()
             .verticalFadeMask(),
         contentAlignment = Alignment.Center
     ) {

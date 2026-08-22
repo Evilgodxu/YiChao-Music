@@ -80,7 +80,6 @@ import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.TimerDialog
-import com.yichao.evilgodxu.musicpanel.flowingLightEffectFlow
 import com.yichao.evilgodxu.musicpanel.swipeToChangeTrackFlow
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.online_search.OnlineSearchPanel
@@ -110,10 +109,8 @@ fun HomeAssembly(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val gestureScope = rememberCoroutineScope()
-    // 播放偏好：滑动切歌与流光动效开关
+    // 播放偏好：滑动切歌开关
     val swipeToChangeTrack by context.swipeToChangeTrackFlow()
-        .collectAsStateWithLifecycle(initialValue = true)
-    val flowingLightEffect by context.flowingLightEffectFlow()
         .collectAsStateWithLifecycle(initialValue = true)
     // 手势协程中读取实时开关值，避免捕获过期状态
     val swipeToChangeTrackState = rememberUpdatedState(swipeToChangeTrack)
@@ -321,9 +318,6 @@ fun HomeAssembly(
     ) {
         val contentWidth = maxWidth
         SongGradientBackground(track = playbackState.currentTrack)
-        if (flowingLightEffect) {
-            AuroraEffect(Modifier.fillMaxSize())
-        }
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
