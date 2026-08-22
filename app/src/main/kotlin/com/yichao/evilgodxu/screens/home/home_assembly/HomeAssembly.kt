@@ -52,6 +52,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
@@ -78,6 +80,8 @@ import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.TimerDialog
+import com.yichao.evilgodxu.musicpanel.flowingLightEffectFlow
+import com.yichao.evilgodxu.musicpanel.swipeToChangeTrackFlow
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.online_search.OnlineSearchPanel
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
@@ -106,6 +110,13 @@ fun HomeAssembly(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val gestureScope = rememberCoroutineScope()
+    // 播放偏好：滑动切歌与流光动效开关
+    val swipeToChangeTrack by context.swipeToChangeTrackFlow()
+        .collectAsStateWithLifecycle(initialValue = true)
+    val flowingLightEffect by context.flowingLightEffectFlow()
+        .collectAsStateWithLifecycle(initialValue = true)
+    // 手势协程中读取实时开关值，避免捕获过期状态
+    val swipeToChangeTrackState = rememberUpdatedState(swipeToChangeTrack)
     var showTimer by remember { mutableStateOf(false) }
     // 横屏模式：跟随窗口宽高比，旋转时窗口重布局由 onSizeChanged 更新
     var isLandscapeMode by remember { mutableStateOf(false) }
@@ -297,7 +308,9 @@ fun HomeAssembly(
                             swipeY += change.positionChange().y
                             change.consume()
                         }
-                        if (searchProgress <= 0f && playlistProgress <= 0f) {
+                        if (swipeToChangeTrackState.value &&
+                            searchProgress <= 0f && playlistProgress <= 0f
+                        ) {
                             val next = if (swipeY < 0f) playbackState.nextIndex()
                             else playbackState.previousIndex()
                             if (next >= 0) gestureScope.launch { playTrackAt(context, playbackState, next) }
@@ -308,6 +321,9 @@ fun HomeAssembly(
     ) {
         val contentWidth = maxWidth
         SongGradientBackground(track = playbackState.currentTrack)
+        if (flowingLightEffect) {
+            AuroraEffect(Modifier.fillMaxSize())
+        }
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()

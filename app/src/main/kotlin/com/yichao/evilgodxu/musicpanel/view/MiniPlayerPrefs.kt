@@ -11,6 +11,8 @@ import kotlinx.coroutines.withContext
 
 private val miniPlayerEnabledKey = booleanPreferencesKey("mini_player_enabled")
 private val wordByWordRenderingKey = booleanPreferencesKey("word_by_word_rendering")
+private val swipeToChangeTrackKey = booleanPreferencesKey("swipe_to_change_track")
+private val flowingLightEffectKey = booleanPreferencesKey("flowing_light_effect")
 
 // 迷你模式默认开启，与规格说明书一致
 fun Context.miniPlayerEnabledFlow(): Flow<Boolean> =
@@ -26,4 +28,20 @@ fun Context.wordByWordRenderingFlow(): Flow<Boolean> =
 
 suspend fun Context.saveWordByWordRendering(enabled: Boolean) = withContext(Dispatchers.IO) {
     settingsDataStore.edit { it[wordByWordRenderingKey] = enabled }
+}
+
+// 滑动切歌默认开启：关闭后首页上下滑动不再切换歌曲
+fun Context.swipeToChangeTrackFlow(): Flow<Boolean> =
+    settingsDataStore.data.map { it[swipeToChangeTrackKey] ?: true }
+
+suspend fun Context.saveSwipeToChangeTrack(enabled: Boolean) = withContext(Dispatchers.IO) {
+    settingsDataStore.edit { it[swipeToChangeTrackKey] = enabled }
+}
+
+// 流光动效默认开启：关闭后首页背景保持静态渐变
+fun Context.flowingLightEffectFlow(): Flow<Boolean> =
+    settingsDataStore.data.map { it[flowingLightEffectKey] ?: true }
+
+suspend fun Context.saveFlowingLightEffect(enabled: Boolean) = withContext(Dispatchers.IO) {
+    settingsDataStore.edit { it[flowingLightEffectKey] = enabled }
 }

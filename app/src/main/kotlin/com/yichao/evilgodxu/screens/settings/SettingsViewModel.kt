@@ -10,6 +10,10 @@ import com.yichao.evilgodxu.musicpanel.miniPlayerEnabledFlow
 import com.yichao.evilgodxu.musicpanel.saveMiniPlayerEnabled
 import com.yichao.evilgodxu.musicpanel.saveWordByWordRendering
 import com.yichao.evilgodxu.musicpanel.wordByWordRenderingFlow
+import com.yichao.evilgodxu.musicpanel.saveSwipeToChangeTrack
+import com.yichao.evilgodxu.musicpanel.saveFlowingLightEffect
+import com.yichao.evilgodxu.musicpanel.swipeToChangeTrackFlow
+import com.yichao.evilgodxu.musicpanel.flowingLightEffectFlow
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +55,16 @@ class SettingsViewModel(
                 _uiState.update { it.copy(wordByWordRendering = enabled) }
             }
         }
+        viewModelScope.launch {
+            context.swipeToChangeTrackFlow().collect { enabled ->
+                _uiState.update { it.copy(swipeToChangeTrack = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            context.flowingLightEffectFlow().collect { enabled ->
+                _uiState.update { it.copy(flowingLightEffect = enabled) }
+            }
+        }
     }
 
     fun setMiniPlayerEnabled(enabled: Boolean) {
@@ -64,6 +78,20 @@ class SettingsViewModel(
         _uiState.update { it.copy(wordByWordRendering = enabled) }
         viewModelScope.launch {
             context.saveWordByWordRendering(enabled)
+        }
+    }
+
+    fun setSwipeToChangeTrack(enabled: Boolean) {
+        _uiState.update { it.copy(swipeToChangeTrack = enabled) }
+        viewModelScope.launch {
+            context.saveSwipeToChangeTrack(enabled)
+        }
+    }
+
+    fun setFlowingLightEffect(enabled: Boolean) {
+        _uiState.update { it.copy(flowingLightEffect = enabled) }
+        viewModelScope.launch {
+            context.saveFlowingLightEffect(enabled)
         }
     }
 

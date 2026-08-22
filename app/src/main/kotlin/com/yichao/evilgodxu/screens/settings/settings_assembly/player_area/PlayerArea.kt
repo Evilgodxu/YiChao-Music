@@ -26,6 +26,10 @@ fun PlayerArea(
     onMiniPlayerEnabledChange: (Boolean) -> Unit,
     wordByWordRendering: Boolean,
     onWordByWordRenderingChange: (Boolean) -> Unit,
+    swipeToChangeTrack: Boolean,
+    onSwipeToChangeTrackChange: (Boolean) -> Unit,
+    flowingLightEffect: Boolean,
+    onFlowingLightEffectChange: (Boolean) -> Unit,
 ) {
     SettingsSection(title = stringResource(R.string.settings_section_player)) {
         PlayerSwitchRow(
@@ -39,6 +43,18 @@ fun PlayerArea(
             description = stringResource(R.string.settings_word_by_word_desc),
             checked = wordByWordRendering,
             onCheckedChange = onWordByWordRenderingChange,
+        )
+        PlayerSwitchRow(
+            title = stringResource(R.string.settings_swipe_track_title),
+            description = stringResource(R.string.settings_swipe_track_desc),
+            checked = swipeToChangeTrack,
+            onCheckedChange = onSwipeToChangeTrackChange,
+        )
+        PlayerSwitchRow(
+            title = stringResource(R.string.settings_flowing_light_title),
+            description = stringResource(R.string.settings_flowing_light_desc),
+            checked = flowingLightEffect,
+            onCheckedChange = onFlowingLightEffectChange,
         )
     }
 }

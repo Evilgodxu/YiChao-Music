@@ -158,6 +158,10 @@
     <string name="settings_mini_player_desc">Show mini player during background playback</string>
     <string name="settings_word_by_word_title">Word-by-word lyrics</string>
     <string name="settings_word_by_word_desc">Highlight lyrics word by word with bounce; off uses whole-line highlight</string>
+    <string name="settings_swipe_track_title">Swipe to change track</string>
+    <string name="settings_swipe_track_desc">Swipe up/down on the home screen to change tracks</string>
+    <string name="settings_flowing_light_title">Aurora effect</string>
+    <string name="settings_flowing_light_desc">Animate the home background with flowing aurora light</string>
 
     <!-- Home playlists -->
     <string name="playlist_section_smart">Smart playlists</string>

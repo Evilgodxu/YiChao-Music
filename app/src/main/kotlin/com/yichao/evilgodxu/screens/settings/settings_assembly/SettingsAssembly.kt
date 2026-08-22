@@ -48,6 +48,8 @@ fun SettingsAssembly(
     onThemeClick: (Offset) -> Unit,
     onMiniPlayerEnabledChange: (Boolean) -> Unit,
     onWordByWordRenderingChange: (Boolean) -> Unit,
+    onSwipeToChangeTrackChange: (Boolean) -> Unit,
+    onFlowingLightEffectChange: (Boolean) -> Unit,
     onVersionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -106,6 +108,10 @@ fun SettingsAssembly(
                 onMiniPlayerEnabledChange = onMiniPlayerEnabledChange,
                 wordByWordRendering = uiState.wordByWordRendering,
                 onWordByWordRenderingChange = onWordByWordRenderingChange,
+                swipeToChangeTrack = uiState.swipeToChangeTrack,
+                onSwipeToChangeTrackChange = onSwipeToChangeTrackChange,
+                flowingLightEffect = uiState.flowingLightEffect,
+                onFlowingLightEffectChange = onFlowingLightEffectChange,
             )
             AppInfoArea(uiState.version, onVersionClick)
         }

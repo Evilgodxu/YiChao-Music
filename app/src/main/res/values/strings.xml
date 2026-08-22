@@ -160,6 +160,10 @@
     <string name="settings_mini_player_desc">后台播放时显示迷你播放器</string>
     <string name="settings_word_by_word_title">逐字渲染</string>
     <string name="settings_word_by_word_desc">逐字高亮并同步跳动,关闭后切换整行高亮</string>
+    <string name="settings_swipe_track_title">滑动切歌</string>
+    <string name="settings_swipe_track_desc">在首页上下滑动切换歌曲</string>
+    <string name="settings_flowing_light_title">极光动效</string>
+    <string name="settings_flowing_light_desc">首页背景渲染流动的极光光效</string>
 
     <!-- 首页歌单 -->
     <string name="playlist_section_smart">系统歌单</string>

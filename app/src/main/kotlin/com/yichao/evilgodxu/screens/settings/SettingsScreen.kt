@@ -29,6 +29,8 @@ fun SettingsScreen(
         onThemeClick = onThemeClick,
         onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
         onWordByWordRenderingChange = viewModel::setWordByWordRendering,
+        onSwipeToChangeTrackChange = viewModel::setSwipeToChangeTrack,
+        onFlowingLightEffectChange = viewModel::setFlowingLightEffect,
         onVersionClick = { updateViewModel.checkForUpdate(force = true) },
         modifier = modifier,
     )
