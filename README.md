@@ -157,6 +157,12 @@ The keystore file is expected at `jh.keystore` in the project root (adjust `stor
 
 Online music search relies on third-party public web endpoints (Netease / QQ Music / Kugou / Jamendo), whose availability and playback policy may vary by region and song. The app is for personal study and communication only — please support the copyright holders.
 
+## Acknowledgements
+
+- Lyric animations and NetEase cloud music parsing originally referenced from [Qplayer](https://github.com/TIMER-err/qplayer)
+- Drag-reorder of list items is based on [Reorderable](https://github.com/Calvin-LL/Reorderable)
+- QQ Music and Kugou Kotlin-native audio source parsing is based on [musicdl](https://github.com/CharlesPikachu/musicdl)
+
 ## License
 
 [AGPL-3.0](LICENSE) © 2026 Evilgodxu

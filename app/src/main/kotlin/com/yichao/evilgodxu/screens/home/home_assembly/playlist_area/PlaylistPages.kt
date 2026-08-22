@@ -5,6 +5,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,6 +88,8 @@ import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
@@ -640,6 +643,8 @@ internal class ReorderableLazyListState internal constructor(
     private var draggingItemInitialOffset by mutableStateOf(IntOffset.Zero)
     private var oldDraggingItemIndex by mutableStateOf<Int?>(null)
     private var predictedDraggingItemOffset by mutableStateOf<IntOffset?>(null)
+    // 拖拽到边缘时的常驻自动滚动协程
+    private var autoScrollJob: Job? = null
 
     private val draggingItemInfo: LazyListItemInfo?
         get() = draggingItemKey?.let { key ->
@@ -676,11 +681,15 @@ internal class ReorderableLazyListState internal constructor(
         draggingItemKey = null
         oldDraggingItemIndex = null
         predictedDraggingItemOffset = null
+        autoScrollJob?.cancel()
+        autoScrollJob = null
     }
 
     internal fun onDrag(dragAmount: Offset) {
         draggingItemDraggedDelta += dragAmount
         val draggingItem = draggingItemInfo ?: return
+        // 拖拽项进入可视区边缘带时启动常驻自动滚动协程
+        updateAutoScroll()
         if (!onMoveMutex.tryLock()) return
         try {
             val startOffset = draggingItem.offset + draggingItemOffset.y.toInt()
@@ -696,6 +705,64 @@ internal class ReorderableLazyListState internal constructor(
         } finally {
             onMoveMutex.unlock()
         }
+    }
+
+    /**
+     * 拖拽项进入可视区上下边缘带内时启动常驻滚动协程；即将移出边缘时停止。
+     * 循环内每帧重新判定方向，滚动同时向该方向推进拖拽项的位置，避免脱离跟随。
+     */
+    private fun updateAutoScroll() {
+        val shouldScroll = autoScrollDirection() != 0
+        val scrolling = autoScrollJob?.isActive == true
+        when {
+            shouldScroll && !scrolling -> {
+                autoScrollJob?.cancel()
+                autoScrollJob = scope.launch { autoScrollLoop() }
+            }
+            !shouldScroll && scrolling -> {
+                autoScrollJob?.cancel()
+                autoScrollJob = null
+            }
+        }
+    }
+
+    // 拖拽项手柄中心是否进入上/下边缘带，返回滚动方向
+    private fun autoScrollDirection(): Int {
+        val item = draggingItemInfo ?: return 0
+        val viewportHeight = listState.layoutInfo.viewportSize.height
+        // 手柄中心 = 项当前位置 + 拖拽偏移 + 半行高
+        val handleCenter = item.offset + (draggingItemOffset.y + item.size / 2f)
+        val threshold = item.size * 1.2f
+        return when {
+            handleCenter < threshold && listState.canScrollBackward -> -1
+            handleCenter > viewportHeight - threshold && listState.canScrollForward -> 1
+            else -> 0
+        }
+    }
+
+    private suspend fun autoScrollLoop() {
+        // 由 updateAutoScroll() 在移出边缘时取消；无需额外退出条件
+        while (true) {
+            val dir = autoScrollDirection()
+            if (dir == 0) break
+            // 以线性动画滚动半行，并向该方向推进拖拽项的排序位置
+            val step = (draggingItemInfo?.size ?: 0).toFloat() / 2f
+            if (step <= 0f) break
+            listState.animateScrollBy(step * dir)
+            moveOnScroll(dir)
+            delay(AUTO_SCROLL_FRAME_MS)
+        }
+        autoScrollJob = null
+    }
+
+    // 滚动时把拖拽项向滚动方向相邻交换，模拟库的 moveDraggingItemToEnd
+    private suspend fun moveOnScroll(dir: Int) {
+        val draggingItem = draggingItemInfo ?: return
+        val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+            if (dir > 0) item.index == draggingItem.index + 1
+            else item.index == draggingItem.index - 1
+        } ?: return
+        moveItems(draggingItem, target)
     }
 
     private suspend fun moveItems(
@@ -731,6 +798,7 @@ internal class ReorderableLazyListState internal constructor(
 
     companion object {
         const val ReorderableStateLayoutInfoUpdateMaxWaitDuration = 1000L
+        private const val AUTO_SCROLL_FRAME_MS = 16L
     }
 }
 

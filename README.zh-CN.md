@@ -158,6 +158,12 @@ KEY_PASSWORD=你的别名密码
 
 在线音乐搜索依赖第三方公共网络接口（网易云 / QQ 音乐 / 酷狗 / Jamendo），其可用性与播放策略可能随地区与歌曲而异。应用仅供个人学习交流使用，请支持正版版权方。
 
+## 致谢
+
+- 歌词动效与网易云音乐解析早期参考 [Qplayer](https://github.com/TIMER-err/qplayer)
+- 基于 [Reorderable](https://github.com/Calvin-LL/Reorderable) 实现拖拽列表项排序
+- 基于 [musicdl](https://github.com/CharlesPikachu/musicdl) 实现 QQ 与酷狗 Kotlin 原生音源解析
+
 ## License
 
 [AGPL-3.0](LICENSE) © 2026 Evilgodxu
