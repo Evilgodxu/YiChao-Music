@@ -135,7 +135,7 @@ fun LandscapePlayerArea(
     }
 }
 
-// 信息轴区：标题、进度条、艺术家三合一整体居中，内部 4dp 间距不变
+// 信息轴区：标题、进度条、艺术家三合一整体居中，内部 1dp 间距
 @Composable
 private fun MetadataAxis(
     playbackState: MusicPlaybackState,
@@ -154,7 +154,7 @@ private fun MetadataAxis(
     ) {
         Row(
             modifier = Modifier.fillMaxHeight(0.72f),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 标题：组内顶部
@@ -187,11 +187,16 @@ private fun MetadataAxis(
     }
 }
 
-// 文本整体向右旋转 90°：按正常横排排版，旋转后呈纵向贴靠进度条对角
+// 文本整体向右旋转 90°：按正常横排排版，旋转后呈纵向贴靠进度条对角，超长截断
 @Composable
 private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
+    val visible = if (text.length > MAX_LABEL_CHARS) {
+        text.take(MAX_LABEL_CHARS - 1) + "…"
+    } else {
+        text
+    }
     Text(
-        text = text,
+        text = visible,
         color = Color.White,
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
@@ -200,6 +205,8 @@ private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
         modifier = modifier.rotate(90f),
     )
 }
+
+private const val MAX_LABEL_CHARS = 20
 
 // 歌词透视参数：绕 Y 轴角度与相机距离系数；cameraDistance 越小透视越强，
 // 大视角下取值过大会让旋转透视近乎消失，故用较小的宽度比例以获得明显左远右近；

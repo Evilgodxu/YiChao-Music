@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,11 +39,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.musicpanel.MetadataDialogCard
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.PlaylistArt
 import com.yichao.evilgodxu.screens.home.data.Playlist
@@ -57,34 +61,70 @@ internal fun CreatePlaylistDialog(
     if (!visible) return
     val context = LocalContext.current
     var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.playlist_create_title)) },
-        text = {
+    MetadataDialogCard(onDismiss = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.playlist_create_title),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                placeholder = { Text(stringResource(R.string.playlist_name_hint)) },
+                modifier = Modifier.fillMaxWidth(),
             )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val created = PlaylistStore.create(context, name)
-                    if (created != null) onCreated(created)
-                },
-                enabled = name.isNotBlank(),
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.widthIn(max = 200.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(stringResource(R.string.playlist_create_confirm))
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    onClick = onDismiss,
+                ) {
+                    Text(
+                        text = stringResource(R.string.music_panel_rename_cancel),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = {
+                        val trimmed = name.trim()
+                        if (trimmed.isNotEmpty()) {
+                            val created = PlaylistStore.create(context, trimmed)
+                            if (created != null) onCreated(created)
+                        }
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.playlist_create_confirm),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.music_panel_rename_cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 // 重命名歌单弹窗
@@ -133,26 +173,67 @@ internal fun DeletePlaylistDialog(
 ) {
     if (playlist == null) return
     val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.playlist_delete_title)) },
-        text = { Text(stringResource(R.string.playlist_delete_message, playlist.name)) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    PlaylistStore.delete(context, playlist.id)
-                    onDismiss()
-                },
+    MetadataDialogCard(onDismiss = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.playlist_delete_title),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.playlist_delete_message, playlist.name),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.widthIn(max = 200.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(stringResource(R.string.playlist_delete_confirm), color = MaterialTheme.colorScheme.error)
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    onClick = onDismiss,
+                ) {
+                    Text(
+                        text = stringResource(R.string.music_panel_rename_cancel),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    onClick = {
+                        PlaylistStore.delete(context, playlist.id)
+                        onDismiss()
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.playlist_delete_confirm),
+                        color = MaterialTheme.colorScheme.onError,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.music_panel_rename_cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 // 手动选曲弹窗：全量曲目多选后加入歌单

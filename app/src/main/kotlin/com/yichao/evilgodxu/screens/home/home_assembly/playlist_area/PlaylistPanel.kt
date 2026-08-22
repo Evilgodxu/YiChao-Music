@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
@@ -46,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -146,7 +146,7 @@ private sealed interface PlaylistPage {
 
 @Composable
 private fun PlaylistPage.title(): String = when (this) {
-    is PlaylistPage.Overview -> stringResource(R.string.playlist_title)
+    is PlaylistPage.Overview -> ""
     is PlaylistPage.Groups -> smartTypeLabel(type)
     is PlaylistPage.SmartTracks -> smartTypeLabel(type)
     is PlaylistPage.Tracks -> playlist.name
@@ -169,7 +169,7 @@ private fun PanelHeader(
         if (showBack) {
             IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    painter = painterResource(R.drawable.ic_chevron_left),
                     contentDescription = stringResource(R.string.back),
                     tint = Color.White,
                     modifier = Modifier.size(22.dp),

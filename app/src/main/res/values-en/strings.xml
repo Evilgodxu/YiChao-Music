@@ -158,7 +158,6 @@
     <string name="settings_mini_player_desc">Show mini player during background playback</string>
 
     <!-- Home playlists -->
-    <string name="playlist_title">Playlists</string>
     <string name="playlist_section_smart">Smart playlists</string>
     <string name="playlist_section_my">My playlists</string>
     <string name="playlist_smart_recent">Recently played</string>

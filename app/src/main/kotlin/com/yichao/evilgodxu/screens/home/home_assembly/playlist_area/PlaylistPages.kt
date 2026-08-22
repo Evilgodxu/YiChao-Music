@@ -157,11 +157,15 @@ internal fun PlaylistGroupsPage(
                             )
                         }
                     }
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
                         Text(
                             text = group.name,
                             color = Color.White,
                             fontSize = 12.sp,
+                            lineHeight = 15.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -169,6 +173,7 @@ internal fun PlaylistGroupsPage(
                             text = stringResource(R.string.music_panel_track_count, group.trackIds.size),
                             color = Color.White.copy(alpha = 0.6f),
                             fontSize = 10.sp,
+                            lineHeight = 12.sp,
                         )
                     }
                     Icon(
