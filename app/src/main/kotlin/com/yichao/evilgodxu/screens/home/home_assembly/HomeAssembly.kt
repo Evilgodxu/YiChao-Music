@@ -15,7 +15,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -50,6 +51,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -70,6 +73,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.SongGradientBackground
+import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.TimerDialog
@@ -81,6 +85,7 @@ import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistPanel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 // 左右滑动切换（右滑搜索、左滑歌单）共用的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
 private const val SWIPE_OPEN_RATIO = 0.25f
@@ -97,6 +102,8 @@ fun HomeAssembly(
     onStopPermissionMonitor: () -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
+    val context = LocalContext.current
+    val gestureScope = rememberCoroutineScope()
     var showTimer by remember { mutableStateOf(false) }
     // 横屏模式：跟随窗口宽高比，旋转时窗口重布局由 onSizeChanged 更新
     var isLandscapeMode by remember { mutableStateOf(false) }
@@ -192,14 +199,62 @@ fun HomeAssembly(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                // 拖动期间实时跟手更新进度；松开时按 25% 阈值决定展开或回弹
-                detectHorizontalDragGestures(
-                    onDragStart = {
-                        gestureSearchOpen = showOnlineSearch
-                        gesturePlaylistOpen = showPlaylist
-                    },
-                    onDragEnd = {
-                        // 展开按滑动比例判定；从已展开面板回滑时按相同的 25% 比例判定关闭，保证来回切换阈值统一、跟手
+                val slop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    // 记录手势起始时的面板展开状态，回滑时按相同阈值判定关闭
+                    gestureSearchOpen = showOnlineSearch
+                    gesturePlaylistOpen = showPlaylist
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // 阶段一：累计位移直到任一轴越过触摸阈值，据此锁定主导方向，保证左右滑动与上下滑动互斥
+                    var accX = 0f
+                    var accY = 0f
+                    var axis = 0 // 0=未定，1=横向(切换面板)，2=纵向(切歌)
+                    while (axis == 0) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        // 手指抬起或被子控件(进度条/控制栏等)消费，放弃本手势
+                        if (!change.pressed || change.isConsumed) break
+                        accX += change.positionChange().x
+                        accY += change.positionChange().y
+                        if (abs(accX) >= slop || abs(accY) >= slop) {
+                            axis = if (abs(accX) > abs(accY)) 1 else 2
+                        }
+                    }
+                    if (axis == 1) {
+                        // 横向主导：右滑搜索、左滑歌单，拖动全程跟手
+                        if (contentWidthPx > 0f) {
+                            when {
+                                searchProgress > 0f -> searchProgress =
+                                    (searchProgress + accX / contentWidthPx).coerceIn(0f, 1f)
+                                playlistProgress > 0f -> playlistProgress =
+                                    (playlistProgress - accX / contentWidthPx).coerceIn(0f, 1f)
+                                accX > 0f -> searchProgress =
+                                    (accX / contentWidthPx).coerceIn(0f, 1f)
+                                else -> playlistProgress =
+                                    (-accX / contentWidthPx).coerceIn(0f, 1f)
+                            }
+                        }
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            if (change == null || !change.pressed || change.isConsumed) break
+                            val dx = change.positionChange().x
+                            change.consume()
+                            if (contentWidthPx > 0f) {
+                                // 已展开的面板优先回拽；播放器页按滑动方向分配进度（右滑搜索、左滑歌单）
+                                when {
+                                    searchProgress > 0f -> searchProgress =
+                                        (searchProgress + dx / contentWidthPx).coerceIn(0f, 1f)
+                                    playlistProgress > 0f -> playlistProgress =
+                                        (playlistProgress - dx / contentWidthPx).coerceIn(0f, 1f)
+                                    dx > 0f -> searchProgress =
+                                        (dx / contentWidthPx).coerceIn(0f, 1f)
+                                    else -> playlistProgress =
+                                        (-dx / contentWidthPx).coerceIn(0f, 1f)
+                                }
+                            }
+                        }
+                        // 松开：按滑动比例判定展开或回弹；已展开面板回滑按同样比例判定关闭，保证来回切换阈值统一
                         val searchOpen = if (gestureSearchOpen) {
                             searchProgress > 1f - SWIPE_OPEN_RATIO
                         } else {
@@ -219,21 +274,21 @@ fun HomeAssembly(
                         }
                         if (playlistOpen != showPlaylist) showPlaylist = playlistOpen
                         settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
-                    },
-                    onDragCancel = { settleKey++ }, // 手势被打断按回弹处理
-                ) { change, dragAmount ->
-                    change.consume()
-                    if (contentWidthPx <= 0f) return@detectHorizontalDragGestures
-                    // 已展开的面板优先回拽；播放器页按滑动方向分配进度（右滑搜索、左滑歌单）
-                    when {
-                        searchProgress > 0f -> searchProgress =
-                            (searchProgress + dragAmount / contentWidthPx).coerceIn(0f, 1f)
-                        playlistProgress > 0f -> playlistProgress =
-                            (playlistProgress - dragAmount / contentWidthPx).coerceIn(0f, 1f)
-                        dragAmount > 0f -> searchProgress =
-                            (dragAmount / contentWidthPx).coerceIn(0f, 1f)
-                        else -> playlistProgress =
-                            (-dragAmount / contentWidthPx).coerceIn(0f, 1f)
+                    } else if (axis == 2) {
+                        // 纵向主导：向上切下一首、向下切上一首；仅播放器视图(无覆盖面板)生效，避免与面板内滚动冲突
+                        var swipeY = accY
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            if (change == null || !change.pressed || change.isConsumed) break
+                            swipeY += change.positionChange().y
+                            change.consume()
+                        }
+                        if (searchProgress <= 0f && playlistProgress <= 0f) {
+                            val next = if (swipeY < 0f) playbackState.nextIndex()
+                            else playbackState.previousIndex()
+                            if (next >= 0) gestureScope.launch { playTrackAt(context, playbackState, next) }
+                        }
                     }
                 }
             }
