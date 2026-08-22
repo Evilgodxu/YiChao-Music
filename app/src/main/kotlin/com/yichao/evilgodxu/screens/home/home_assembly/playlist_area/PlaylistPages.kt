@@ -494,7 +494,7 @@ private fun PlaylistTrackRow(
             Icon(
                 imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = stringResource(R.string.music_panel_favorite),
-                tint = if (isDragging) fg else if (isLiked) MaterialTheme.colorScheme.primary else Color.White,
+                tint = if (isDragging) fg else Color.White,
                 modifier = Modifier.size(16.dp),
             )
         }

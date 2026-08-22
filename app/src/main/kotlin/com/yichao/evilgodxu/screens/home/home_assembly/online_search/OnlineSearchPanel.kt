@@ -1,6 +1,10 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.online_search
 
 import android.content.Context
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -313,37 +317,44 @@ private fun SearchResultList(
                     .padding(vertical = 4.dp)
             )
         }
-        when {
-            playbackState.isSearching -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // 加载/空/结果间淡入淡出过渡，避免搜索结果生硬插入
+        AnimatedContent(
+            targetState = when {
+                playbackState.isSearching -> 0
+                playbackState.searchResults.isEmpty() -> 1
+                else -> 2
+            },
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "search_state",
+        ) { state ->
+            when (state) {
+                0 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 }
-            }
-            playbackState.searchResults.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                1 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource(R.string.music_panel_search_no_results),
                         color = Color.White.copy(alpha = 0.6f),
                         fontSize = 12.sp
                     )
                 }
-            }
-            else -> {
-                LazyColumn(
-                    state = rememberLazyListState(),
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    itemsIndexed(
-                        items = playbackState.searchResults,
-                        // 聚合多来源后 id 可能重复，key 需结合来源保证唯一
-                        key = { _, result -> "${result.source}-${result.id}" }
-                    ) { _, result ->
-                        SearchResultRow(
-                            result = result,
-                            titleColor = Color.White,
-                            onClick = { scope.launch { playSearchResult(result, playbackState, context, scope) } }
-                        )
+                else -> {
+                    LazyColumn(
+                        state = rememberLazyListState(),
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        itemsIndexed(
+                            items = playbackState.searchResults,
+                            // 聚合多来源后 id 可能重复，key 需结合来源保证唯一
+                            key = { _, result -> "${result.source}-${result.id}" }
+                        ) { _, result ->
+                            SearchResultRow(
+                                result = result,
+                                titleColor = Color.White,
+                                onClick = { scope.launch { playSearchResult(result, playbackState, context, scope) } }
+                            )
+                        }
                     }
                 }
             }

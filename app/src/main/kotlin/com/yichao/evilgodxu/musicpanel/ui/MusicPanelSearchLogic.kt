@@ -206,6 +206,8 @@ internal suspend fun performSearch(
     playbackState.isSearching = true
     playbackState.searchResults = emptyList()
     playbackState.errorMsg = null
+    // 立即切到结果视图，使加载指示器在搜索期间可见
+    playbackState.showSearchResults = true
     try {
         // 并行查询所有已注册的音乐源并聚合展示（单个来源失败不影响其他来源）
         // 各来源仅对自身结果按 id 去重，不跨平台去重，避免误过滤另一平台的歌曲

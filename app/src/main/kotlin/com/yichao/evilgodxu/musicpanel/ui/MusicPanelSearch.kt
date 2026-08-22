@@ -417,12 +417,12 @@ internal fun SearchResultRow(
                     MusicSearchSource.NETEASE -> R.string.music_panel_search_source
                 }
             ),
-            color = MaterialTheme.colorScheme.primary,
+            color = Color.White,
             fontSize = 9.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier
                 .background(
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                    Color.White.copy(alpha = 0.10f),
                     RoundedCornerShape(4.dp)
                 )
                 .padding(horizontal = 5.dp, vertical = 2.dp)
