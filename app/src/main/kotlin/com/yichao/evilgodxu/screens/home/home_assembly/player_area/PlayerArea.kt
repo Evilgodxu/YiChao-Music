@@ -897,7 +897,7 @@ internal fun PlaylistSheet(
                             )
                         }
                     }
-                    LaunchedEffect(playbackState.currentIndex) {
+                    LaunchedEffect(playbackState.currentTrack?.id) {
                         if (playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
                             listState.animateScrollToItem(
                                 playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)

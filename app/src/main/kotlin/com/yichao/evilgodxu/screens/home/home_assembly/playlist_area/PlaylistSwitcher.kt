@@ -61,7 +61,7 @@ import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-// 切换到指定歌单队列并播放，优先保持当前曲目位置
+// 切换到指定歌单队列并播放该歌单第一首歌曲
 internal fun switchToPlaylistQueue(
     context: Context,
     state: MusicPlaybackState,
@@ -78,14 +78,10 @@ internal fun switchToPlaylistQueue(
     if (state.playlistSource == null && state.defaultPlaylistBackup == null) {
         state.defaultPlaylistBackup = state.playlist
     }
-    val currentId = state.currentTrack?.id
-    val index = currentId?.let { id -> tracks.indexOfFirst { it.id == id } }
-        ?.coerceIn(0, tracks.size - 1)
-        ?: 0
     state.playlist = tracks
     state.playlistSource = source
-    state.currentIndex = index
-    scope.launch { playTrackAt(context, state, index) }
+    state.currentIndex = 0
+    scope.launch { playTrackAt(context, state, 0) }
 }
 
 // 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航
