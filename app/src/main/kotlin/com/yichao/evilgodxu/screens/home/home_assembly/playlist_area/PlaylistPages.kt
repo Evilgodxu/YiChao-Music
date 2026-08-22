@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -851,27 +852,31 @@ internal fun LazyItemScope.ReorderableItem(
 }
 
 /**
- * 拖拽手柄：长按后开始拖拽排序（等价 reorderable 的 longPressDraggableHandle）。
+ * 拖拽手柄：消费按下事件以阻止行级长按误触发，长按后再开始拖拽排序。
  */
 internal fun Modifier.longPressDraggableHandle(
     state: ReorderableLazyListState,
     key: Any,
-): Modifier = composed {
-    this.pointerInput(state, key) {
-        detectDragGesturesAfterLongPress(
-            onDragStart = {
-                state.onDragStart(key)
-            },
-            onDragEnd = {
+): Modifier = pointerInput(state, key) {
+    awaitEachGesture {
+        // 立即消费按下，行级 combinedClickable 不再收到该指针，避免误弹移除对话框
+        val down = awaitFirstDown(requireUnconsumed = false)
+        down.consume()
+        val longPress = awaitLongPressOrCancellation(down.id)
+        if (longPress != null) {
+            state.onDragStart(key)
+            try {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    change.consume()
+                    val delta = change.position - change.previousPosition
+                    if (delta != Offset.Zero) state.onDrag(delta)
+                }
+            } finally {
                 state.onDragStop()
-            },
-            onDragCancel = {
-                state.onDragStop()
-            },
-            onDrag = { change, dragAmount ->
-                change.consume()
-                state.onDrag(dragAmount)
             }
-        )
+        }
     }
 }
