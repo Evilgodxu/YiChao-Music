@@ -689,6 +689,8 @@ internal class ReorderableLazyListState internal constructor(
         val draggingItem = draggingItemInfo ?: return
         // 拖拽项进入可视区边缘带时启动常驻自动滚动协程
         updateAutoScroll()
+        // 自动滚动期间由滚动协程把拖拽项归位到边缘，跳过交集重排避免冲突
+        if (autoScrollJob?.isActive == true) return
         if (!onMoveMutex.tryLock()) return
         try {
             val startOffset = draggingItem.offset + draggingItemOffset.y.toInt()
@@ -747,21 +749,26 @@ internal class ReorderableLazyListState internal constructor(
             // 以线性动画滚动半行，并向该方向推进拖拽项的排序位置
             val step = (draggingItemInfo?.size ?: 0).toFloat() / 2f
             if (step <= 0f) break
+            // 先把拖拽项归位到滚动边缘再滚动，避免被滚出可视区导致拖拽中断
+            moveDraggingItemToEnd(dir)
             listState.animateScrollBy(step * dir)
-            moveOnScroll(dir)
             delay(AUTO_SCROLL_FRAME_MS)
         }
         autoScrollJob = null
     }
 
-    // 滚动时把拖拽项向滚动方向相邻交换，模拟库的 moveDraggingItemToEnd
-    private suspend fun moveOnScroll(dir: Int) {
-        val draggingItem = draggingItemInfo ?: return
-        val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
-            if (dir > 0) item.index == draggingItem.index + 1
-            else item.index == draggingItem.index - 1
-        } ?: return
-        moveItems(draggingItem, target)
+    // 滚动时把拖拽项重排到滚动方向的可视区边缘，使其始终跟随滚动而不会被滚出屏幕
+    private suspend fun moveDraggingItemToEnd(dir: Int) {
+        val dragged = draggingItemInfo ?: return
+        val visible = listState.layoutInfo.visibleItemsInfo
+        if (visible.isEmpty()) return
+        val lead = if (dir < 0) visible.minBy { it.index } else visible.maxBy { it.index }
+        // 已处于滚动方向的边缘，无需再移动
+        if (dragged.index == lead.index) return
+        // 仅允许朝滚动方向推进，避免反向
+        if (dir < 0 && lead.index > dragged.index) return
+        if (dir > 0 && lead.index < dragged.index) return
+        moveItems(dragged, lead)
     }
 
     private suspend fun moveItems(
