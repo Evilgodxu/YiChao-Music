@@ -186,30 +186,28 @@ private fun MetadataAxis(
     }
 }
 
-// 竖排文字：逐字垂直排列，超长时截断并补省略号
+// 旋转文字：逐字竖排后整体右旋 90°，字形侧躺并沿水平方向贴靠进度条
 @Composable
 private fun VerticalLabel(text: String, modifier: Modifier = Modifier) {
     if (text.isBlank()) return
     val truncated = text.length > MAX_VERTICAL_CHARS
     val visible = if (truncated) {
+        // 超长截断，末尾补省略号
         text.take(MAX_VERTICAL_CHARS - 1) + "…"
     } else {
         text
     }
     Column(
-        modifier = modifier,
+        modifier = modifier.rotate(90f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        visible.forEachIndexed { index, char ->
-            // 省略号横向三点，竖排场景右旋 90° 变为竖向三点
-            val isEllipsis = truncated && index == visible.lastIndex
+        visible.forEach { char ->
             Text(
                 text = char.toString(),
                 color = Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
-                modifier = if (isEllipsis) Modifier.rotate(90f) else Modifier,
             )
         }
     }

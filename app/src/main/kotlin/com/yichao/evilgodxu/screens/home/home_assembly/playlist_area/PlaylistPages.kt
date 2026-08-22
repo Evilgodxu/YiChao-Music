@@ -731,8 +731,8 @@ internal class ReorderableLazyListState internal constructor(
     private fun autoScrollDirection(): Int {
         val item = draggingItemInfo ?: return 0
         val viewportHeight = listState.layoutInfo.viewportSize.height
-        // 手柄中心 = 初始布局偏移 + 手指累计位移 + 半行高，稳定不随重排/滚动波动
-        val handleCenter = draggingItemInitialOffset.y + draggingItemDraggedDelta.y + item.size / 2f
+        // 手柄中心 = 拖拽项当前布局偏移 + 拖拽位移 + 手柄中心偏移（与参考库一致）
+        val handleCenter = item.offset + (draggingItemOffset.y + item.size / 2f)
         val threshold = item.size * 1.2f
         return when {
             handleCenter < threshold && listState.canScrollBackward -> -1
@@ -778,6 +778,15 @@ internal class ReorderableLazyListState internal constructor(
         try {
             onMoveMutex.withLock {
                 if (draggingItemKey == null) return
+                // 重排触及首个可见项时重新锚定滚动位置，避免拖拽项被顶出可视区
+                if (from.index == listState.firstVisibleItemIndex ||
+                    to.index == listState.firstVisibleItemIndex
+                ) {
+                    listState.requestScrollToItem(
+                        listState.firstVisibleItemIndex,
+                        listState.firstVisibleItemScrollOffset,
+                    )
+                }
                 oldDraggingItemIndex = from.index
                 onMove(from.index, to.index)
                 predictedDraggingItemOffset = if (to.index > from.index) {
