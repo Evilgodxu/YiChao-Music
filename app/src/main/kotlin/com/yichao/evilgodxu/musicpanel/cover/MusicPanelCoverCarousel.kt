@@ -1,10 +1,11 @@
 package com.yichao.evilgodxu.musicpanel
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,11 +34,16 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
-// 横屏沉浸式 3D 封面轮播视图：当前封面居中，其余封面分列左右带透视倾斜，
-// 左右滑动切换并吸附居中，点击居中封面播放对应歌曲。
+// 横屏沉浸式 3D 封面轮播：中心封面 + 左右各 3 首共 7 首同屏。
+// 所有封面基于连续的"中心索引"推导位置/倾斜/缩放/透明度，滑动与点击共用同一弹簧，
+// 切换时封面平滑移动并淡入淡出；点击居中封面播放，点击空白处收起。
+private const val VISIBLE_PER_SIDE = 3
+
 @Composable
 internal fun CoverCarouselOverlay(
     playlist: List<MusicTrack>,
@@ -50,87 +55,98 @@ internal fun CoverCarouselOverlay(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val startIndex = currentIndex.coerceIn(0, playlist.size - 1)
+    val lastIndex = playlist.size - 1
     var selectedIndex by remember { mutableIntStateOf(startIndex) }
-    // 滑动过程中产生的封面偏移量（以相邻间距为单位），配合 snap 实现吸附
-    var fraction by remember { mutableFloatStateOf(0f) }
-    val snap = remember { Animatable(0f) }
+    // 连续的"中心索引"：滑动时叠加临时偏移，吸附/点击时弹簧过渡到整数位
+    val centerIndex = remember { Animatable(startIndex.toFloat()) }
+    var dragShift by remember { mutableFloatStateOf(0f) }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.78f))
+        modifier = Modifier.fillMaxSize()
     ) {
-        val coverSize = (minOf(maxWidth.value * 0.4f, maxHeight.value * 0.55f)).dp
-        val coverSizePx = with(density) { coverSize.toPx() }
-        val spacingPx = with(density) { (coverSize + 72.dp).toPx() }
-
-        // 点击非封面区域退出沉浸视图
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss
+        // 封面尺寸按宽度排布，保证 7 首封面同屏容纳
+        val gap = 28.dp
+        val coverSize = (
+                minOf(
+                    (maxWidth.value - 6f * gap.value) / 7f,
+                    maxHeight.value * 0.5f,
                 )
+                ).dp
+        val spacingPx = with(density) { (coverSize + gap).toPx() }
+        // 吸附动效：低刚度弹簧，滑动释放与点击选取共用同一自然过渡
+        val settleSpec = spring<Float>(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow,
         )
 
-        // 滑动容器：捕获左右拖动以切换封面
+        // 受动画驱动的连续中心位：拖动增量实时叠加，动画期间由 centerIndex 平滑推进
+        val rendered = centerIndex.value + dragShift
+
+        // 背景：沿用首页封面色渐变处理，实时渲染为当前居中的歌曲
+        SongGradientBackground(track = playlist[rendered.roundToInt().coerceIn(0, lastIndex)])
+
+        // 交互层：左右滑动切换、点击封面选取，点击空白处收起
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(playlist.size) {
                     detectDragGestures(
-                        onDragStart = { scope.launch { snap.stop() } },
+                        onDragStart = { scope.launch { centerIndex.stop() } },
                         onDrag = { change, dragAmount ->
                             change.consume()
-                            fraction += dragAmount.x / spacingPx
+                            dragShift -= dragAmount.x / spacingPx
+                            // 限制在播放列表范围内，边缘不越界
+                            val clamped = (centerIndex.value + dragShift).coerceIn(0f, lastIndex.toFloat())
+                            dragShift = clamped - centerIndex.value
                         },
                         onDragEnd = {
                             scope.launch {
-                                val current = fraction + snap.value
-                                val target = Math.round(current)
-                                    .coerceIn(selectedIndex - (playlist.size - 1), selectedIndex)
-                                snap.animateTo(target.toFloat(), animationSpec = tween(300))
-                                selectedIndex = selectedIndex - target
-                                fraction = 0f
-                                snap.snapTo(0f)
+                                val now = (centerIndex.value + dragShift).coerceIn(0f, lastIndex.toFloat())
+                                val target = now.roundToInt()
+                                // 将临时偏移并入中心索引，再弹簧过渡到整数位，实现自然淡入淡出
+                                centerIndex.snapTo(now)
+                                dragShift = 0f
+                                centerIndex.animateTo(target.toFloat(), animationSpec = settleSpec)
+                                selectedIndex = target
                             }
                         }
                     )
+                }
+                .pointerInput(playlist.size) {
+                    detectTapGestures { onDismiss() }
                 },
             contentAlignment = Alignment.Center
         ) {
-            // 仅渲染选中封面附近的封面，避免条目过多时过度绘制
-            val windowStart = (selectedIndex - 4).coerceAtLeast(0)
-            val windowEnd = (selectedIndex + 4).coerceAtMost(playlist.size - 1)
+            // 渲染中心附近封面（含动画过渡进入的一首余量）
+            val windowCenter = rendered.roundToInt().coerceIn(0, lastIndex)
+            val windowStart = (windowCenter - VISIBLE_PER_SIDE - 1).coerceAtLeast(0)
+            val windowEnd = (windowCenter + VISIBLE_PER_SIDE + 1).coerceAtMost(lastIndex)
             for (i in windowStart..windowEnd) {
-                val rel = (i - selectedIndex) + snap.value + fraction
-                val isSelected = rel == 0f
+                val dist = i - rendered
                 Box(
                     modifier = Modifier
-                        .offset { IntOffset((rel * spacingPx).roundToInt(), 0) }
+                        .offset { IntOffset((dist * spacingPx).roundToInt(), 0) }
                         .size(coverSize)
                         .graphicsLayer {
-                            rotationY = (-rel * 28f).coerceIn(-75f, 75f)
-                            scaleX = (1f - kotlin.math.abs(rel) * 0.22f).coerceAtLeast(0.6f)
+                            rotationY = (-dist * 18f).coerceIn(-72f, 72f)
+                            scaleX = (1f - abs(dist) * 0.14f).coerceAtLeast(0.65f)
                             scaleY = scaleX
-                            alpha = (1f - kotlin.math.abs(rel) * 0.4f).coerceIn(0.2f, 1f)
+                            alpha = (1f - abs(dist) * 0.18f).coerceIn(0.45f, 1f)
                         }
                         .clip(RoundedCornerShape(16.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = {
-                                if (isSelected) {
+                                if (i == selectedIndex) {
                                     onTrackSelected(i)
                                 } else {
-                                    // 点击未居中封面：先吸附到中心再选中
+                                    // 点击侧边封面：弹簧过渡到其中，封面平滑移动并淡入淡出
                                     scope.launch {
-                                        snap.animateTo((selectedIndex - i).toFloat(), animationSpec = tween(300))
+                                        centerIndex.stop()
+                                        centerIndex.animateTo(i.toFloat(), animationSpec = settleSpec)
+                                        dragShift = 0f
                                         selectedIndex = i
-                                        fraction = 0f
-                                        snap.snapTo(0f)
                                     }
                                 }
                             }
@@ -141,8 +157,8 @@ internal fun CoverCarouselOverlay(
             }
         }
 
-        // 选中封面的正下方居中显示歌曲标题与艺术家
-        val track = playlist.getOrNull(selectedIndex)
+        // 居中封面的正下方居中显示歌曲标题与艺术家
+        val track = playlist[rendered.roundToInt().coerceIn(0, lastIndex)]
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -150,14 +166,14 @@ internal fun CoverCarouselOverlay(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = track?.title ?: "",
+                text = track.title,
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = track?.artist ?: "",
+                text = track.artist,
                 color = Color.White.copy(alpha = 0.72f),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1

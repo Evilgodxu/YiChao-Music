@@ -1,9 +1,7 @@
 package com.yichao.evilgodxu.screens.home.home_assembly
 
 import android.app.Activity
-import android.content.Context
 import android.content.pm.ActivityInfo
-import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedVisibility
@@ -56,10 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -70,14 +66,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import coil3.request.ImageResult
-import coil3.toBitmap
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
-import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
+import com.yichao.evilgodxu.musicpanel.SongGradientBackground
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.TimerDialog
@@ -87,11 +79,8 @@ import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.Permissio
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistPanel
-import java.io.File
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 // 左右滑动切换（右滑搜索、左滑歌单）共用的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
 private const val SWIPE_OPEN_RATIO = 0.25f
@@ -250,7 +239,7 @@ fun HomeAssembly(
             }
     ) {
         val contentWidth = maxWidth
-        HomeImmersiveBackground(track = playbackState.currentTrack)
+        SongGradientBackground(track = playbackState.currentTrack)
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
@@ -441,91 +430,6 @@ private fun HomeTopBar(
     )
 }
 
-// 沉浸式页面背景：由封面提取上下半区主色并向下渐变，替代拉伸全屏图片
-@Composable
-private fun HomeImmersiveBackground(track: MusicTrack?) {
-    val model = homeCoverModel(track)
-    val context = LocalContext.current
-    val defaultGradient = defaultHomeGradient()
-    var gradient by remember { mutableStateOf(defaultGradient) }
-    LaunchedEffect(model) {
-        gradient = if (model != null) {
-            coverGradient(context, model) ?: defaultGradient
-        } else {
-            defaultGradient
-        }
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient)
-    )
-}
 
-@Composable
-private fun defaultHomeGradient(): Brush =
-    Brush.verticalGradient(
-        listOf(
-            MaterialTheme.colorScheme.surface,
-            MaterialTheme.colorScheme.surfaceVariant,
-        )
-    )
-
-// 以小尺寸解码封面，取上下半区平均色组成向下渐变
-private suspend fun coverGradient(context: Context, model: Any): Brush? = withContext(Dispatchers.IO) {
-    val result = context.imageLoader.execute(
-        ImageRequest.Builder(context)
-            .data(model)
-            .size(32)
-            .build()
-    )
-    val source = result.image?.toBitmap() ?: return@withContext null
-    val bitmap = if (source.config == Bitmap.Config.HARDWARE) {
-        source.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
-    } else source
-    Brush.verticalGradient(
-        listOf(
-            bitmap.avgColor(topHalf = true).darkenIfNearWhite(),
-            bitmap.avgColor(topHalf = false).darkenIfNearWhite(),
-        )
-    )
-}
-
-// 与白色前景（按钮标题/歌词）亮度相近时轻微压暗，保证文字可读
-private fun Color.darkenIfNearWhite(): Color {
-    val luminance = 0.299f * red + 0.587f * green + 0.114f * blue
-    return if (luminance > 0.8f) lerp(this, Color.Black, 0.2f) else this
-}
-
-private fun Bitmap.avgColor(topHalf: Boolean): Color {
-    val startY = if (topHalf) 0 else height / 2
-    val endY = if (topHalf) height / 2 else height
-    var r = 0L
-    var g = 0L
-    var b = 0L
-    var count = 0L
-    for (y in startY until endY) {
-        for (x in 0 until width) {
-            val c = getPixel(x, y)
-            r += (c shr 16) and 0xFF
-            g += (c shr 8) and 0xFF
-            b += c and 0xFF
-            count++
-        }
-    }
-    return Color(
-        red = (r / count).toFloat() / 255f,
-        green = (g / count).toFloat() / 255f,
-        blue = (b / count).toFloat() / 255f,
-    )
-}
-
-// 当前歌曲封面来源：磁盘缓存优先，其次在线封面 URL
-private fun homeCoverModel(track: MusicTrack?): Any? {
-    val coverFile = track?.coverCachePath
-        ?.takeIf { MusicMetadataCache.isValid(it) }
-        ?.let { File(it) }
-    return coverFile ?: track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
-}
 
 

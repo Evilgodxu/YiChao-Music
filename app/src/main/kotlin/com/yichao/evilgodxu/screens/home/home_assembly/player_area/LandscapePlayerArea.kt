@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -79,6 +80,9 @@ fun LandscapePlayerArea(
     var containerWidth by remember { mutableFloatStateOf(0f) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // 覆盖层开启时，系统返回键收起 3D 封面轮播
+    BackHandler(enabled = coverCarouselVisible) { coverCarouselVisible = false }
 
     // 播放期间周期性同步播放位置，驱动歌词滚动
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
