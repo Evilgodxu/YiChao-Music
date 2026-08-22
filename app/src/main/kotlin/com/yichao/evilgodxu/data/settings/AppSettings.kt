@@ -24,7 +24,7 @@ enum class ThemeMode(val value: String) {
     LIGHT("light");
 
     companion object {
-        fun fromValue(value: String): ThemeMode = entries.find { it.value == value } ?: SYSTEM
+        fun fromValue(value: String): ThemeMode = entries.find { it.value == value } ?: DARK
     }
 }
 
@@ -36,13 +36,13 @@ enum class AppLanguage(val languageTag: String?) {
 }
 
 data class SettingsState(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.DARK,
 )
 
 // 设置状态流：悬浮窗等非 Compose 宿主读取主题模式
 fun Context.settingsFlow(): Flow<SettingsState> =
     settingsDataStore.data.map { preferences ->
         SettingsState(
-            themeMode = ThemeMode.fromValue(preferences[SettingsKeys.THEME_MODE] ?: ThemeMode.SYSTEM.value),
+            themeMode = ThemeMode.fromValue(preferences[SettingsKeys.THEME_MODE] ?: ThemeMode.DARK.value),
         )
     }

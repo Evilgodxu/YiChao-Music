@@ -212,6 +212,8 @@ private fun LyricsPerspectiveZone(
 // 竖排文本：标题/艺术家逐字竖排显示，最多展示 7 字；
 // 超出后以跑马灯方式上下往返滚动，顶部与底部复用歌词的边缘渐变淡出效果
 private const val VERTICAL_TEXT_MAX_CHARS = 7
+// 竖向行高压缩比率：将默认行距收窄以缩小字符上下间距
+private const val VERTICAL_TEXT_LINE_FACTOR = 0.85f
 private const val VERTICAL_MARQUEE_MS = 3500
 
 @Composable
@@ -226,14 +228,19 @@ private fun VerticalTrackText(
     val chars = text.toCharArray().toList()
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    // 以单个字测量作为行高与列宽基准，保证视口固定为 7 字高度
-    val sample = remember(fontSize) {
-        textMeasurer.measure(AnnotatedString("字"), TextStyle(fontSize = fontSize))
+    // 显式收紧行高以压缩上下间距；测量与渲染使用同一字形风格，保证排布可控
+    val tightStyle = remember(fontSize) {
+        TextStyle(fontSize = fontSize, lineHeight = fontSize * VERTICAL_TEXT_LINE_FACTOR)
     }
-    val lineHeight = with(density) { sample.size.height.toDp() }
-    val charWidth = with(density) { sample.size.width.toDp() }
+    val sample = remember(fontSize) {
+        textMeasurer.measure(AnnotatedString("字"), tightStyle)
+    }
+    val lineHeightDp = with(density) { sample.size.height.toFloat().toDp() }
+    val charWidthDp = with(density) { sample.size.width.toFloat().toDp() }
     val overflowChars = (chars.size - VERTICAL_TEXT_MAX_CHARS).coerceAtLeast(0)
-    val overflowPx = with(density) { (overflowChars * lineHeight.value).toFloat() }
+    val overflowPx = with(density) { (overflowChars * sample.size.height).toFloat() }
+    // 底部预留约半字高的缓冲，避免末字在渐变蒙层边缘被截断
+    val bufferDp = with(density) { (sample.size.height / 2f).toDp() }
 
     // 跑马灯：内容超出视口时上下往返滚动，逐字循环显示
     val transition = rememberInfiniteTransition(label = "vertical_marquee_$text")
@@ -258,8 +265,9 @@ private fun VerticalTrackText(
 
     Box(
         modifier = modifier
-            .width(charWidth)
-            .height(lineHeight * VERTICAL_TEXT_MAX_CHARS)
+            .width(charWidthDp)
+            .height(lineHeightDp * VERTICAL_TEXT_MAX_CHARS + bufferDp)
+            .padding(bottom = bufferDp)
             .clipToBounds()
             .verticalFadeMask(),
     ) {
@@ -269,7 +277,7 @@ private fun VerticalTrackText(
             chars.forEach { ch ->
                 Text(
                     text = ch.toString(),
-                    fontSize = fontSize,
+                    style = tightStyle,
                     fontWeight = fontWeight,
                     color = color,
                     maxLines = 1,

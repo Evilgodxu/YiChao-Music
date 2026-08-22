@@ -154,6 +154,8 @@ internal fun VerticalProgressBar(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
+                        // 消耗进度条上的指针事件，与全局左右滑动互斥，拖动进度条时不触发左右切换面板
+                        event.changes.forEach { if (!it.isConsumed) it.consume() }
                         val pos = event.changes.first().position.y / size.height
                         seekFraction = (1f - pos).coerceIn(0f, 1f)
                         isSeeking = true
