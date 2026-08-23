@@ -267,7 +267,7 @@ fun PlayerArea(
                     onDismiss = { showCoverMenu = false },
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             // 歌词：固定为 5 行歌词高度，点击歌词区切换微调按钮显隐
             Box(
                 modifier = Modifier
@@ -369,7 +369,7 @@ fun PlayerArea(
                     }
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             // 标题与艺术家
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -432,7 +432,7 @@ fun PlayerArea(
                     onDismiss = { showMetaMenu = false },
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             // 律动与进度条（与音乐面板一致，宽度收窄 15%）
             Box(
                 modifier = Modifier.fillMaxWidth(0.85f),
@@ -442,7 +442,7 @@ fun PlayerArea(
                     contentColor = Color.White,
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             PlayerControls(
                 playbackState = playbackState,
                 onPlaylistClick = { playlistVisible = !playlistVisible },
@@ -756,12 +756,12 @@ private fun PlayerControlButton(
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(44.dp),
+        modifier = Modifier.size(48.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(32.dp),
             tint = if (enabled) Color.White
             else Color.White.copy(alpha = 0.3f),
         )
