@@ -18,6 +18,16 @@ import java.nio.file.StandardCopyOption
 
 internal object MusicMetadataWriter {
 
+    // 元数据写入结果：Full 为整曲重建；HeadAndTail 仅重建头部标签，
+    // 音频躯干由调用方按 audioStart 偏移从源流式复制，降低大文件写入的峰值内存
+    private sealed interface WriteResult {
+        data class Full(val bytes: ByteArray) : WriteResult
+        data class HeadAndTail(val head: ByteArray, val audioStart: Int) : WriteResult
+    }
+
+    // 流式复制音频躯干时的读缓冲大小
+    private const val STREAM_BUFFER_SIZE = 64 * 1024
+
     suspend fun writeCover(context: Context, track: MusicTrack, coverBytes: ByteArray): Boolean =
         withContext(Dispatchers.IO) {
             write(context, track.path) { bytes ->
@@ -39,7 +49,7 @@ internal object MusicMetadataWriter {
         rewriteByUri(context, uriString) { bytes -> writeMetadata(bytes, null, null, null, coverBytes) }
 
     // 就地重写 content URI 音频文件，非 content 协议不可写时返回 false
-    private fun rewriteByUri(context: Context, uriString: String, block: (ByteArray) -> ByteArray?): Boolean {
+    private fun rewriteByUri(context: Context, uriString: String, block: (ByteArray) -> WriteResult?): Boolean {
         if (uriString.isBlank()) return false
         return try {
             val uri = Uri.parse(uriString)
@@ -47,7 +57,13 @@ internal object MusicMetadataWriter {
             val resolver = context.contentResolver
             val source = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return false
             val result = block(source) ?: return false
-            resolver.openOutputStream(uri, "wt")?.use { it.write(result) } ?: return false
+            // content URI 无法按可寻址文件流复制躯干，在线缓存文件通常较小，
+            // 把头部与躯干拼回完整字节后一次写入
+            val bytes = when (result) {
+                is WriteResult.Full -> result.bytes
+                is WriteResult.HeadAndTail -> result.head + source.copyOfRange(result.audioStart, source.size)
+            }
+            resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } ?: return false
             true
         } catch (e: Throwable) {
             CrashLogManager.logException("MusicMetadataWriter", "经 content URI 写入音频元数据失败", e)
@@ -77,13 +93,24 @@ internal object MusicMetadataWriter {
         }
     }
 
-    private fun write(context: Context, path: String, block: (ByteArray) -> ByteArray?): Boolean {
+    private fun write(context: Context, path: String, block: (ByteArray) -> WriteResult?): Boolean {
         if (path.isBlank()) return false
         return try {
             val file = File(path)
             val result = block(file.readBytes()) ?: return false
             val temporary = File(file.parentFile, ".${file.name}.${System.nanoTime()}.metadata.tmp")
-            temporary.writeBytes(result)
+            // 仅重写元数据头部时流式复制音频躯干，避免整个文件两次驻留内存
+            when (result) {
+                is WriteResult.Full -> temporary.writeBytes(result.bytes)
+                is WriteResult.HeadAndTail -> {
+                    temporary.outputStream().use { out ->
+                        out.write(result.head)
+                        file.inputStream().use { input ->
+                            copyRange(input, result.audioStart, out)
+                        }
+                    }
+                }
+            }
             try {
                 Files.move(
                     temporary.toPath(), file.toPath(),
@@ -101,7 +128,7 @@ internal object MusicMetadataWriter {
         }
     }
 
-    private fun writeMetadata(bytes: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray? = when {
+    private fun writeMetadata(bytes: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? = when {
         isMp3(bytes) -> writeMp3(bytes, title, artist, album, cover)
         isMp4(bytes) -> writeMp4(bytes, title, artist, album, cover)
         isFlac(bytes) -> writeFlac(bytes, title, artist, album, cover)
@@ -116,7 +143,7 @@ internal object MusicMetadataWriter {
     private fun isFlac(bytes: ByteArray) = bytes.startsWith("fLaC")
     private fun isOpus(bytes: ByteArray) = bytes.startsWith("OggS") && bytes.indexOf("OpusHead".toByteArray()) >= 0
 
-    private fun writeMp3(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray? {
+    private fun writeMp3(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
         val hasId3 = source.startsWith("ID3") && source.size >= 10
         val version = if (hasId3) source[3].toInt() and 0xff else 4
         val flags = if (hasId3) source[5].toInt() and 0xff else 0
@@ -157,8 +184,9 @@ internal object MusicMetadataWriter {
         val tag = ByteArrayOutputStream()
         tag.write("ID3".toByteArray()); tag.write(byteArrayOf(outputVersion.toByte(), 0, flags.toByte()))
         tag.write(syncsafeBytes(frames.size())); tag.write(frames.toByteArray())
+        // 头部为重建的 ID3 标签，音频躯干按原偏移流式复制，避免整曲二次驻留内存
         val audioStart = if (hasId3) tagEnd else 0
-        return tag.toByteArray() + source.copyOfRange(audioStart, source.size)
+        return WriteResult.HeadAndTail(tag.toByteArray(), audioStart)
     }
 
     private fun id3FrameStart(source: ByteArray, version: Int, flags: Int, tagEnd: Int): Int {
@@ -195,7 +223,7 @@ internal object MusicMetadataWriter {
         out.write(byteArrayOf(0, 0)); out.write(data)
     }
 
-    private fun writeFlac(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray? {
+    private fun writeFlac(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
         if (!source.startsWith("fLaC")) return null
         val blocks = mutableListOf<FlacBlock>()
         var p = 4
@@ -228,7 +256,8 @@ internal object MusicMetadataWriter {
             }
             blocks.add(FlacBlock(6, pictureBlock(cover)))
         }
-        return buildFlac(blocks) + source.copyOfRange(p, source.size)
+        // 头部为重建的元数据块，音频帧按原偏移流式复制
+        return WriteResult.HeadAndTail(buildFlac(blocks), p)
     }
 
     private data class FlacBlock(val type: Int, val data: ByteArray)
@@ -275,7 +304,7 @@ internal object MusicMetadataWriter {
         return out.toByteArray()
     }
 
-    private fun writeMp4(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray? {
+    private fun writeMp4(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
         val atoms = Mp4Atom.parseAll(source)?.toMutableList() ?: return null
         val moovIndex = atoms.indexOfFirst { it.type == "moov" }
         if (moovIndex < 0) return null
@@ -286,17 +315,17 @@ internal object MusicMetadataWriter {
         if (sizeDelta != 0 && atoms.indexOfFirst { it.type == "mdat" } > moovIndex) {
             moov.adjustChunkOffsets(sizeDelta)
         }
-        return atoms.joinToByteArray()
+        return WriteResult.Full(atoms.joinToByteArray())
     }
 
-    private fun writeOpus(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray? {
+    private fun writeOpus(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
         val parsed = OggFile.parse(source) ?: return null
         val tagsIndex = parsed.packets.indexOfFirst { it.data.startsWith("OpusTags") }
         if (tagsIndex < 0) return null
         parsed.packets[tagsIndex] = parsed.packets[tagsIndex].copy(
             data = updateOpusTags(parsed.packets[tagsIndex].data, title, artist, album, cover),
         )
-        return OggFile.build(parsed)
+        return WriteResult.Full(OggFile.build(parsed))
     }
 
     private fun updateOpusTags(original: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray {
@@ -606,6 +635,22 @@ internal object MusicMetadataWriter {
     private fun intBytesLE(v: Int) = byteArrayOf(v.toByte(), (v shr 8).toByte(), (v shr 16).toByte(), (v shr 24).toByte())
     private fun longBytesLE(v: Long) = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(v).array()
     private fun ByteArray.startsWith(value: String) = size >= value.length && String(this, 0, value.length, StandardCharsets.US_ASCII) == value
+
+    // 从输入流跳过 offset 字节后按块复制到输出流，避免整段数据驻留内存
+    private fun copyRange(input: java.io.InputStream, offset: Int, output: java.io.OutputStream) {
+        var remaining = offset.toLong()
+        val buffer = ByteArray(STREAM_BUFFER_SIZE)
+        while (remaining > 0) {
+            val n = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+            if (n < 0) break
+            remaining -= n
+        }
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            output.write(buffer, 0, n)
+        }
+    }
     private fun ByteArray.indexOf(value: ByteArray): Int = (0..(size - value.size)).firstOrNull { copyOfRange(it, it + value.size).contentEquals(value) } ?: -1
     private fun List<Mp4Atom>.joinToByteArray(): ByteArray { val out = ByteArrayOutputStream(); forEach { out.write(it.build()) }; return out.toByteArray() }
 }
