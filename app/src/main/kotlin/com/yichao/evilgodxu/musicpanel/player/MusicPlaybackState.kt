@@ -59,7 +59,12 @@ class MusicPlaybackState {
     private companion object {
         const val RECENT_WINDOW_DAYS = 3
         const val RECENT_MIN_PLAYS = 3
+        // 播放期间周期性持久化间隔：保证冷启动/异常退出也能恢复当前曲目与进度
+        const val STATE_PERSIST_INTERVAL_MS = 3000L
     }
+
+    // 上次持久化播放状态的时刻，用于播放期间节流写入
+    private var lastStatePersistAt = 0L
 
     private val savedUriKey = stringPreferencesKey("music_saved_uri")
     private val savedPositionKey = longPreferencesKey("music_saved_position")
@@ -123,6 +128,8 @@ class MusicPlaybackState {
                 isPrepared = false
                 currentPosition = 0L
                 duration = 0L
+                // 切换曲目即持久化最新 URI，确保后台自动下一首也能被冷启动恢复
+                persistState()
             }
             // 切换曲目时刷新播放列表：把缓存完成时写入内嵌的封面等元数据提取为展示缓存，清理冗余封面文件
             val triggerContext = appContext ?: return
@@ -799,6 +806,14 @@ class MusicPlaybackState {
         val playbackState = controller.playbackState
         val isActive = playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING
         syncPlaybackPosition(controller, isActive)
+        // 播放期间周期性持久化当前曲目与进度，避免冷启动/异常退出后丢失播放状态
+        if (isActive && controller.isPlaying) {
+            val now = System.currentTimeMillis()
+            if (now - lastStatePersistAt >= STATE_PERSIST_INTERVAL_MS) {
+                lastStatePersistAt = now
+                persistState()
+            }
+        }
     }
 
     private fun syncPlaybackPosition(controller: MediaController, isActive: Boolean) {
