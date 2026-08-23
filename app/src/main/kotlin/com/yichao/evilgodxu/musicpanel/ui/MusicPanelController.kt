@@ -31,6 +31,8 @@ class MusicPanelController(private val context: Context) {
     private var miniPlayerEnabled = true
     private var appInForeground = true
     private var prefsJob: Job? = null
+    private var pendingExternalPlayUri: android.net.Uri? = null
+    private var externalBackgroundPlaying = false
 
     init {
         // 监听设置页悬浮播放开关，关闭时移除迷你播放器
@@ -44,22 +46,49 @@ class MusicPanelController(private val context: Context) {
 
     // 展开完整音乐面板；已显示时再次调用收起
     fun openMusicPanel() {
-        if (panelManager != null) {
+        if (panelManager?.hasWindow == true) {
             panelManager?.dismiss()
             panelManager = null
             return
         }
+        showPanelInternal()
+    }
+
+    // 从外部打开/分享的音频 URI 后台播放：不展示全屏面板，经迷你播放器播放并保持后台运行
+    fun playExternalInBackground(uri: android.net.Uri) {
+        val manager = panelManager ?: MusicPanelViewManager(
+            context = context,
+            onDismiss = {
+                panelManager = null
+                maybeShowMiniPlayer()
+            }
+        ).also { panelManager = it }
+        manager.playExternalInBackground(uri)
+        if (miniPlayerEnabled) {
+            externalBackgroundPlaying = true
+            showMiniPlayer()
+        }
+    }
+
+    private fun showPanelInternal() {
         dismissMiniPlayer()
         miniPlayerTemporarilyHidden = false
 
         val showPanel = {
-            panelManager = MusicPanelViewManager(
+            val manager = panelManager ?: MusicPanelViewManager(
                 context = context,
                 onDismiss = {
                     panelManager = null
                     maybeShowMiniPlayer()
                 }
-            ).apply { show() }
+            ).also { panelManager = it }
+            manager.show()
+            val pendingUri = pendingExternalPlayUri
+            if (pendingUri != null) {
+                pendingExternalPlayUri = null
+                manager.playExternalUri(pendingUri)
+            }
+            Unit
         }
 
         if (hasRequiredPermissions()) {
@@ -73,6 +102,7 @@ class MusicPanelController(private val context: Context) {
                 context.startActivity(intent)
             } catch (e: Exception) {
                 MusicPanelPermissionBridge.clearPendingShowAction()
+                pendingExternalPlayUri = null
                 CrashLogManager.logException("MusicPanelController", "启动音乐面板权限页面失败", e)
             }
         }
@@ -100,13 +130,19 @@ class MusicPanelController(private val context: Context) {
     // 应用进入后台：播放中且开关开启时显示迷你播放器
     fun onAppBackgrounded() {
         appInForeground = false
+        externalBackgroundPlaying = false
         maybeShowMiniPlayer()
     }
 
     // 应用回到前台：移除迷你播放器，避免遮挡应用界面
     fun onAppForegrounded() {
         appInForeground = true
-        dismissMiniPlayer()
+        // 外部触发后台播放冷启动时，先保留迷你播放器，不因本次瞬时前台而移除
+        if (externalBackgroundPlaying) {
+            externalBackgroundPlaying = false
+        } else {
+            dismissMiniPlayer()
+        }
     }
 
     fun release() {

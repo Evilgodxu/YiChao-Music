@@ -154,6 +154,27 @@ class MusicPanelViewManager(
         loadExternalTrack()
     }
 
+    // 后台模式播放外部音频：仅初始化播放状态，不展示全屏面板
+    fun playExternalInBackground(uri: android.net.Uri) {
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: SecurityException) {
+            CrashLogManager.logException("MusicPanelViewManager", "获取外部音频持久访问权限失败", e)
+            // 外部应用可能只授予临时读取权限，仍需继续播放当前 URI
+        }
+        pendingExternalUri = uri
+        if (initialization == null) {
+            initialize()
+        }
+        loadExternalTrack()
+    }
+
+    // 当前是否展示全屏悬浮窗
+    val hasWindow: Boolean get() = composeView != null
+
     private val lifecycleOwner = object : LifecycleOwner {
         private val lifecycleRegistry = LifecycleRegistry(this)
         override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -254,9 +275,17 @@ class MusicPanelViewManager(
             .setInterpolator(DecelerateInterpolator())
             .start()
 
+        initialize()
+    }
+
+    // 初始化播放状态与外部设备监听；仅执行一次，供全屏面板与后台模式共用
+    private fun initialize() {
+        if (initialization != null) return
         initialization = managerScope.async {
             playbackState.restoreSavedState(context)
-            if (!playbackState.isPlayerActive) {
+            // MediaController 仅限主线程访问，须在 Main 线程读取其状态
+            val playerActive = withContext(Dispatchers.Main) { playbackState.isPlayerActive }
+            if (!playerActive) {
                 playbackState.removeUnavailableExternalTracks(context)
             }
             if (playbackState.playlist.isEmpty()) {

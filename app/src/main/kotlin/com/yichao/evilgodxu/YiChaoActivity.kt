@@ -1,7 +1,9 @@
 package com.yichao.evilgodxu
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.os.LocaleList
 import android.widget.Toast
@@ -17,6 +19,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.IntentCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -65,6 +68,7 @@ class YiChaoActivity : ComponentActivity() {
 
         // 音乐面板悬浮窗控制器：应用后台播放时显示迷你播放器，回到前台时移除
         musicPanelController = MusicPanelController(applicationContext)
+        handleExternalIntent(intent)
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 musicPanelController.onAppForegrounded()
@@ -95,6 +99,24 @@ class YiChaoActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateSystemBarsVisibility(newConfig.orientation)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleExternalIntent(intent)
+    }
+
+    // 处理外部通过打开/分享传入的音频：经迷你播放器后台播放，不展示全屏面板，并保持应用在后台
+    private fun handleExternalIntent(intent: Intent) {
+        val uri = when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND ->
+                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+            else -> null
+        } ?: return
+        musicPanelController.playExternalInBackground(uri)
+        moveTaskToBack(true)
     }
 
     @Composable
