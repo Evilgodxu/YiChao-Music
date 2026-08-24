@@ -74,13 +74,13 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
 
     override fun uncaughtException(thread: Thread, throwable: Throwable) {
         // 崩溃日志必须同步落盘，确保进程终止前写入完成
-        writeLog(title = "未捕获异常（线程 ${thread.name}）", thread = thread, throwable = throwable, withDeviceInfo = true)
+        writeLog(title = "未捕获异常（线程 ${thread.name}）", thread = thread, throwable = throwable)
         // 交给原处理器，缺失时结束进程
         previousHandler?.uncaughtException(thread, throwable) ?: exitProcess(2)
     }
 
     @Synchronized
-    private fun writeLog(title: String, thread: Thread? = null, throwable: Throwable?, withDeviceInfo: Boolean = false) {
+    private fun writeLog(title: String, thread: Thread? = null, throwable: Throwable?) {
         val dir = logDir ?: return
         // 旧日志清理每天一次，避免每次写入都遍历目录
         val today = LocalDate.now()
@@ -90,15 +90,17 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
         }
         val logFile = File(dir, "$LOG_FILE_PREFIX${today.format(dateFormat)}.log")
         try {
+            // 当日首个文件（每日轮换后的新文件）固定写入日志头
+            val isNewFile = !logFile.exists()
             FileWriter(logFile, true).use { writer ->
+                if (isNewFile) {
+                    writeHeader(writer)
+                }
                 writer.appendLine("================ $title ================")
                 writer.appendLine("时间: ${LocalDateTime.now().format(timeFormat)}")
-                if (withDeviceInfo) {
-                    writer.appendLine("线程: ${thread?.name}")
+                if (thread != null) {
+                    writer.appendLine("线程: ${thread.name}")
                     writer.appendLine("进程: ${android.os.Process.myPid()}")
-                    writer.appendLine("设备: ${Build.MANUFACTURER} ${Build.MODEL}")
-                    writer.appendLine("系统: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-                    writer.appendLine("版本: $appVersion")
                 }
                 if (throwable != null) {
                     writer.appendLine("异常: ${throwable.javaClass.name}: ${throwable.message}")
@@ -121,6 +123,15 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
         val dir = logDir ?: return null
         val today = LocalDate.now().format(dateFormat)
         return File(dir, "$LOG_FILE_PREFIX$today.log").takeIf { it.exists() }
+    }
+
+    /** 写入日志文件头：设备、系统、版本固定信息 */
+    private fun writeHeader(writer: FileWriter) {
+        writer.appendLine("======== YiChaoMusic 日志 ========")
+        writer.appendLine("设备: ${Build.MANUFACTURER} ${Build.MODEL}")
+        writer.appendLine("系统: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        writer.appendLine("版本: $appVersion")
+        writer.appendLine()
     }
 
     /** 清理超过保留天数的旧日志文件 */
