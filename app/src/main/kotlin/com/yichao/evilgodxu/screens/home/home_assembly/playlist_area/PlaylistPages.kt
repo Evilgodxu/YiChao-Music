@@ -528,6 +528,7 @@ private fun playQueue(
     val index = startIndex.coerceIn(0, tracks.size - 1)
     state.currentIndex = index
     scope.launch { playTrackAt(context, state, index) }
+    state.persistPlaylist()
 }
 
 // 从歌单移除曲目的确认弹窗

@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,20 +48,19 @@ import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 // 切换到指定歌单队列并播放该歌单第一首歌曲
 internal fun switchToPlaylistQueue(
     context: Context,
     state: MusicPlaybackState,
-    scope: CoroutineScope,
     tracks: List<MusicTrack>,
     source: PlaylistSource?,
 ) {
     if (tracks.isEmpty()) {
         state.playlist = tracks
         state.playlistSource = source
+        state.persistPlaylist()
         return
     }
     // 首次从默认库切到歌单时备份默认列表，供快捷切回
@@ -72,7 +70,9 @@ internal fun switchToPlaylistQueue(
     state.playlist = tracks
     state.playlistSource = source
     state.currentIndex = 0
-    scope.launch { playTrackAt(context, state, 0) }
+    // 用播放器全局作用域启动播放，避免弹层关闭取消协程导致首曲不播放
+    state.playbackScope.launch { playTrackAt(context, state, 0) }
+    state.persistPlaylist()
 }
 
 // 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航
@@ -84,7 +84,6 @@ internal fun PlaylistSwitcher(
 ) {
     if (!visible) return
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var showGroups by remember { mutableStateOf<SmartPlaylistType?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -132,7 +131,7 @@ internal fun PlaylistSwitcher(
                 PlaylistSwitchList(
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, scope, tracks, source)
+                        switchToPlaylistQueue(context, playbackState, tracks, source)
                         onDismiss()
                     },
                     onOpenGroups = { showGroups = it },
@@ -142,7 +141,7 @@ internal fun PlaylistSwitcher(
                     type = type,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, scope, tracks, source)
+                        switchToPlaylistQueue(context, playbackState, tracks, source)
                         onDismiss()
                     },
                 )

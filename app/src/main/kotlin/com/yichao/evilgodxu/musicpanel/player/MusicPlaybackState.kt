@@ -72,6 +72,10 @@ class MusicPlaybackState {
     private val savedModeKey = intPreferencesKey("music_saved_mode")
     private val playlistCacheKey = "music_playlist_cache"
     private val playlistCachePreferences = "music_playlist_cache_preferences"
+    // 当前歌单来源与默认库备份持久化键，重启后恢复选中状态
+    private val playlistSourceKeyPref = "music_playlist_source_key"
+    private val playlistSourceNamePref = "music_playlist_source_name"
+    private val defaultPlaylistCacheKeyPref = "music_default_playlist_cache"
     private val searchHistoryKey = "music_search_history"
     private val searchHistoryPreferences = "music_search_history_preferences"
     private var persistenceJob: Job? = null
@@ -513,21 +517,30 @@ class MusicPlaybackState {
             context.settingsDataStore.data.first()
         }
         val cachedPlaylist = withContext(Dispatchers.IO) {
-            loadCachedPlaylist(context)
+            loadCachedPlaylist(context, playlistCacheKey)
+        }
+        // 恢复上次选中的歌单来源与默认库备份，扫描刷新后保持选中
+        val savedSource = withContext(Dispatchers.IO) {
+            val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
+            prefs.getString(playlistSourceKeyPref, null)?.let { key ->
+                PlaylistSource(key, prefs.getString(playlistSourceNamePref, "") ?: "")
+            }
+        }
+        val cachedBackup = withContext(Dispatchers.IO) {
+            loadCachedPlaylist(context, defaultPlaylistCacheKeyPref)
         }
         val savedUri = preferences[savedUriKey]
         val savedPosition = preferences[savedPositionKey] ?: 0L
         val savedMode = preferences[savedModeKey] ?: PlayMode.RepeatAll.ordinal
         withContext(Dispatchers.Main) {
-            // 冷启动恢复后默认处于全量播放列表，歌单来源与备份归零
-            playlistSource = null
-            defaultPlaylistBackup = null
-            if (cachedPlaylist.isNotEmpty()) {
-                likedIds = cachedPlaylist
-                    .filter { it.isFavorite }
-                    .map { it.id }
-                    .toSet()
-            }
+            // 恢复上次选中的歌单来源与默认库备份；无来源时处于全量播放列表
+            playlistSource = savedSource
+            defaultPlaylistBackup = cachedBackup.takeIf { it.isNotEmpty() }
+            // 收藏合并自当前歌单与默认库备份，避免切歌单后库内收藏丢失
+            likedIds = (cachedPlaylist + cachedBackup)
+                .filter { it.isFavorite }
+                .map { it.id }
+                .toSet()
             if (playlist.isEmpty() && cachedPlaylist.isNotEmpty()) {
                 playlist = cachedPlaylist.map { it.copy(isFavorite = likedIds.contains(it.id)) }
             }
@@ -546,7 +559,20 @@ class MusicPlaybackState {
         playlistPersistJob?.cancel()
         playlistPersistJob = playbackScope.launch {
             withContext(Dispatchers.IO) {
-                saveCachedPlaylist(context, playlist)
+                saveCachedPlaylist(context, playlistCacheKey, playlist)
+                // 歌单来源与默认库备份随播放列表一同持久化，重启后恢复选中状态
+                val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
+                val source = playlistSource
+                prefs.edit()
+                    .putString(playlistSourceKeyPref, source?.key)
+                    .putString(playlistSourceNamePref, source?.name)
+                    .apply()
+                val backup = defaultPlaylistBackup
+                if (backup != null) {
+                    saveCachedPlaylist(context, defaultPlaylistCacheKeyPref, backup)
+                } else {
+                    prefs.edit().remove(defaultPlaylistCacheKeyPref).apply()
+                }
             }
         }
     }
@@ -579,9 +605,9 @@ class MusicPlaybackState {
         }
     }
 
-    private fun loadCachedPlaylist(context: Context): List<MusicTrack> {
+    private fun loadCachedPlaylist(context: Context, cacheKey: String): List<MusicTrack> {
         val json = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-            .getString(playlistCacheKey, null) ?: return emptyList()
+            .getString(cacheKey, null) ?: return emptyList()
         return try {
             val array = JSONArray(json)
             List(array.length()) { index ->
@@ -619,7 +645,7 @@ class MusicPlaybackState {
         }
     }
 
-    private fun saveCachedPlaylist(context: Context, tracks: List<MusicTrack>) {
+    private fun saveCachedPlaylist(context: Context, cacheKey: String, tracks: List<MusicTrack>) {
         val array = JSONArray()
         tracks.forEach { track ->
             array.put(JSONObject().apply {
@@ -642,7 +668,7 @@ class MusicPlaybackState {
         }
         context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
             .edit()
-            .putString(playlistCacheKey, array.toString())
+            .putString(cacheKey, array.toString())
             .apply()
     }
 

@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.screens.settings.settings_assembly.SettingsAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
+import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import com.yichao.evilgodxu.update.UpdateViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -21,6 +22,8 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onThemeClick: (Offset) -> Unit = LocalThemeTransitionController.current::revealAt
+    // 状态栏图标跟随主题：浅色主题深色图标，深色主题白色图标
+    StatusBarStyleEffect()
     SettingsAssembly(
         uiState = uiState,
         onBack = onBack,

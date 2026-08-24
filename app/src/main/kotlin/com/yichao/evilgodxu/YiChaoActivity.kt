@@ -35,6 +35,7 @@ import com.yichao.evilgodxu.musicpanel.LocalMusicPanelController
 import com.yichao.evilgodxu.musicpanel.MusicPanelController
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
+import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
 import com.yichao.evilgodxu.update.UpdateDialog
 import com.yichao.evilgodxu.update.UpdateManager
@@ -64,9 +65,8 @@ class YiChaoActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            // 状态栏图标固定浅色：默认 auto 会在系统浅色模式下把图标重置为深色，
-            // 与固定白色状态栏的预期冲突，故用 dark 样式强制浅色图标
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            // 系统栏图标外观由 Compose 按主题与页面控制，这里仅跟随系统作为初始兜底值
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         setupSystemBars()
         // 绑定当前 Activity，使对话框等独立窗口在切语言时同步更新资源
@@ -107,23 +107,24 @@ class YiChaoActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateSystemBarsVisibility(newConfig.orientation)
-        // 系统 uiMode 变化时 enableEdgeToEdge 可能按系统模式重置状态栏图标，强制恢复白色
-        forceWhiteStatusBarIcons()
+        // 系统 uiMode 变化时系统可能重置系统栏图标，复读 Compose 应用的外观
+        applySystemBarAppearance()
     }
 
     override fun onResume() {
         super.onResume()
-        forceWhiteStatusBarIcons()
+        applySystemBarAppearance()
     }
 
-    // 窗口重新获得焦点时系统可能重置系统栏外观（如对话框关闭后），强制恢复白色状态栏图标
+    // 窗口重新获得焦点时系统可能重置系统栏外观（如对话框关闭后），复读 Compose 应用的外观
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) forceWhiteStatusBarIcons()
+        if (hasFocus) applySystemBarAppearance()
     }
 
-    private fun forceWhiteStatusBarIcons() {
-        windowInsetsController.isAppearanceLightStatusBars = false
+    private fun applySystemBarAppearance() {
+        windowInsetsController.isAppearanceLightStatusBars = SystemBarAppearance.isLightStatusBars
+        windowInsetsController.isAppearanceLightNavigationBars = SystemBarAppearance.isLightNavigationBars
     }
 
     override fun onNewIntent(intent: Intent) {

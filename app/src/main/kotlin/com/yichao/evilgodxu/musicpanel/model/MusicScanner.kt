@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.util.Size
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -277,10 +278,27 @@ object PlaylistRefresher {
                                 lyricLines = cached.lyricLines
                             )
                         }
+                    // 扫描前快照当前歌单选择，扫描后按新库重建并保持选中而非回到默认
+                    val selectedSource = state.playlistSource
+                    val currentId = state.currentTrack?.id
                     state.setSortedPlaylist(mergedTracks)
-                    // 扫描重建全量库，播放列表来源回到默认，旧备份作废
-                    state.playlistSource = null
-                    state.defaultPlaylistBackup = null
+                    val sortedLibrary = state.playlist
+                    if (selectedSource != null) {
+                        val rebuilt = rebuildFromSource(context, state, sortedLibrary, selectedSource)
+                        if (rebuilt.isNotEmpty()) {
+                            state.playlist = rebuilt
+                            state.playlistSource = selectedSource
+                            val newIndex = rebuilt.indexOfFirst { it.id == currentId }
+                            state.currentIndex = newIndex
+                            if (newIndex >= 0) state.currentTrack = rebuilt[newIndex]
+                            state.defaultPlaylistBackup = sortedLibrary
+                        } else {
+                            state.playlistSource = null
+                            state.defaultPlaylistBackup = null
+                        }
+                    } else {
+                        state.defaultPlaylistBackup = null
+                    }
                     state.persistPlaylist()
                     if (restoreCurrent) restoreCurrentTrack(state)
                 }
@@ -310,5 +328,35 @@ object PlaylistRefresher {
             ?: 0
         state.currentIndex = index
         state.currentTrack = state.playlist[index]
+    }
+
+    // 按来源 key 从全量库重建歌单，供扫描刷新后保持选中
+    private fun rebuildFromSource(
+        context: Context,
+        state: MusicPlaybackState,
+        library: List<MusicTrack>,
+        source: PlaylistSource,
+    ): List<MusicTrack> {
+        PlaylistStore.ensureLoaded(context)
+        return when {
+            source.key == "smart:RECENT" ->
+                state.recentPlayedIds.mapNotNull { id -> library.find { it.id == id } }
+            source.key == "smart:FAVORITE" ->
+                library.filter { it.id in state.likedIds }
+            source.key.startsWith("custom:") -> {
+                val playlistId = source.key.removePrefix("custom:").toLongOrNull()
+                    ?: return emptyList()
+                val playlist = PlaylistStore.playlists.find { it.id == playlistId }
+                    ?: return emptyList()
+                playlist.trackIds.mapNotNull { trackId -> library.find { it.id == trackId } }
+            }
+            source.key.startsWith("album:") -> {
+                val albumId = source.key.removePrefix("album:").toLongOrNull()
+                library.filter { albumId != null && it.albumId == albumId }
+            }
+            source.key.startsWith("artist:") ->
+                library.filter { it.artist == source.key.removePrefix("artist:") }
+            else -> emptyList()
+        }
     }
 }

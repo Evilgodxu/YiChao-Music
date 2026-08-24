@@ -51,6 +51,35 @@ val LocalSuccessColor = androidx.compose.runtime.staticCompositionLocalOf { md_t
 // 当前是否为深色主题，供子页面按需覆盖状态栏样式
 val LocalIsDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
 
+// 状态栏是否采用浅色外观（深色图标）；默认跟随主题，深色背景页面（如首页）可覆盖为 false 固定白色图标
+val LocalStatusBarLight = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+// Compose 层最近应用的系统栏外观，Activity 在焦点/配置变化时复读，防止被系统重置
+object SystemBarAppearance {
+    var isLightStatusBars: Boolean = false
+    var isLightNavigationBars: Boolean = false
+}
+
+// 应用当前页面的系统栏图标外观；各页面入口调用，读取页面级覆盖
+@Composable
+fun StatusBarStyleEffect() {
+    val view = LocalView.current
+    val statusBarLight = LocalStatusBarLight.current
+    val navigationBarLight = !LocalIsDarkTheme.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            // view.context 可能非 Activity，判空避免崩溃
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            SystemBarAppearance.isLightStatusBars = statusBarLight
+            SystemBarAppearance.isLightNavigationBars = navigationBarLight
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = statusBarLight
+                isAppearanceLightNavigationBars = navigationBarLight
+            }
+        }
+    }
+}
+
 val LightColorScheme = lightColorScheme(
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
@@ -164,23 +193,12 @@ fun MyApplicationTheme(
         }
     }
 
-    // 同步状态栏与导航栏图标颜色与主题
-    if (!view.isInEditMode) {
-        SideEffect {
-            // view.context 可能非 Activity，判空避免崩溃
-            val window = (view.context as? Activity)?.window ?: return@SideEffect
-            WindowCompat.getInsetsController(window, view).apply {
-                // 状态栏字体固定白色，不随主题变化；深色状态栏图标保持浅色
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = !isDarkTheme
-            }
-        }
-    }
-
     CompositionLocalProvider(
         LocalThemeTransitionController provides transitionController,
         LocalSuccessColor provides if (isDarkTheme) md_theme_dark_success else md_theme_light_success,
         LocalIsDarkTheme provides isDarkTheme,
+        // 状态栏默认跟随主题：浅色主题用深色图标，深色主题用白色图标
+        LocalStatusBarLight provides !isDarkTheme,
     ) {
         MaterialTheme(
             colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,
