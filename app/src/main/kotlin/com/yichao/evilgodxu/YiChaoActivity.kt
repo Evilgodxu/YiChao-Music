@@ -101,6 +101,23 @@ class YiChaoActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateSystemBarsVisibility(newConfig.orientation)
+        // 系统 uiMode 变化时 enableEdgeToEdge 可能按系统模式重置状态栏图标，强制恢复白色
+        forceWhiteStatusBarIcons()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        forceWhiteStatusBarIcons()
+    }
+
+    // 窗口重新获得焦点时系统可能重置系统栏外观（如对话框关闭后），强制恢复白色状态栏图标
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) forceWhiteStatusBarIcons()
+    }
+
+    private fun forceWhiteStatusBarIcons() {
+        windowInsetsController.isAppearanceLightStatusBars = false
     }
 
     override fun onNewIntent(intent: Intent) {
