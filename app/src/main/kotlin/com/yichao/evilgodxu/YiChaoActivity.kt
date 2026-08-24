@@ -3,11 +3,13 @@ package com.yichao.evilgodxu
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.LocaleList
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,7 +63,11 @@ class YiChaoActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            // 状态栏图标固定浅色：默认 auto 会在系统浅色模式下把图标重置为深色，
+            // 与固定白色状态栏的预期冲突，故用 dark 样式强制浅色图标
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         setupSystemBars()
         // 绑定当前 Activity，使对话框等独立窗口在切语言时同步更新资源
         localizationManager.bindActivity(this)
