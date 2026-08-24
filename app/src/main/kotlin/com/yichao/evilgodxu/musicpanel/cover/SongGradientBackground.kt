@@ -67,7 +67,8 @@ private fun songCoverModel(track: MusicTrack?): Any? {
     return coverFile ?: track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
 }
 
-// 以小尺寸解码封面，取上下半区平均色组成向下渐变
+// 以小尺寸解码封面，取上下半区平均色组成向下渐变；
+// 顶部用封面色向深色压暗，状态栏区域保持足够深，白色状态栏图标不被系统按浅色背景切换为黑色
 private suspend fun songGradient(context: Context, model: Any): Brush? = withContext(Dispatchers.IO) {
     val result = context.imageLoader.execute(
         ImageRequest.Builder(context)
@@ -79,13 +80,18 @@ private suspend fun songGradient(context: Context, model: Any): Brush? = withCon
     val bitmap = if (source.config == Bitmap.Config.HARDWARE) {
         source.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
     } else source
+    val topColor = bitmap.avgColor(topHalf = true).darkenIfNearWhite()
     Brush.verticalGradient(
-        listOf(
-            bitmap.avgColor(topHalf = true).darkenIfNearWhite(),
-            bitmap.avgColor(topHalf = false).darkenIfNearWhite(),
+        colorStops = arrayOf(
+            0f to topColor.darkenedForStatusBar(),
+            0.12f to topColor,
+            1f to bitmap.avgColor(topHalf = false).darkenIfNearWhite(),
         )
     )
 }
+
+// 顶部压暗封面色：保留封面色调又足够深，保证状态栏白色图标始终可见
+private fun Color.darkenedForStatusBar(): Color = lerp(this, md_theme_dark_surface, 0.6f)
 
 // 与白色前景（按钮标题/歌词）亮度相近时轻微压暗，保证文字可读
 private fun Color.darkenIfNearWhite(): Color {
