@@ -37,7 +37,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -161,7 +160,7 @@ private fun PanelHeader(
         if (showBack) {
             IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_chevron_left),
+                    imageVector = AppIcons.ChevronLeft,
                     contentDescription = stringResource(R.string.back),
                     tint = Color.White,
                     modifier = Modifier.size(22.dp),

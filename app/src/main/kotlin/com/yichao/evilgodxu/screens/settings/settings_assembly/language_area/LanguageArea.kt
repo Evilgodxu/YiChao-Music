@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.settings.AppLanguage
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
 
@@ -12,7 +13,7 @@ import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section
 fun LanguageArea(language: AppLanguage, onLanguageSelected: (AppLanguage) -> Unit, onShowDialog: () -> Unit) {
     SettingsSection(title = stringResource(R.string.settings_section_language)) {
         SettingsClickableItem(
-            icon = R.drawable.ic_language,
+            icon = AppIcons.Language,
             title = stringResource(R.string.settings_language_title),
             subtitle = when (language) {
                 AppLanguage.SYSTEM -> stringResource(R.string.language_system)

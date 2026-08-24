@@ -45,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -245,9 +244,7 @@ internal fun PlaylistRow(
         }
 
         HeaderIconButton(
-            icon = ImageVector.vectorResource(
-                if (isQueued) R.drawable.ic_play_next_remove else R.drawable.ic_play_next
-            ),
+            icon = if (isQueued) AppIcons.Remove else AppIcons.Add,
             contentDescription = stringResource(
                 if (isQueued) R.string.music_panel_cancel_play_next else R.string.music_panel_play_next
             ),

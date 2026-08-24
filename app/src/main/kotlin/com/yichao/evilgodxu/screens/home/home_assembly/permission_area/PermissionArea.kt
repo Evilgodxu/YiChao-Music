@@ -22,7 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -110,7 +110,7 @@ fun PermissionDialog(
                     PermissionCardRow(
                         icon = {
                             Icon(
-                                painterResource(R.drawable.ic_overlay),
+                                AppIcons.Layers,
                                 null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -138,7 +138,7 @@ fun PermissionDialog(
                         PermissionCardRow(
                             icon = {
                                 Icon(
-                                    painterResource(R.drawable.ic_all_files),
+                                    AppIcons.Folder,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
@@ -167,7 +167,7 @@ fun PermissionDialog(
                     PermissionCardRow(
                         icon = {
                             Icon(
-                                painterResource(R.drawable.ic_music),
+                                AppIcons.MusicNote,
                                 null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -181,7 +181,7 @@ fun PermissionDialog(
                     PermissionCardRow(
                         icon = {
                             Icon(
-                                painterResource(R.drawable.ic_image),
+                                AppIcons.Image,
                                 null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -197,7 +197,7 @@ fun PermissionDialog(
                         PermissionCardRow(
                             icon = {
                                 Icon(
-                                    painterResource(R.drawable.ic_bluetooth),
+                                    AppIcons.Bluetooth,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )

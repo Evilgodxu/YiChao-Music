@@ -69,7 +69,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -991,9 +990,7 @@ private fun MiniPlaylistRow(
                 modifier = Modifier.size(26.dp)
             ) {
                 Icon(
-                    imageVector = ImageVector.vectorResource(
-                        if (isQueued) R.drawable.ic_play_next_remove else R.drawable.ic_play_next
-                    ),
+                    imageVector = if (isQueued) AppIcons.Remove else AppIcons.Add,
                     contentDescription = stringResource(
                         if (isQueued) R.string.music_panel_cancel_play_next else R.string.music_panel_play_next
                     ),

@@ -23,7 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.painterResource
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.R
@@ -79,7 +79,7 @@ fun SettingsAssembly(
                             onBack()
                         }
                     }) {
-                        Icon(painterResource(R.drawable.ic_chevron_left), stringResource(R.string.back))
+                        Icon(AppIcons.ChevronLeft, stringResource(R.string.back))
                     }
                 },
             )

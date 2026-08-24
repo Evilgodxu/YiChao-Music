@@ -1,6 +1,5 @@
 package com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
@@ -20,17 +19,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // 设置项：可点击列表项，支持返回点击坐标以驱动主题切换动效
 @Composable
 fun SettingsClickableItem(
-    @DrawableRes icon: Int,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
@@ -56,7 +55,7 @@ fun SettingsClickableItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)

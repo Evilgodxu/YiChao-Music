@@ -60,7 +60,6 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -492,7 +491,7 @@ private fun HomeTopBar(
             }
             IconButton(onClick = onOpenSettings) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_settings),
+                    imageVector = AppIcons.Settings,
                     contentDescription = stringResource(R.string.settings_title),
                     tint = Color.White,
                 )
