@@ -13,9 +13,9 @@ private val miniPlayerEnabledKey = booleanPreferencesKey("mini_player_enabled")
 private val wordByWordRenderingKey = booleanPreferencesKey("word_by_word_rendering")
 private val swipeToChangeTrackKey = booleanPreferencesKey("swipe_to_change_track")
 
-// 迷你模式默认开启，与规格说明书一致
+// 迷你模式默认关闭
 fun Context.miniPlayerEnabledFlow(): Flow<Boolean> =
-    settingsDataStore.data.map { it[miniPlayerEnabledKey] ?: true }
+    settingsDataStore.data.map { it[miniPlayerEnabledKey] ?: false }
 
 suspend fun Context.saveMiniPlayerEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
     settingsDataStore.edit { it[miniPlayerEnabledKey] = enabled }

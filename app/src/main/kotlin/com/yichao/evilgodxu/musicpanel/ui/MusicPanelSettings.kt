@@ -29,10 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -96,7 +94,6 @@ internal fun SettingsOverlay(
                     } else {
                         val context = LocalContext.current
                         val settingsScope = rememberCoroutineScope()
-                        val miniEnabled by context.miniPlayerEnabledFlow().collectAsState(initial = true)
                         Column(modifier = Modifier.fillMaxSize()) {
                             // 标题与关闭按钮固定在顶部，不随设置项滚动
                             Row(
@@ -125,17 +122,6 @@ internal fun SettingsOverlay(
                                     .weight(1f)
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                SettingsSwitchRow(
-                                    title = stringResource(R.string.music_panel_mini_mode),
-                                    subtitle = stringResource(R.string.music_panel_mini_mode_desc),
-                                    checked = miniEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsScope.launch { context.saveMiniPlayerEnabled(enabled) }
-                                    }
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
                                 SettingsSwitchRow(
                                     title = stringResource(R.string.music_panel_usb_exclusive),
                                     subtitle = if (playbackState.isUsbDeviceConnected) {

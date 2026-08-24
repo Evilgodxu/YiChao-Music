@@ -1,6 +1,5 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.permission_area
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -107,32 +106,6 @@ fun PermissionDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    PermissionCardRow(
-                        icon = {
-                            Icon(
-                                AppIcons.Layers,
-                                null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        },
-                        title = stringResource(R.string.permission_overlay_title),
-                        granted = uiState.overlayGranted,
-                        onRequest = {
-                            // 跳转系统设置前启动权限监控，授权后自动返回本应用
-                            activity?.let { onStartPermissionMonitor(PermissionType.OVERLAY, it) }
-                            val intent = Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${context.packageName}"),
-                            )
-                            if (activity != null) {
-                                activity.startActivity(intent)
-                            } else {
-                                // 无宿主 Activity 时需加 NEW_TASK
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(intent)
-                            }
-                        },
-                    )
                     // 全部文件权限仅 API 30 及以上存在，低版本不显示
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         PermissionCardRow(
@@ -192,23 +165,6 @@ fun PermissionDialog(
                             runtimePermissionLauncher.launch(arrayOf(mediaImagePermission()))
                         },
                     )
-                    // 蓝牙连接权限仅 API 31 及以上存在，低版本不显示
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        PermissionCardRow(
-                            icon = {
-                                Icon(
-                                    AppIcons.Bluetooth,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            },
-                            title = stringResource(R.string.permission_bluetooth_title),
-                            granted = uiState.bluetoothGranted,
-                            onRequest = {
-                                runtimePermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT))
-                            },
-                        )
-                    }
                 }
             }
         }

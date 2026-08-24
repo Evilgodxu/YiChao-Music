@@ -34,10 +34,8 @@
     <string name="home_permission_hint">This page closes automatically once all permissions are granted</string>
     <string name="permission_granted">Granted</string>
     <string name="permission_request">Grant</string>
-    <string name="permission_overlay_title">Display over other apps</string>
     <string name="permission_all_files_title">All files access</string>
     <string name="permission_music_title">Music access</string>
-    <string name="permission_bluetooth_title">Bluetooth</string>
 
     <!-- Music panel -->
     <string name="music_panel_empty">No local music</string>
@@ -95,8 +93,6 @@
     <string name="music_panel_playlist">Playlist</string>
     <string name="music_panel_play">Play</string>
     <string name="music_panel_pause">Pause</string>
-    <string name="music_panel_mini_mode">Mini mode</string>
-    <string name="music_panel_mini_mode_desc">Show mini player after closing the music panel</string>
     <string name="music_panel_favorite">Favorite</string>
     <string name="music_panel_play_next">Play next</string>
     <string name="music_panel_cancel_play_next">Cancel play next</string>

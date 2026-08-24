@@ -36,11 +36,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val wasAllGranted = _state.value.allPermissionsGranted
         _state.update {
             it.copy(
-                overlayGranted = permissionMonitor.isOverlayGranted(),
                 allFilesGranted = permissionMonitor.isAllFilesGranted(),
                 mediaAudioGranted = permissionMonitor.isMediaAudioGranted(),
                 mediaImageGranted = permissionMonitor.isMediaImageGranted(),
-                bluetoothGranted = permissionMonitor.isBluetoothGranted(),
             )
         }
         // 权限从未全部授权变为全部授权时，自动扫描歌曲并补全封面/歌词

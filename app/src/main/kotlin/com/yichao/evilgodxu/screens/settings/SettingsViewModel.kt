@@ -1,8 +1,13 @@
 package com.yichao.evilgodxu.screens.settings
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.yichao.evilgodxu.data.permission.PermissionMonitor
+import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.ThemeMode
@@ -13,6 +18,7 @@ import com.yichao.evilgodxu.musicpanel.wordByWordRenderingFlow
 import com.yichao.evilgodxu.musicpanel.saveSwipeToChangeTrack
 import com.yichao.evilgodxu.musicpanel.swipeToChangeTrackFlow
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +34,10 @@ class SettingsViewModel(
 
     private val context get() = getApplication<Application>()
     private val localizationManager: LocalizationManager by inject()
+    private val permissionMonitor = PermissionMonitor(context)
+
+    // 悬浮窗授权监控任务，授权后自动将应用带回前台
+    private var overlayMonitorJob: Job? = null
 
     private val _uiState = MutableStateFlow(
         SettingsUiState(version = getVersion()),
@@ -64,7 +74,44 @@ class SettingsViewModel(
         _uiState.update { it.copy(miniPlayerEnabled = enabled) }
         viewModelScope.launch {
             context.saveMiniPlayerEnabled(enabled)
+            // 开启迷你播放器需悬浮窗权限，未授予时跳转系统设置并监控授权
+            if (enabled && !Settings.canDrawOverlays(context)) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                monitorOverlayPermission()
+            }
         }
+    }
+
+    // 监控悬浮窗授权，授予后自动带回应用前台
+    private fun monitorOverlayPermission() {
+        overlayMonitorJob?.cancel()
+        overlayMonitorJob = viewModelScope.launch {
+            permissionMonitor.monitorPermission(PermissionType.OVERLAY)
+                .collect { granted ->
+                    if (granted) {
+                        overlayMonitorJob?.cancel()
+                        bringAppToFront()
+                    }
+                }
+        }
+    }
+
+    // 将应用带回前台，使用户无需手动返回本应用
+    private fun bringAppToFront() {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+        launchIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(launchIntent)
+    }
+
+    override fun onCleared() {
+        overlayMonitorJob?.cancel()
+        super.onCleared()
     }
 
     fun setWordByWordRendering(enabled: Boolean) {

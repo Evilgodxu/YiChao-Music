@@ -19,7 +19,6 @@ enum class PermissionType {
     MANAGE_EXTERNAL_STORAGE, // 全部文件（系统特殊权限）
     MEDIA_AUDIO,             // 音乐访问（运行时权限）
     MEDIA_IMAGES,            // 图片访问（运行时权限）
-    BLUETOOTH,               // 蓝牙设备（运行时权限）
 }
 
 // 音乐访问的运行时权限名：API 33 及以上为媒体权限，以下为旧的外部存储权限
@@ -50,16 +49,11 @@ class PermissionMonitor(private val context: Context) {
     fun isMediaImageGranted(): Boolean =
         ContextCompat.checkSelfPermission(context, mediaImagePermission()) == PackageManager.PERMISSION_GRANTED
 
-    fun isBluetoothGranted(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-
     fun isGranted(permissionType: PermissionType): Boolean = when (permissionType) {
         PermissionType.OVERLAY -> isOverlayGranted()
         PermissionType.MANAGE_EXTERNAL_STORAGE -> isAllFilesGranted()
         PermissionType.MEDIA_AUDIO -> isMediaAudioGranted()
         PermissionType.MEDIA_IMAGES -> isMediaImageGranted()
-        PermissionType.BLUETOOTH -> isBluetoothGranted()
     }
 
     // 持续监控指定权限，直到授权后返回 true
