@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.toBitmap
+import com.yichao.evilgodxu.theme.md_theme_dark_surface
+import com.yichao.evilgodxu.theme.md_theme_dark_surfaceVariant
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,12 +50,12 @@ internal fun SongGradientBackground(
     )
 }
 
-@Composable
+// 首页默认背景固定深色，不随主题变化
 private fun defaultSongGradient(): Brush =
     Brush.verticalGradient(
         listOf(
-            MaterialTheme.colorScheme.surface,
-            MaterialTheme.colorScheme.surfaceVariant,
+            md_theme_dark_surface,
+            md_theme_dark_surfaceVariant,
         )
     )
 

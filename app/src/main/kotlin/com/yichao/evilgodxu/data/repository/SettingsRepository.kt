@@ -17,7 +17,7 @@ class SettingsRepository(private val context: Context) {
     // 设置状态流：主题模式驱动全局配色
     val settings: Flow<SettingsState> = context.settingsDataStore.data.map { preferences ->
         SettingsState(
-            themeMode = ThemeMode.fromValue(preferences[SettingsKeys.THEME_MODE] ?: ThemeMode.DARK.value),
+            themeMode = ThemeMode.fromValue(preferences[SettingsKeys.THEME_MODE] ?: ThemeMode.SYSTEM.value),
         )
     }
 
