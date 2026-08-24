@@ -9,12 +9,12 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Environment
+import com.yichao.evilgodxu.musicpanel.MusicHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.Request
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -146,19 +146,15 @@ object UpdateManager {
     }
 
     private fun readJson(url: String): String {
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 15_000
-        conn.readTimeout = 15_000
-        conn.setRequestProperty("Accept", "application/json")
-        conn.setRequestProperty("User-Agent", "YiChaoMusic/$GITHUB_REPO")
-        return try {
-            val code = conn.responseCode
-            if (code !in 200..299) {
-                throw IllegalStateException("更新服务响应异常: HTTP $code")
-            }
-            conn.inputStream.bufferedReader().use { it.readText() }
-        } finally {
-            conn.disconnect()
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "application/json")
+            .header("User-Agent", "YiChaoMusic/$GITHUB_REPO")
+            .build()
+        return MusicHttpClient.client.newCall(request).execute().use { resp ->
+            val text = resp.body.string().orEmpty()
+            if (!resp.isSuccessful) throw IllegalStateException("更新服务响应异常: HTTP ${resp.code}")
+            text
         }
     }
 

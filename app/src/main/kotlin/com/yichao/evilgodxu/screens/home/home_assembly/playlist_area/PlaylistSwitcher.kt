@@ -17,16 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Person
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -111,7 +102,7 @@ internal fun PlaylistSwitcher(
                 if (showGroups != null) {
                     IconButton(onClick = { showGroups = null }) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = AppIcons.ArrowBack,
                             contentDescription = stringResource(R.string.back),
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -129,7 +120,7 @@ internal fun PlaylistSwitcher(
                 )
                 IconButton(onClick = onDismiss) {
                     Icon(
-                        imageVector = Icons.Filled.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = stringResource(R.string.back),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -177,7 +168,7 @@ private fun PlaylistSwitchList(
     ) {
         item {
             SwitchRow(
-                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                icon = AppIcons.QueueMusic,
                 title = stringResource(R.string.playlist_switch_default),
                 subtitle = stringResource(R.string.music_panel_track_count, library.size),
                 isCurrent = currentKey == null,
@@ -186,7 +177,7 @@ private fun PlaylistSwitchList(
         }
         item {
             SwitchRow(
-                icon = Icons.Filled.History,
+                icon = AppIcons.History,
                 title = recentLabel,
                 subtitle = stringResource(R.string.music_panel_track_count, smartTrackCount(library, playbackState.recentPlayedIds)),
                 isCurrent = currentKey == "smart:RECENT",
@@ -200,7 +191,7 @@ private fun PlaylistSwitchList(
         }
         item {
             SwitchRow(
-                icon = Icons.Filled.Favorite,
+                icon = AppIcons.Favorite,
                 title = favoriteLabel,
                 subtitle = stringResource(R.string.music_panel_track_count, smartTrackCount(library, playbackState.likedIds)),
                 isCurrent = currentKey == "smart:FAVORITE",
@@ -214,7 +205,7 @@ private fun PlaylistSwitchList(
         }
         item {
             SwitchRow(
-                icon = Icons.Filled.Album,
+                icon = AppIcons.Album,
                 title = stringResource(R.string.playlist_smart_album),
                 subtitle = "",
                 isCurrent = false,
@@ -224,7 +215,7 @@ private fun PlaylistSwitchList(
         }
         item {
             SwitchRow(
-                icon = Icons.Filled.Person,
+                icon = AppIcons.Person,
                 title = stringResource(R.string.playlist_smart_artist),
                 subtitle = "",
                 isCurrent = false,
@@ -245,7 +236,7 @@ private fun PlaylistSwitchList(
         }
         items(PlaylistStore.playlists, key = { it.id }) { playlist ->
             SwitchRow(
-                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                icon = AppIcons.QueueMusic,
                 title = playlist.name,
                 subtitle = stringResource(R.string.music_panel_track_count, playlist.trackIds.size),
                 isCurrent = currentKey == "custom:${playlist.id}",
@@ -276,7 +267,7 @@ private fun PlaylistSwitchGroups(
     } else {
         artistGroups(library, context.getString(R.string.music_scanner_unknown_artist))
     }
-    val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) Icons.Filled.Album else Icons.Filled.Person
+    val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) AppIcons.Album else AppIcons.Person
     val currentKey = playbackState.playlistSource?.key
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -363,13 +354,13 @@ private fun SwitchRow(
         }
         when {
             isCurrent -> Icon(
-                imageVector = Icons.Filled.Check,
+                imageVector = AppIcons.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),
             )
             showChevron -> Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                imageVector = AppIcons.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),

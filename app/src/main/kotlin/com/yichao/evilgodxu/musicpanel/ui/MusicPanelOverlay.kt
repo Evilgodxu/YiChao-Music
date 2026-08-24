@@ -52,8 +52,6 @@ import com.yichao.evilgodxu.data.settings.ThemeMode
 import com.yichao.evilgodxu.data.settings.settingsFlow
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Composable
@@ -76,13 +74,7 @@ fun MusicPanelOverlay(
     // 在组合阶段解析字符串资源，协程内无法调用 stringResource
     val lyricsRefreshFailedMessage = stringResource(R.string.music_panel_lyrics_refresh_failed)
 
-    LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
-        while (isActive && playbackState.isPlaying) {
-            playbackState.updatePosition()
-            delay(200)
-        }
-    }
-
+    // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
     LaunchedEffect(playbackState.timerAutoStopped) {
         if (playbackState.timerAutoStopped) {
             playbackState.setTimerAutoStopped(false)

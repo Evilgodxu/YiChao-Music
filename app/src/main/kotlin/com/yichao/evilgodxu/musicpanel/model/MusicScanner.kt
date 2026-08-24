@@ -37,7 +37,9 @@ object MusicScanner {
                 ?.takeIf { it.isNotBlank() } ?: context.getString(R.string.music_scanner_unknown_artist)
             val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull() ?: 0L
-            val id = -kotlin.math.abs(uri.toString().hashCode().toLong())
+            // 用 64 位稳定哈希生成外部音频 id，降低不同 URI 的碰撞概率
+            val hash = stableIdFromString(uri.toString())
+            val id = if (hash == Long.MIN_VALUE) Long.MAX_VALUE else -kotlin.math.abs(hash)
             val trackId = if (id == 0L) -1L else id
             // 提取内嵌封面写入本地缓存供面板显示，位图用完即回收
             var coverCachePath = ""

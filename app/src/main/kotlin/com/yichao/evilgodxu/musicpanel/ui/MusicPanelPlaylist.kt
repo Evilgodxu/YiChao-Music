@@ -31,11 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Refresh
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -102,13 +98,13 @@ internal fun PlaylistOverlay(
                             fontSize = 10.sp
                         )
                         HeaderIconButton(
-                            icon = Icons.Default.Refresh,
+                            icon = AppIcons.Refresh,
                             onClick = { if (!playbackState.isScanning) onScan() },
                             modifier = Modifier.size(24.dp),
                             enabled = !playbackState.isScanning
                         )
                         HeaderIconButton(
-                            icon = Icons.Default.Close,
+                            icon = AppIcons.Close,
                             onClick = onDismiss,
                             modifier = Modifier.size(24.dp)
                         )
@@ -261,7 +257,7 @@ internal fun PlaylistRow(
         )
 
         HeaderIconButton(
-            icon = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            icon = if (track.isFavorite) AppIcons.Favorite else AppIcons.FavoriteBorder,
             onClick = onFavoriteClick,
             tint = if (track.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(22.dp)

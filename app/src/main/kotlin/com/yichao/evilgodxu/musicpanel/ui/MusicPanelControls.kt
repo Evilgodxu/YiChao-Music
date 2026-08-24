@@ -7,15 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,9 +42,9 @@ internal fun ControlBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
         val modeIcon = when (playbackState.playMode) {
-            PlayMode.RepeatAll -> Icons.Default.Repeat
-            PlayMode.RepeatOne -> Icons.Default.RepeatOne
-            PlayMode.Shuffle -> Icons.Default.Shuffle
+            PlayMode.RepeatAll -> AppIcons.Repeat
+            PlayMode.RepeatOne -> AppIcons.RepeatOne
+            PlayMode.Shuffle -> AppIcons.Shuffle
         }
         ControlIconButton(
             icon = modeIcon,
@@ -73,7 +65,7 @@ internal fun ControlBar(
         )
 
         ControlIconButton(
-            icon = Icons.Default.SkipPrevious,
+            icon = AppIcons.SkipPrevious,
             contentDescription = stringResource(R.string.music_panel_previous_track),
             onClick = {
                 val prev = playbackState.previousIndex()
@@ -95,7 +87,7 @@ internal fun ControlBar(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    imageVector = if (playbackState.isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
                     contentDescription = stringResource(
                         if (playbackState.isPlaying) R.string.music_panel_pause else R.string.music_panel_play
                     ),
@@ -106,7 +98,7 @@ internal fun ControlBar(
         }
 
         ControlIconButton(
-            icon = Icons.Default.SkipNext,
+            icon = AppIcons.SkipNext,
             contentDescription = stringResource(R.string.music_panel_next_track),
             onClick = {
                 val next = playbackState.nextIndex()
@@ -118,7 +110,7 @@ internal fun ControlBar(
         )
 
         ControlIconButton(
-            icon = Icons.AutoMirrored.Outlined.QueueMusic,
+            icon = AppIcons.QueueMusic,
             contentDescription = stringResource(R.string.music_panel_playlist),
             onClick = onPlaylistClick,
             size = 32.dp,

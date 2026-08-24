@@ -25,6 +25,8 @@
 
     <!-- 通用 -->
     <string name="back">返回</string>
+    <string name="back_again_go_home">再按一次返回桌面</string>
+    <string name="back_again_exit">再按一次退出应用</string>
     <string name="settings_version">版本 %1$s</string>
 
     <!-- 权限状态 -->
@@ -59,7 +61,6 @@
     <string name="music_panel_search_no_results">未找到相关歌曲</string>
     <string name="music_panel_search_loading">正在搜索...</string>
     <string name="music_panel_search_source">网易云</string>
-    <string name="music_panel_search_source_jamendo">Jamendo</string>
     <string name="music_panel_search_source_qq">QQ音乐</string>
     <string name="music_panel_search_source_kugou">酷狗</string>
     <string name="music_panel_playback_settings">播放设置</string>

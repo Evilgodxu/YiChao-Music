@@ -9,12 +9,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Usb
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +47,7 @@ internal fun HeaderRow(
             modifier = Modifier.align(Alignment.CenterStart)
         ) {
             HeaderIconButton(
-                icon = Icons.Default.Timer,
+                icon = AppIcons.Timer,
                 contentDescription = stringResource(R.string.music_panel_timer_title),
                 onClick = onTimerClick,
                 modifier = Modifier.offset(y = 4.dp)
@@ -82,7 +77,7 @@ internal fun HeaderRow(
             ) {
                 if (hasBluetoothDevice) {
                     Icon(
-                        imageVector = Icons.Default.Bluetooth,
+                        imageVector = AppIcons.Bluetooth,
                         contentDescription = stringResource(R.string.music_panel_bluetooth_device),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(15.dp),
@@ -98,7 +93,7 @@ internal fun HeaderRow(
                 }
                 if (hasUsbDevice) {
                     Icon(
-                        imageVector = Icons.Default.Usb,
+                        imageVector = AppIcons.Usb,
                         contentDescription = stringResource(R.string.music_panel_usb_device),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(15.dp),
@@ -116,7 +111,7 @@ internal fun HeaderRow(
         }
 
         HeaderIconButton(
-            icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            icon = if (isLiked) AppIcons.Favorite else AppIcons.FavoriteBorder,
             contentDescription = stringResource(R.string.music_panel_favorite),
             onClick = {
                 currentTrackId?.let { playbackState.toggleFavorite(it) }

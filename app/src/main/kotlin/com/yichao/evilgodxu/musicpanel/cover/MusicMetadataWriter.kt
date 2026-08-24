@@ -315,7 +315,16 @@ internal object MusicMetadataWriter {
         if (sizeDelta != 0 && atoms.indexOfFirst { it.type == "mdat" } > moovIndex) {
             moov.adjustChunkOffsets(sizeDelta)
         }
-        return WriteResult.Full(atoms.joinToByteArray())
+        // mdat 位于文件末尾时仅重建头部，音频躯干流式复制，避免整文件两次驻留内存
+        val mdatIndex = atoms.indexOfFirst { it.type == "mdat" }
+        return if (mdatIndex >= 0 && mdatIndex == atoms.lastIndex) {
+            WriteResult.HeadAndTail(
+                head = atoms.take(mdatIndex).joinToByteArray(),
+                audioStart = atoms[mdatIndex].offset,
+            )
+        } else {
+            WriteResult.Full(atoms.joinToByteArray())
+        }
     }
 
     private fun writeOpus(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
@@ -369,7 +378,13 @@ internal object MusicMetadataWriter {
         return out.toByteArray()
     }
 
-    private data class Mp4Atom(val type: String, var data: ByteArray, val children: MutableList<Mp4Atom>?) {
+    private data class Mp4Atom(
+        val type: String,
+        var data: ByteArray,
+        val children: MutableList<Mp4Atom>?,
+        // 顶层 atom 在文件中的起始偏移，供 mdat 流式复制定位
+        val offset: Int = 0,
+    ) {
         fun build(): ByteArray {
             val body = if (children != null) data + children.joinToByteArray() else data
             return intBytes(body.size + 8) + type.toByteArray(StandardCharsets.ISO_8859_1) + body
@@ -439,21 +454,21 @@ internal object MusicMetadataWriter {
         companion object {
             fun parseAll(bytes: ByteArray): MutableList<Mp4Atom>? {
                 val result = mutableListOf<Mp4Atom>(); var p = 0
-                while (p + 8 <= bytes.size) { val atom = parse(bytes, p, bytes.size) ?: return null; result += atom; val size = int32(bytes, p); if (size < 8) return null; p += size }
+                while (p + 8 <= bytes.size) { val atom = parse(bytes, p, bytes.size, p) ?: return null; result += atom; val size = int32(bytes, p); if (size < 8) return null; p += size }
                 return if (p == bytes.size) result else null
             }
-            private fun parse(bytes: ByteArray, start: Int, end: Int): Mp4Atom? {
+            private fun parse(bytes: ByteArray, start: Int, end: Int, offset: Int): Mp4Atom? {
                 if (start + 8 > end) return null
                 val size = int32(bytes, start); if (size < 8 || start + size > end) return null
                 val type = String(bytes, start + 4, 4, StandardCharsets.ISO_8859_1); val payloadStart = start + 8; val payloadEnd = start + size
                 // trak/mdia/minf/stbl 按容器解析，调整 stco/co64 时才能遍历到内部的 chunk 偏移
                 val container = type == "moov" || type == "trak" || type == "mdia" || type == "minf" || type == "stbl" ||
                     type == "udta" || type == "meta" || type == "ilst" || type == "©nam" || type == "©ART" || type == "©alb" || type == "covr"
-                if (!container) return Mp4Atom(type, bytes.copyOfRange(payloadStart, payloadEnd), null)
+                if (!container) return Mp4Atom(type, bytes.copyOfRange(payloadStart, payloadEnd), null, offset)
                 val head = if (type == "meta") 4 else 0; val children = mutableListOf<Mp4Atom>(); var p = payloadStart + head
-                while (p + 8 <= payloadEnd) { val child = parse(bytes, p, payloadEnd) ?: return null; children += child; val childSize = int32(bytes, p); if (childSize < 8) return null; p += childSize }
+                while (p + 8 <= payloadEnd) { val child = parse(bytes, p, payloadEnd, p) ?: return null; children += child; val childSize = int32(bytes, p); if (childSize < 8) return null; p += childSize }
                 if (p != payloadEnd) return null
-                return Mp4Atom(type, bytes.copyOfRange(payloadStart, payloadStart + head), children)
+                return Mp4Atom(type, bytes.copyOfRange(payloadStart, payloadStart + head), children, offset)
             }
             private fun metaAtom(title: String?, artist: String?, album: String?, cover: ByteArray?) =
                 Mp4Atom("meta", byteArrayOf(0, 0, 0, 0), mutableListOf(hdlrAtom(), ilstAtom(title, artist, album, cover)))

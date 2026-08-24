@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -74,6 +75,7 @@ class MusicPlaybackState {
     private val searchHistoryKey = "music_search_history"
     private val searchHistoryPreferences = "music_search_history_preferences"
     private var persistenceJob: Job? = null
+    private var playlistPersistJob: Job? = null
     private val persistenceMutex = Mutex()
     var appContext: Context? = null
     var mediaController: MediaController? by mutableStateOf(null)
@@ -147,6 +149,7 @@ class MusicPlaybackState {
             when (playbackState) {
                 Player.STATE_READY -> {
                     isPrepared = true
+                    ensurePositionTicker()
                     if (closeSearchResultsOnReady) {
                         closeSearchResultsOnReady = false
                         isSearchMode = false
@@ -188,6 +191,7 @@ class MusicPlaybackState {
             errorMsg = appContext?.getString(R.string.music_panel_play_failed)
             isPlaying = false
             isPrepared = false
+            stopPositionTicker()
             closeSearchResultsOnReady = false
             pendingSearchResults = emptyList()
             suppressAutoNext = true
@@ -227,6 +231,8 @@ class MusicPlaybackState {
     var searchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var searchHistory by mutableStateOf<List<String>>(emptyList())
     var isSearching by mutableStateOf(false)
+    // 当前搜索协程句柄：新搜索发起时取消上一次，避免过期响应覆盖新查询结果
+    var searchJob: Job? = null
     var showSearchResults by mutableStateOf(false)
     var pendingSearchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var closeSearchResultsOnReady by mutableStateOf(false)
@@ -254,8 +260,9 @@ class MusicPlaybackState {
     }
 
     suspend fun removeUnavailableExternalTracks(context: Context) {
-        withContext(Dispatchers.Main) {
-            val unavailableIds = playlist
+        // 文件访问探测属 I/O 操作，在 IO 线程执行避免阻塞主线程
+        val unavailableIds = withContext(Dispatchers.IO) {
+            playlist
                 .filter { track ->
                     track.path.isBlank() &&
                         track.audioUri.isNotBlank() &&
@@ -268,8 +275,10 @@ class MusicPlaybackState {
                 }
                 .map { it.id }
                 .toSet()
-            if (unavailableIds.isEmpty()) return@withContext
+        }
+        if (unavailableIds.isEmpty()) return
 
+        withContext(Dispatchers.Main) {
             val currentWasRemoved = currentTrack?.id in unavailableIds
             playlist = playlist.filterNot { it.id in unavailableIds }
             currentIndex = playlist.indexOfFirst { it.id == currentTrack?.id }
@@ -454,6 +463,25 @@ class MusicPlaybackState {
     private val playbackJob = SupervisorJob()
     val playbackScope = CoroutineScope(playbackJob + Dispatchers.Main)
 
+    // 全局进度刷新协程：播放期间由播放器状态驱动，避免多个 UI 各自轮询重复写状态
+    private var positionTickerJob: Job? = null
+
+    // 启动全局进度刷新，重复调用不重复创建
+    fun ensurePositionTicker() {
+        if (positionTickerJob?.isActive == true) return
+        positionTickerJob = playbackScope.launch {
+            while (isActive) {
+                if (isPlaying) updatePosition()
+                delay(200)
+            }
+        }
+    }
+
+    fun stopPositionTicker() {
+        positionTickerJob?.cancel()
+        positionTickerJob = null
+    }
+
     // 防止手动切歌与自动切歌并发导致状态错乱
     val playTrackMutex = Mutex()
 
@@ -514,7 +542,9 @@ class MusicPlaybackState {
 
     fun persistPlaylist() {
         val context = appContext ?: return
-        playbackScope.launch {
+        // 合并连续写入：取消未开始的上一次任务，仅保留最后一次持久化
+        playlistPersistJob?.cancel()
+        playlistPersistJob = playbackScope.launch {
             withContext(Dispatchers.IO) {
                 saveCachedPlaylist(context, playlist)
             }
@@ -640,6 +670,7 @@ class MusicPlaybackState {
 
     fun softRelease() {
         bluetoothVolumeInitialized = false
+        stopPositionTicker()
         persistState()
         currentTrack?.let { track ->
             pendingSavedUri = track.audioUri
@@ -659,6 +690,7 @@ class MusicPlaybackState {
 
     fun release() {
         bluetoothVolumeInitialized = false
+        stopPositionTicker()
         persistState()
         currentTrack?.let { track ->
             pendingSavedUri = track.audioUri
@@ -730,8 +762,15 @@ class MusicPlaybackState {
 
     // 切换指定曲目的收藏状态并重排列表
     fun toggleFavorite(trackId: Long) {
-        likedIds = if (likedIds.contains(trackId)) likedIds - trackId else likedIds + trackId
-        setSortedPlaylist(playlist)
+        val newLiked = if (likedIds.contains(trackId)) likedIds - trackId else likedIds + trackId
+        likedIds = newLiked
+        // 仅重写目标曲目的收藏状态并重排，避免对无关元素重复 copy
+        val currentId = currentTrack?.id
+        val sorted = playlist
+            .map { if (it.id == trackId) it.copy(isFavorite = trackId in newLiked) else it }
+            .sortedWith(compareByDescending<MusicTrack> { it.isFavorite }.thenBy { it.title })
+        playlist = sorted
+        currentIndex = sorted.indexOfFirst { it.id == currentId }.coerceAtLeast(-1)
         persistPlaylist()
     }
 

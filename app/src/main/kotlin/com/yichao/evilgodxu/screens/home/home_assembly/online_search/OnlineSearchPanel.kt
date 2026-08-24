@@ -26,11 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -124,7 +120,7 @@ private fun SearchInput(
         contentAlignment = Alignment.CenterStart
     ) {
         Icon(
-            imageVector = Icons.Default.Search,
+            imageVector = AppIcons.Search,
             contentDescription = null,
             tint = Color.White,
             modifier = Modifier
@@ -175,7 +171,7 @@ private fun SearchInput(
                     .size(32.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = AppIcons.Close,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(18.dp)
@@ -215,7 +211,7 @@ private fun SearchHistoryList(
             modifier = Modifier.size(28.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Delete,
+                imageVector = AppIcons.Delete,
                 contentDescription = stringResource(R.string.music_panel_search_history_clear),
                 tint = Color.White,
                 modifier = Modifier.size(16.dp)
@@ -253,7 +249,7 @@ private fun SearchHistoryList(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = stringResource(R.string.music_panel_search_history_delete),
                         tint = Color.White,
                         modifier = Modifier.size(15.dp)
@@ -296,7 +292,7 @@ private fun SearchResultList(
                 modifier = Modifier.size(28.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Refresh,
+                    imageVector = AppIcons.Refresh,
                     contentDescription = null,
                     tint = if (playbackState.isSearching) Color.White.copy(alpha = 0.5f)
                     else Color.White

@@ -18,15 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.QueueMusic
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -370,7 +362,7 @@ private fun PlaylistListRow(
                 PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
             } else {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                    imageVector = AppIcons.QueueMusic,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
@@ -394,7 +386,7 @@ private fun PlaylistListRow(
         Box {
             IconButton(onClick = { menuExpanded = true }) {
                 Icon(
-                    imageVector = Icons.Filled.MoreVert,
+                    imageVector = AppIcons.MoreVert,
                     contentDescription = stringResource(R.string.playlist_more),
                     tint = Color.White,
                 )
@@ -437,7 +429,7 @@ private fun CreatePlaylistRow(onClick: () -> Unit) {
         horizontalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.Filled.Add,
+            imageVector = AppIcons.Add,
             contentDescription = null,
             tint = Color.White,
             modifier = Modifier.size(20.dp),
@@ -462,8 +454,8 @@ internal fun smartTypeLabel(type: SmartPlaylistType): String = when (type) {
 }
 
 private fun smartTypeIcon(type: SmartPlaylistType): ImageVector = when (type) {
-    SmartPlaylistType.RECENT -> Icons.Filled.History
-    SmartPlaylistType.FAVORITE -> Icons.Filled.Favorite
-    SmartPlaylistType.ALBUM -> Icons.Filled.Album
-    SmartPlaylistType.ARTIST -> Icons.Filled.Person
+    SmartPlaylistType.RECENT -> AppIcons.History
+    SmartPlaylistType.FAVORITE -> AppIcons.Favorite
+    SmartPlaylistType.ALBUM -> AppIcons.Album
+    SmartPlaylistType.ARTIST -> AppIcons.Person
 }

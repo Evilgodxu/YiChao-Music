@@ -9,15 +9,17 @@ import android.provider.MediaStore
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 import java.io.File
-import java.net.URL
 
-// 封面/歌词刷新候选的来源（网易云+QQ+酷狗；Jamendo 无独立元数据/歌词接口，不参与）
+// 封面/歌词刷新候选的来源（网易云+QQ+酷狗）
 private val metadataCandidateSources: List<OnlineMusicSource> = listOf(
     NeteaseMusicApi,
     QQMusicApi,
@@ -204,6 +206,9 @@ internal suspend fun performSearch(
 ) {
     val query = playbackState.searchQuery.trim()
     if (query.isBlank()) return
+    // 取消上一次未完成的搜索，避免过期响应覆盖新查询结果
+    playbackState.searchJob?.cancel()
+    playbackState.searchJob = currentCoroutineContext()[Job] ?: return
     playbackState.isSearching = true
     playbackState.searchResults = emptyList()
     playbackState.errorMsg = null
@@ -230,7 +235,10 @@ internal suspend fun performSearch(
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌曲失败", e)
         playbackState.searchResults = emptyList()
     } finally {
-        playbackState.isSearching = false
+        // 仅当前搜索协程复位搜索状态，避免被取消的旧协程提前清掉新搜索的加载态
+        if (playbackState.searchJob == currentCoroutineContext()[Job]) {
+            playbackState.isSearching = false
+        }
     }
 }
 
@@ -249,7 +257,7 @@ internal suspend fun downloadAndPlay(
         artist = result.artist,
         duration = result.duration,
         albumId = 0L,
-        // Jamendo 结果不写入 neteaseId，避免播放失败重试时误向网易云请求
+        // 仅网易云结果写入 neteaseId，供播放失败重试时匹配原曲
         neteaseId = if (result.source == MusicSearchSource.NETEASE) result.id else 0L,
         neteaseCoverUrl = result.coverUrl.orEmpty(),
         isOnlinePlay = true,
@@ -269,37 +277,34 @@ internal suspend fun downloadAndPlay(
         playTrackAt(context, playbackState, targetIndex)
     }
 
-    // 在线结果后台加载歌词：网易云/QQ/酷狗各有歌词接口，Jamendo 无歌词接口，跳过
-    if (result.source != MusicSearchSource.JAMENDO) {
-        playbackState.playbackScope.launch(Dispatchers.IO) {
-            try {
-                val lines = when (result.source) {
-                    MusicSearchSource.NETEASE -> NeteaseMusicApi.lyric(result.id).lines
-                    MusicSearchSource.QQ -> QQMusicApi.lyricLines(result).orEmpty()
-                    MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(result).orEmpty()
-                    MusicSearchSource.JAMENDO -> emptyList()
-                }
-                if (lines.isNotEmpty()) {
-                    val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
-                    withContext(Dispatchers.Main) {
-                        val idx = playbackState.playlist.indexOfFirst { it.id == trackId }
-                        if (idx >= 0) {
-                            val updated = playbackState.playlist[idx].copy(
-                                lyricCachePath = lyricPath,
-                                lyricLines = lines
-                            )
-                            val list = playbackState.playlist.toMutableList()
-                            list[idx] = updated
-                            playbackState.playlist = list
-                            if (playbackState.currentTrack?.id == trackId) {
-                                playbackState.currentTrack = updated
-                            }
+    // 在线结果后台加载歌词：各平台各有歌词接口
+    playbackState.playbackScope.launch(Dispatchers.IO) {
+        try {
+            val lines = when (result.source) {
+                MusicSearchSource.NETEASE -> NeteaseMusicApi.lyric(result.id).lines
+                MusicSearchSource.QQ -> QQMusicApi.lyricLines(result).orEmpty()
+                MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(result).orEmpty()
+            }
+            if (lines.isNotEmpty()) {
+                val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
+                withContext(Dispatchers.Main) {
+                    val idx = playbackState.playlist.indexOfFirst { it.id == trackId }
+                    if (idx >= 0) {
+                        val updated = playbackState.playlist[idx].copy(
+                            lyricCachePath = lyricPath,
+                            lyricLines = lines
+                        )
+                        val list = playbackState.playlist.toMutableList()
+                        list[idx] = updated
+                        playbackState.playlist = list
+                        if (playbackState.currentTrack?.id == trackId) {
+                            playbackState.currentTrack = updated
                         }
                     }
                 }
-            } catch (e: Exception) {
-                CrashLogManager.logException("MusicPanelSearchLogic", "获取在线歌词失败", e)
             }
+        } catch (e: Exception) {
+            CrashLogManager.logException("MusicPanelSearchLogic", "获取在线歌词失败", e)
         }
     }
 
@@ -331,28 +336,37 @@ internal suspend fun cacheToDownloads(
             return
         }
 
-        val connection = URL(url).openConnection()
-        connection.connectTimeout = 15000
-        connection.readTimeout = 60000
-        val bytes = (connection as java.net.HttpURLConnection).inputStream.use { it.readBytes() }
+        // 流式下载到应用缓存临时文件，再写入 MediaStore，避免整曲驻留内存
+        val tempFile = File.createTempFile("download", ".$extension", context.cacheDir)
+        var audioUri: String? = null
+        try {
+            val request = Request.Builder().url(url).build()
+            MusicHttpClient.client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) return
+                resp.body.byteStream().use { input ->
+                    tempFile.outputStream().use { output -> input.copyTo(output, STREAM_BUFFER_SIZE) }
+                }
+            }
 
-        // 试听片段(≤30秒)不缓存，保持在线播放
-        if (isTrialAudio(bytes)) return
+            // 试听片段(≤30秒)不缓存，保持在线播放
+            if (isTrialAudioFile(tempFile)) return
 
-        val audioUri: String
-
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-            put(MediaStore.Downloads.MIME_TYPE, audioMimeType(extension))
-            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, audioMimeType(extension))
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            if (uri != null) {
+                context.contentResolver.openOutputStream(uri)?.use { os ->
+                    tempFile.inputStream().use { input -> input.copyTo(os, STREAM_BUFFER_SIZE) }
+                }
+                audioUri = uri.toString()
+            }
+        } finally {
+            tempFile.delete()
         }
-        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-        if (uri != null) {
-            context.contentResolver.openOutputStream(uri)?.use { os -> os.write(bytes) }
-            audioUri = uri.toString()
-        } else {
-            return
-        }
+        if (audioUri == null) return
 
         withContext(Dispatchers.Main) {
             updateTrackAudioUri(playbackState, trackId, audioUri)
@@ -373,23 +387,20 @@ internal fun sanitizeFileName(name: String): String {
 // 支持的音频扩展名，用于按实际 URL 推断缓存格式
 private val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "m4a", "wav", "aac", "opus")
 
+// 流式复制音频数据的读缓冲大小
+private const val STREAM_BUFFER_SIZE = 64 * 1024
+
 // 探测音频时长是否 ≤30 秒的试听片段
-private fun isTrialAudio(bytes: ByteArray): Boolean {
-    val tmp = File.createTempFile("probe", ".audio")
+private fun isTrialAudioFile(file: File): Boolean {
+    val retriever = MediaMetadataRetriever()
     return try {
-        tmp.writeBytes(bytes)
-        val retriever = MediaMetadataRetriever()
-        val durationMs = try {
-            retriever.setDataSource(tmp.absolutePath)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-        } finally {
-            retriever.release()
-        }
+        retriever.setDataSource(file.absolutePath)
+        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
         durationMs in 1..30_000
     } catch (e: Exception) {
         false
     } finally {
-        tmp.delete()
+        retriever.release()
     }
 }
 
@@ -516,14 +527,10 @@ internal suspend fun playSearchResult(
 
     playbackState.pendingSearchResults = emptyList()
 
-    // Jamendo 搜索结果自带音频地址，直接播放；QQ/酷狗按平台标识解析播放地址；网易云结果需向接口请求播放 URL
+    // QQ/酷狗按平台标识解析播放地址；网易云结果需向接口请求播放 URL
     val playTarget: NeteaseSongSearchResult
     val url: String?
     when (target.source) {
-        MusicSearchSource.JAMENDO -> {
-            playTarget = target
-            url = target.audioUrl
-        }
         MusicSearchSource.QQ -> {
             playTarget = target
             url = withContext(Dispatchers.IO) { QQMusicApi.songUrl(target.sourceId.orEmpty()) }

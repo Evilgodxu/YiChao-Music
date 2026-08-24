@@ -44,17 +44,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -658,9 +648,9 @@ private fun MiniPlayerBar(
             // 循环模式
             MiniControlButton(
                 icon = when (playbackState.playMode) {
-                    PlayMode.RepeatAll -> Icons.Default.Repeat
-                    PlayMode.RepeatOne -> Icons.Default.RepeatOne
-                    PlayMode.Shuffle -> Icons.Default.Shuffle
+                    PlayMode.RepeatAll -> AppIcons.Repeat
+                    PlayMode.RepeatOne -> AppIcons.RepeatOne
+                    PlayMode.Shuffle -> AppIcons.Shuffle
                 },
                 contentDescription = stringResource(R.string.music_panel_play_mode),
                 onClick = {
@@ -679,7 +669,7 @@ private fun MiniPlayerBar(
             )
             // 上一曲
             MiniControlButton(
-                icon = Icons.Default.SkipPrevious,
+                icon = AppIcons.SkipPrevious,
                 contentDescription = stringResource(R.string.mini_player_previous),
                 enabled = playbackState.playlist.isNotEmpty(),
                 onClick = {
@@ -689,7 +679,7 @@ private fun MiniPlayerBar(
             )
             // 暂停 / 播放（无背景色）
             MiniControlButton(
-                icon = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                icon = if (playbackState.isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
                 contentDescription = stringResource(
                     if (playbackState.isPlaying) R.string.music_panel_pause else R.string.music_panel_play
                 ),
@@ -697,7 +687,7 @@ private fun MiniPlayerBar(
             )
             // 下一曲
             MiniControlButton(
-                icon = Icons.Default.SkipNext,
+                icon = AppIcons.SkipNext,
                 contentDescription = stringResource(R.string.mini_player_next),
                 enabled = playbackState.playlist.isNotEmpty(),
                 onClick = {
@@ -707,7 +697,7 @@ private fun MiniPlayerBar(
             )
             // 播放列表
             MiniControlButton(
-                icon = Icons.AutoMirrored.Outlined.QueueMusic,
+                icon = AppIcons.QueueMusic,
                 contentDescription = stringResource(R.string.mini_player_playlist),
                 onClick = { onPlaylistExpandedChange(!playlistExpanded) }
             )
@@ -760,8 +750,9 @@ internal fun DiscArt(
     modifier: Modifier = Modifier,
     coverArt: @Composable (MusicTrack?) -> Unit = { AlbumArt(it, Modifier.fillMaxSize()) },
 ) {
-    val rotation = remember { Animatable(0f) }
-    LaunchedEffect(isPlaying) {
+    // 以曲目 id 为 key：切歌时旋转角归零并从新曲目重新旋转
+    val rotation = remember(track?.id) { Animatable(0f) }
+    LaunchedEffect(isPlaying, track?.id) {
         if (isPlaying) {
             while (isActive) {
                 rotation.animateTo(
@@ -1017,7 +1008,7 @@ private fun MiniPlaylistRow(
                 modifier = Modifier.size(26.dp)
             ) {
                 Icon(
-                    imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    imageVector = if (track.isFavorite) AppIcons.Favorite else AppIcons.FavoriteBorder,
                     contentDescription = null,
                     tint = if (track.isFavorite) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant,

@@ -31,11 +31,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.ScreenRotation
-import androidx.compose.material.icons.filled.Timer
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -453,7 +449,7 @@ private fun HomeTopBar(
                 Box {
                     IconButton(onClick = onShowTimer) {
                         Icon(
-                            imageVector = Icons.Default.Timer,
+                            imageVector = AppIcons.Timer,
                             contentDescription = stringResource(R.string.music_panel_timer_title),
                             tint = Color.White,
                         )
@@ -477,7 +473,7 @@ private fun HomeTopBar(
                     enabled = favoriteEnabled,
                 ) {
                     Icon(
-                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        imageVector = if (isLiked) AppIcons.Favorite else AppIcons.FavoriteBorder,
                         contentDescription = stringResource(R.string.music_panel_favorite),
                         tint = if (isLiked) Color.White
                         else Color.White,
@@ -488,7 +484,7 @@ private fun HomeTopBar(
         actions = {
             IconButton(onClick = onToggleLandscape) {
                 Icon(
-                    imageVector = Icons.Filled.ScreenRotation,
+                    imageVector = AppIcons.ScreenRotation,
                     contentDescription = stringResource(R.string.home_landscape_mode),
                     tint = if (isLandscapeMode) Color.White
                     else Color.White,

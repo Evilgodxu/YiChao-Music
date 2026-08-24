@@ -91,6 +91,8 @@ class YiChaoActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // 解除语言管理器对 Activity 的绑定，避免单例持有已销毁实例
+        localizationManager.unbindActivity(this)
         super.onDestroy()
         // 销毁（含旋转重建）时释放悬浮窗，避免重建后残留无宿主窗口
         musicPanelController.release()

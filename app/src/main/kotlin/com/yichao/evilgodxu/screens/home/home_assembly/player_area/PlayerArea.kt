@@ -33,19 +33,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -116,7 +104,6 @@ import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
 import com.yichao.evilgodxu.musicpanel.togglePlayPause
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSwitcher
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 // 首页播放器主体：旋转封面 + 歌词 + 标题与艺术家 + 底部控制栏
@@ -130,13 +117,7 @@ fun PlayerArea(
     // 播放列表展开时，系统返回键收起面板
     BackHandler(enabled = playlistVisible) { playlistVisible = false }
 
-    // 播放期间周期性同步播放位置，驱动进度条与时间文本
-    LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
-        while (isActive && playbackState.isPlaying) {
-            playbackState.updatePosition()
-            delay(200)
-        }
-    }
+    // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
 
     // 歌词区固定高度：显示 DEFAULT_VISIBLE_LINES 行，但预留 9 行高度供歌词换行时展开，避免随内容变化而跳动
     val textMeasurer = rememberTextMeasurer()
@@ -325,7 +306,7 @@ fun PlayerArea(
                             .background(Color.White.copy(alpha = 0.18f), CircleShape),
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Remove,
+                            imageVector = AppIcons.Remove,
                             contentDescription = stringResource(R.string.home_player_lyric_delay),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp),
@@ -345,7 +326,7 @@ fun PlayerArea(
                             .background(Color.White.copy(alpha = 0.18f), CircleShape),
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            imageVector = AppIcons.Add,
                             contentDescription = stringResource(R.string.home_player_lyric_advance),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp),
@@ -693,9 +674,9 @@ internal fun PlayerControls(
     ) {
         PlayerControlButton(
             icon = when (playbackState.playMode) {
-                PlayMode.RepeatAll -> Icons.Default.Repeat
-                PlayMode.RepeatOne -> Icons.Default.RepeatOne
-                PlayMode.Shuffle -> Icons.Default.Shuffle
+                PlayMode.RepeatAll -> AppIcons.Repeat
+                PlayMode.RepeatOne -> AppIcons.RepeatOne
+                PlayMode.Shuffle -> AppIcons.Shuffle
             },
             contentDescription = stringResource(R.string.music_panel_play_mode),
             onClick = {
@@ -713,7 +694,7 @@ internal fun PlayerControls(
             },
         )
         PlayerControlButton(
-            icon = Icons.Default.SkipPrevious,
+            icon = AppIcons.SkipPrevious,
             contentDescription = stringResource(R.string.home_player_previous),
             enabled = playbackState.playlist.isNotEmpty(),
             onClick = {
@@ -722,7 +703,7 @@ internal fun PlayerControls(
             },
         )
         PlayerControlButton(
-            icon = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+            icon = if (playbackState.isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
             contentDescription = stringResource(
                 if (playbackState.isPlaying) R.string.home_player_pause else R.string.home_player_play
             ),
@@ -730,7 +711,7 @@ internal fun PlayerControls(
             onClick = { togglePlayPause(playbackState) },
         )
         PlayerControlButton(
-            icon = Icons.Default.SkipNext,
+            icon = AppIcons.SkipNext,
             contentDescription = stringResource(R.string.home_player_next),
             enabled = playbackState.playlist.isNotEmpty(),
             onClick = {
@@ -739,7 +720,7 @@ internal fun PlayerControls(
             },
         )
         PlayerControlButton(
-            icon = Icons.AutoMirrored.Outlined.QueueMusic,
+            icon = AppIcons.QueueMusic,
             contentDescription = stringResource(R.string.music_panel_playlist),
             onClick = onPlaylistClick,
         )
@@ -846,7 +827,7 @@ internal fun PlaylistSheet(
                             modifier = Modifier.padding(end = 4.dp),
                         )
                         HeaderIconButton(
-                            icon = Icons.Default.Refresh,
+                            icon = AppIcons.Refresh,
                             onClick = {
                                 if (!playbackState.isScanning) {
                                     scope.launch {
@@ -864,7 +845,7 @@ internal fun PlaylistSheet(
                         )
                         IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                imageVector = AppIcons.Close,
                                 contentDescription = stringResource(R.string.home_player_close_playlist),
                                 modifier = Modifier.size(20.dp),
                             )

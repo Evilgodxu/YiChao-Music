@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeScreen
 import com.yichao.evilgodxu.screens.settings.SettingsScreen
@@ -46,8 +47,8 @@ fun AppNavHost(
         } else {
             lastHomeBackTime = now
             val hint =
-                if (MusicPanelStateHolder.state.isPlayerActive) "再按一次返回桌面"
-                else "再按一次退出应用"
+                if (MusicPanelStateHolder.state.isPlayerActive) context.getString(R.string.back_again_go_home)
+                else context.getString(R.string.back_again_exit)
             Toast.makeText(context, hint, Toast.LENGTH_SHORT).show()
         }
     }

@@ -65,8 +65,6 @@ import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
 import com.yichao.evilgodxu.musicpanel.playTrackAt
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 // 横屏播放器：双栏结构（封面视觉区 → 歌词透视区）左右居中，标题栏与控制栏点击弹出
@@ -88,13 +86,7 @@ fun LandscapePlayerArea(
     // 覆盖层开启时，系统返回键收起 3D 封面轮播
     BackHandler(enabled = coverCarouselVisible) { coverCarouselVisible = false }
 
-    // 播放期间周期性同步播放位置，驱动歌词滚动
-    LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack) {
-        while (isActive && playbackState.isPlaying) {
-            playbackState.updatePosition()
-            delay(200)
-        }
-    }
+    // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxSize()) {

@@ -25,6 +25,8 @@
 
     <!-- Common -->
     <string name="back">Back</string>
+    <string name="back_again_go_home">Press back again to go home</string>
+    <string name="back_again_exit">Press back again to exit</string>
     <string name="settings_version">Version %1$s</string>
 
     <!-- Permissions -->
@@ -57,7 +59,6 @@
     <string name="music_panel_search_history_delete">Delete</string>
     <string name="music_panel_search_no_results">No songs found</string>
     <string name="music_panel_search_source">Netease</string>
-    <string name="music_panel_search_source_jamendo">Jamendo</string>
     <string name="music_panel_search_source_qq">QQ Music</string>
     <string name="music_panel_search_source_kugou">Kugou</string>
     <string name="music_panel_playback_settings">Playback settings</string>

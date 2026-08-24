@@ -31,12 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -109,7 +104,7 @@ internal fun SearchOverlay(
             contentAlignment = Alignment.CenterStart
         ) {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = AppIcons.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -159,7 +154,7 @@ internal fun SearchOverlay(
                         .size(32.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
@@ -187,7 +182,7 @@ internal fun SearchOverlay(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = AppIcons.Delete,
                         contentDescription = stringResource(R.string.music_panel_search_history_clear),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
@@ -225,7 +220,7 @@ internal fun SearchOverlay(
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                imageVector = AppIcons.Close,
                                 contentDescription = stringResource(R.string.music_panel_search_history_delete),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(15.dp)
@@ -284,13 +279,13 @@ internal fun SearchResultsOverlay(
                             fontSize = 10.sp
                         )
                         HeaderIconButton(
-                            icon = Icons.Default.Refresh,
+                            icon = AppIcons.Refresh,
                             onClick = { if (!playbackState.isSearching) onRefresh() },
                             modifier = Modifier.size(24.dp),
                             enabled = !playbackState.isSearching
                         )
                         HeaderIconButton(
-                            icon = Icons.Default.Close,
+                            icon = AppIcons.Close,
                             onClick = onClose,
                             modifier = Modifier.size(24.dp)
                         )
@@ -381,7 +376,7 @@ internal fun SearchResultRow(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.MusicNote,
+                    imageVector = AppIcons.MusicNote,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
@@ -414,7 +409,6 @@ internal fun SearchResultRow(
         Text(
             text = stringResource(
                 when (result.source) {
-                    MusicSearchSource.JAMENDO -> R.string.music_panel_search_source_jamendo
                     MusicSearchSource.QQ -> R.string.music_panel_search_source_qq
                     MusicSearchSource.KUGOU -> R.string.music_panel_search_source_kugou
                     MusicSearchSource.NETEASE -> R.string.music_panel_search_source

@@ -29,15 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -116,7 +108,7 @@ internal fun PlaylistGroupsPage(
         )
         else -> emptyList()
     }
-    val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) Icons.Filled.Album else Icons.Filled.Person
+    val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) AppIcons.Album else AppIcons.Person
     if (groups.isEmpty()) {
         EmptyHint(text = stringResource(R.string.playlist_empty))
     } else {
@@ -176,7 +168,7 @@ internal fun PlaylistGroupsPage(
                         )
                     }
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        imageVector = AppIcons.KeyboardArrowRight,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(20.dp),
@@ -350,7 +342,7 @@ private fun TracksContent(
                 enabled = orderedTracks.isNotEmpty(),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.PlayArrow,
+                    imageVector = AppIcons.PlayArrow,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(18.dp),
@@ -451,7 +443,7 @@ private fun PlaylistTrackRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        imageVector = if (isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(14.dp),
@@ -488,7 +480,7 @@ private fun PlaylistTrackRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Filled.DragHandle,
+                imageVector = AppIcons.DragHandle,
                 contentDescription = stringResource(R.string.playlist_sort_handle),
                 tint = fgDim,
                 modifier = Modifier.size(20.dp),
@@ -496,7 +488,7 @@ private fun PlaylistTrackRow(
         }
         IconButton(onClick = onFavoriteClick, modifier = Modifier.size(30.dp)) {
             Icon(
-                imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                imageVector = if (isLiked) AppIcons.Favorite else AppIcons.FavoriteBorder,
                 contentDescription = stringResource(R.string.music_panel_favorite),
                 tint = if (isDragging) fg else Color.White,
                 modifier = Modifier.size(16.dp),

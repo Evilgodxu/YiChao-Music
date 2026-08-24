@@ -8,7 +8,6 @@ interface OnlineMusicSource {
 // 全部在线音乐源，搜索时按列表顺序聚合展示结果
 internal val onlineMusicSources: List<OnlineMusicSource> = listOf(
     NeteaseMusicApi,
-    JamendoMusicApi,
     QQMusicApi,
     KugouMusicApi,
 )

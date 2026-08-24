@@ -4,10 +4,11 @@ import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.Base64
 import kotlin.random.Random
 
@@ -134,20 +135,15 @@ internal object QQMusicApi : OnlineMusicSource {
             val url = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg" +
                     "?songmid=$mid&g_tk=5381&loginUin=0&hostUin=0&format=json" +
                     "&inCharset=utf8&outCharset=utf-8&platform=yqq"
-            val connection = URL(url).openConnection() as HttpURLConnection
-            val response = try {
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 15_000
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                connection.setRequestProperty("Referer", "https://y.qq.com/portal/player.html")
-                val responseCode = connection.responseCode
-                val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-                val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                if (responseCode !in 200..299) throw IllegalStateException("HTTP $responseCode")
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", MusicHttpClient.MUSIC_USER_AGENT)
+                .header("Referer", "https://y.qq.com/portal/player.html")
+                .build()
+            val response = MusicHttpClient.client.newCall(request).execute().use { resp ->
+                val text = resp.body.string().orEmpty()
+                if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
                 text
-            } finally {
-                connection.disconnect()
             }
             val json = JSONObject(response)
             val b64 = json.optString("lyric").ifBlank { return@withContext null }
@@ -178,25 +174,18 @@ internal object QQMusicApi : OnlineMusicSource {
     }
 
     private fun post(body: JSONObject): JSONObject {
-        val connection = URL(ENDPOINT).openConnection() as HttpURLConnection
-        return try {
-            connection.requestMethod = "POST"
-            connection.doOutput = true
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        val request = Request.Builder()
+            .url(ENDPOINT)
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .header("User-Agent", MusicHttpClient.MUSIC_USER_AGENT)
             // 缺 Referer/Origin 时搜索接口会返回空列表
-            connection.setRequestProperty("Referer", "https://y.qq.com/")
-            connection.setRequestProperty("Origin", "https://y.qq.com/")
-            connection.outputStream.use { it.write(body.toString().toByteArray()) }
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (responseCode !in 200..299) throw IllegalStateException("HTTP $responseCode: $response")
+            .header("Referer", "https://y.qq.com/")
+            .header("Origin", "https://y.qq.com/")
+            .build()
+        return MusicHttpClient.client.newCall(request).execute().use { resp ->
+            val response = resp.body.string().orEmpty()
+            if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}: $response")
             JSONObject(response)
-        } finally {
-            connection.disconnect()
         }
     }
 

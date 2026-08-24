@@ -24,9 +24,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -113,7 +111,7 @@ internal fun SettingsOverlay(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 HeaderIconButton(
-                                    icon = Icons.Default.Close,
+                                    icon = AppIcons.Close,
                                     onClick = onDismiss,
                                     modifier = Modifier.size(28.dp)
                                 )
@@ -211,7 +209,7 @@ internal fun SoundEffectPanel(
                 fontWeight = FontWeight.SemiBold
             )
             HeaderIconButton(
-                icon = Icons.Default.Close,
+                icon = AppIcons.Close,
                 onClick = onBack,
                 modifier = Modifier.size(28.dp)
             )
@@ -306,7 +304,7 @@ internal fun SoundEffectEntryRow(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            imageVector = AppIcons.KeyboardArrowRight,
             contentDescription = stringResource(R.string.music_panel_sound_effects_enter),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)

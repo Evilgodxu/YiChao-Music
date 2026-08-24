@@ -195,6 +195,8 @@ internal object MusicMetadataCache {
 
     fun cleanupOrphanedMetadata(context: Context, referencedPaths: Set<String>) {
         val referenced = referencedPaths.filter(String::isNotBlank).toSet()
+        // 引用集为空（如歌单尚未加载）时跳过清理，避免误删全部缓存
+        if (referenced.isEmpty()) return
         listOf(coverRoot(context), lyricRoot(context)).forEach { directory ->
             directory
                 .takeIf { it.exists() }

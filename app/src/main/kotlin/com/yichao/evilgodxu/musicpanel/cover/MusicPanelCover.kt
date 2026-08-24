@@ -15,8 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
+import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -105,7 +104,7 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.MusicNote,
+                imageVector = AppIcons.MusicNote,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp)
@@ -138,7 +137,7 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.MusicNote,
+                imageVector = AppIcons.MusicNote,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(12.dp)
@@ -323,99 +322,6 @@ internal fun TrackInfo(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.combinedClickable(
                     onClick = { if (!showMenu) onClick() },
-                    onLongClick = onLongClickArtist
-                )
-            )
-            MiniContextMenu(
-                visible = showMenu && !menuIsTitle,
-                onCopy = {
-                    showMenu = false
-                    copyToClipboard(context, menuText)
-                },
-                onRename = {
-                    showMenu = false
-                    onRenameRequest?.invoke(menuIsTitle, menuText)
-                },
-                onDismiss = { showMenu = false }
-            )
-        }
-    }
-}
-
-@Composable
-internal fun TrackInfo(
-    playbackState: MusicPlaybackState,
-    onRenameRequest: ((isTitle: Boolean, text: String) -> Unit)? = null,
-) {
-    val context = LocalContext.current
-    var showMenu by remember { mutableStateOf(false) }
-    var menuText by remember { mutableStateOf("") }
-    var menuIsTitle by remember { mutableStateOf(true) }
-
-    val onLongClickTitle: () -> Unit = {
-        val track = playbackState.currentTrack
-        if (track != null) {
-            menuText = track.title
-            menuIsTitle = true
-            showMenu = true
-        }
-    }
-    val onLongClickArtist: () -> Unit = {
-        val artist = playbackState.currentTrack?.artist
-        if (!artist.isNullOrBlank()) {
-            menuText = artist
-            menuIsTitle = false
-            showMenu = true
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        val title = when {
-            playbackState.currentTrack != null -> playbackState.currentTrack!!.title
-            playbackState.isScanning -> stringResource(R.string.music_panel_scanning)
-            else -> stringResource(R.string.music_panel_empty)
-        }
-        Box {
-            Text(
-                text = title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                modifier = Modifier
-                    .basicMarquee(iterations = Int.MAX_VALUE)
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = onLongClickTitle
-                    )
-            )
-            MiniContextMenu(
-                visible = showMenu && menuIsTitle,
-                onCopy = {
-                    showMenu = false
-                    copyToClipboard(context, menuText)
-                },
-                onRename = {
-                    showMenu = false
-                    onRenameRequest?.invoke(menuIsTitle, menuText)
-                },
-                onDismiss = { showMenu = false }
-            )
-        }
-        Box {
-            Text(
-                text = playbackState.currentTrack?.artist ?: "",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.combinedClickable(
-                    onClick = {},
                     onLongClick = onLongClickArtist
                 )
             )

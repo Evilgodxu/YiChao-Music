@@ -3,10 +3,9 @@ package com.yichao.evilgodxu.musicpanel
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Base64
@@ -122,19 +121,14 @@ internal object KugouMusicApi : OnlineMusicSource {
     }
 
     private fun get(url: String): String {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        return try {
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (responseCode !in 200..299) throw IllegalStateException("HTTP $responseCode")
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", MusicHttpClient.MUSIC_USER_AGENT)
+            .build()
+        return MusicHttpClient.client.newCall(request).execute().use { resp ->
+            val response = resp.body.string().orEmpty()
+            if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
             response
-        } finally {
-            connection.disconnect()
         }
     }
 }

@@ -4,14 +4,26 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicLong
 
 // 自定义歌单存储：JSON 持久化于 SharedPreferences，内存态驱动 Compose 重组
 object PlaylistStore {
     private const val PREFS = "music_playlists_preferences"
     private const val KEY = "playlists"
     private var loaded = false
+    // 歌单 id 生成：时间戳高 44 位 + 进程内自增低 20 位，避免同毫秒快速创建碰撞
+    private val idCounter = AtomicLong(0)
+    // 持久化串行执行，避免并发写乱序覆盖
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val persistMutex = Mutex()
 
     var playlists by mutableStateOf<List<Playlist>>(emptyList())
 
@@ -26,11 +38,12 @@ object PlaylistStore {
     fun create(context: Context, name: String): Playlist? {
         val trimmed = name.trim()
         if (trimmed.isBlank()) return null
+        val now = System.currentTimeMillis()
         val playlist = Playlist(
-            id = System.currentTimeMillis(),
+            id = (now shl 20) or (idCounter.incrementAndGet() and 0xFFFFF),
             name = trimmed,
             trackIds = emptyList(),
-            createdAt = System.currentTimeMillis(),
+            createdAt = now,
         )
         playlists = playlists + playlist
         persist(context)
@@ -76,19 +89,25 @@ object PlaylistStore {
     }
 
     private fun persist(context: Context) {
-        val array = JSONArray()
-        playlists.forEach { playlist ->
-            array.put(JSONObject().apply {
-                put("id", playlist.id)
-                put("name", playlist.name)
-                put("createdAt", playlist.createdAt)
-                put("trackIds", JSONArray(playlist.trackIds.toTypedArray()))
-            })
+        // 快照当前状态，序列化与写盘移出主线程并串行执行
+        val snapshot = playlists
+        ioScope.launch {
+            persistMutex.withLock {
+                val array = JSONArray()
+                snapshot.forEach { playlist ->
+                    array.put(JSONObject().apply {
+                        put("id", playlist.id)
+                        put("name", playlist.name)
+                        put("createdAt", playlist.createdAt)
+                        put("trackIds", JSONArray(playlist.trackIds.toTypedArray()))
+                    })
+                }
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit()
+                    .putString(KEY, array.toString())
+                    .apply()
+            }
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY, array.toString())
-            .apply()
     }
 
     private fun readPlaylists(context: Context): List<Playlist> {

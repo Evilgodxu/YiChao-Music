@@ -47,6 +47,11 @@ class LocalizationManager(
         this.activity = activity
     }
 
+    // Activity 销毁时解除绑定，避免单例长期持有已销毁的 Activity
+    fun unbindActivity(activity: Activity) {
+        if (this.activity === activity) this.activity = null
+    }
+
     // 以指定语言创建本地化上下文
     fun createLocalizedContext(locale: Locale): Context {
         val config = Configuration(context.resources.configuration).apply {

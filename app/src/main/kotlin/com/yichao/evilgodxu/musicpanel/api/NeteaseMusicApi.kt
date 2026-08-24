@@ -3,10 +3,12 @@ package com.yichao.evilgodxu.musicpanel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.yichao.evilgodxu.log.CrashLogManager
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URLEncoder
 
 internal data class NeteaseSongMatch(
     val id: Long,
@@ -16,7 +18,7 @@ internal data class NeteaseSongMatch(
 )
 
 // 在线音乐搜索来源
-enum class MusicSearchSource { NETEASE, JAMENDO, QQ, KUGOU }
+enum class MusicSearchSource { NETEASE, QQ, KUGOU }
 
 data class NeteaseSongSearchResult(
     val id: Long,
@@ -27,8 +29,6 @@ data class NeteaseSongSearchResult(
     val coverThumbUrl: String? = null,
     val duration: Long = 0L,
     val source: MusicSearchSource = MusicSearchSource.NETEASE,
-    /** Jamendo 结果自带可直接播放的音频地址，网易云结果为空 */
-    val audioUrl: String? = null,
     /** 平台内歌曲标识（QQ 的 songmid、酷狗的 hash），取播放地址/歌词时使用 */
     val sourceId: String? = null,
 )
@@ -49,7 +49,11 @@ internal object NeteaseMusicApi : OnlineMusicSource {
     suspend fun loadCoverBytes(url: String): ByteArray? = withContext(Dispatchers.IO) {
         if (url.isBlank()) return@withContext null
         try {
-            URL(url).openStream().use { it.readBytes() }
+            MusicHttpClient.client.newCall(Request.Builder().url(url).build())
+                .execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext null
+                    resp.body.bytes()
+                }
         } catch (e: Exception) {
             CrashLogManager.logException("NeteaseMusicApi", "下载封面失败: $url", e)
             null
@@ -278,26 +282,19 @@ internal object NeteaseMusicApi : OnlineMusicSource {
 
     private fun request(path: String, body: JSONObject): JSONObject {
         val encrypted = NeteaseCrypto.weapi(body.toString())
-        val connection = URL("https://music.163.com/weapi/$path").openConnection() as HttpURLConnection
-        return try {
-            connection.requestMethod = "POST"
-            connection.doOutput = true
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            connection.setRequestProperty("Referer", "https://music.163.com")
-            connection.setRequestProperty("X-Real-IP", randomChinaIp())
-            connection.setRequestProperty("X-Forwarded-For", randomChinaIp())
-            val form = "params=${java.net.URLEncoder.encode(encrypted.getValue("params"), "UTF-8")}&encSecKey=${java.net.URLEncoder.encode(encrypted.getValue("encSecKey"), "UTF-8")}"
-            connection.outputStream.use { it.write(form.toByteArray()) }
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (responseCode !in 200..299) throw IllegalStateException("HTTP $responseCode: $response")
+        val form = "params=${URLEncoder.encode(encrypted.getValue("params"), "UTF-8")}&encSecKey=${URLEncoder.encode(encrypted.getValue("encSecKey"), "UTF-8")}"
+        val request = Request.Builder()
+            .url("https://music.163.com/weapi/$path")
+            .post(form.toRequestBody("application/x-www-form-urlencoded".toMediaType()))
+            .header("User-Agent", MusicHttpClient.MUSIC_USER_AGENT)
+            .header("Referer", "https://music.163.com")
+            .header("X-Real-IP", randomChinaIp())
+            .header("X-Forwarded-For", randomChinaIp())
+            .build()
+        return MusicHttpClient.client.newCall(request).execute().use { resp ->
+            val response = resp.body.string().orEmpty()
+            if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}: $response")
             JSONObject(response)
-        } finally {
-            connection.disconnect()
         }
     }
 
