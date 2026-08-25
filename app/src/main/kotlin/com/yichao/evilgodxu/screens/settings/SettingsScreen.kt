@@ -19,6 +19,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
     updateViewModel: UpdateViewModel = koinInject(),
+    onOpenTypography: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onThemeClick: (Offset) -> Unit = LocalThemeTransitionController.current::revealAt
@@ -34,6 +35,7 @@ fun SettingsScreen(
         onWordByWordRenderingChange = viewModel::setWordByWordRendering,
         onSwipeToChangeTrackChange = viewModel::setSwipeToChangeTrack,
         onVersionClick = { updateViewModel.checkForUpdate(force = true) },
+        onOpenTypography = onOpenTypography,
         modifier = modifier,
     )
 }

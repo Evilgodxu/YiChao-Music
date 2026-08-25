@@ -330,8 +330,8 @@ internal fun splitLyricText(text: String): List<String> {
 // 播放中位置回退容差：小于该值视为控制器位置抖动，大于视为手动拖动进度条
 private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
-// 歌词面板默认可见行数：双语显示下行高翻倍，竖屏取 6 行（3 组原文+译文）
-private const val DEFAULT_VISIBLE_LINES = 6
+// 歌词面板默认可见行数：保持奇数使当前行垂直居中（上下各 (n-1)/2 行）
+private const val DEFAULT_VISIBLE_LINES = 5
 
 // 上下边缘淡出：按纵向透明度梯度对内容做 DstIn 蒙层，使上下行渐变消失
 internal fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {

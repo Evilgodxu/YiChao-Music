@@ -59,6 +59,10 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yichao.evilgodxu.data.settings.LandscapeLyricLayoutParams
+import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
+import com.yichao.evilgodxu.data.settings.landscapeLyricLayoutFlow
 import com.yichao.evilgodxu.musicpanel.CoverCarouselOverlay
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
@@ -203,13 +207,9 @@ fun LandscapePlayerArea(
     }
 }
 
-// 歌词透视参数：绕 Y 轴角度与相机距离系数；cameraDistance 越小透视越强，
-// 大视角下取值过大会让旋转透视近乎消失，故用较小的宽度比例以获得明显左远右近；
-// rotationY 取负使左缘向前、右缘后退
-private const val ROTATION_Y_DEGREES = -45f
-private const val CAMERA_DISTANCE_FACTOR = 0.15f
-// 横屏歌词可见行数（当前行居中，上下各 5 行）：双语显示下行高翻倍，取 10 行（5 组原文+译文）
-private const val LYRICS_VISIBLE_LINES = 10
+// 3D 透视基准参数：强度为 1 时的旋转角与相机距离系数
+private const val BASE_ROTATION_Y_DEGREES = -45f
+private const val BASE_CAMERA_DISTANCE_FACTOR = 0.15f
 
 // 歌词透视区：rotationY 绕 Y 轴旋转，配合随宽度缩放的 cameraDistance 产生近大远小的真实 3D 透视
 @Composable
@@ -217,24 +217,38 @@ private fun LyricsPerspectiveZone(
     playbackState: MusicPlaybackState,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val landscapeLayout by context.landscapeLyricLayoutFlow()
+        .collectAsStateWithLifecycle(
+            initialValue = LandscapeLyricLayoutParams(
+                LyricLayoutDefaults.LANDSCAPE_FONT_SIZE_SP,
+                LyricLayoutDefaults.LANDSCAPE_VISIBLE_LINES,
+                LyricLayoutDefaults.LANDSCAPE_3D_INTENSITY,
+            ),
+        )
+    // 强度映射：旋转角随强度增大，相机距离随强度减小，透视随之增强
+    val intensity = landscapeLayout.threeDIntensity
+    val rotationYDegrees = (BASE_ROTATION_Y_DEGREES * intensity).coerceIn(-75f, 0f)
+    val cameraDistanceFactor = if (intensity > 0f) {
+        (BASE_CAMERA_DISTANCE_FACTOR / intensity).coerceAtLeast(0.05f)
+    } else 1f
     Box(
         modifier = modifier
             .padding(start = 12.dp, end = 24.dp, top = 12.dp, bottom = 12.dp)
             .clipToBounds()
             .graphicsLayer {
-                rotationY = ROTATION_Y_DEGREES
+                rotationY = rotationYDegrees
                 // 官方推荐：cameraDistance 不小于视图宽度，透视才自然且不畸变
-                cameraDistance = size.width * CAMERA_DISTANCE_FACTOR
+                cameraDistance = size.width * cameraDistanceFactor
             },
         contentAlignment = Alignment.Center,
     ) {
         LyricsPanel(
             playbackState = playbackState,
             onClick = {},
-            fontSize = 14.sp,
+            fontSize = landscapeLayout.fontSizeSp.sp,
             contentColor = Color.White,
-            // 横屏视野更宽，上下各多显示两行（共 9 行）
-            visibleLines = LYRICS_VISIBLE_LINES,
+            visibleLines = landscapeLayout.visibleLines,
         )
     }
 }

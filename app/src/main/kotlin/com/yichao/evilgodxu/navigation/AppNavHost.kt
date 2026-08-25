@@ -18,6 +18,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeScreen
 import com.yichao.evilgodxu.screens.settings.SettingsScreen
+import com.yichao.evilgodxu.screens.settings.typography.TypographySettingsScreen
 
 // 导航宿主：统一走路由栈
 @Composable
@@ -67,7 +68,13 @@ fun AppNavHost(
             when (key) {
                 is Home -> NavEntry(key) { HomeScreen(onOpenSettings = { backStack.add(Settings) }) }
                 is Settings -> NavEntry(key) {
-                    SettingsScreen(onBack = { onBack() })
+                    SettingsScreen(
+                        onBack = { onBack() },
+                        onOpenTypography = { backStack.add(TypographySettings) },
+                    )
+                }
+                is TypographySettings -> NavEntry(key) {
+                    TypographySettingsScreen(onBack = { onBack() })
                 }
                 else -> error("Unknown NavKey: $key")
             }

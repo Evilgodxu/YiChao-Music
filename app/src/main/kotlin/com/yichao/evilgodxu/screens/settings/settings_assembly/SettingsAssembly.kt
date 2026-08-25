@@ -50,6 +50,7 @@ fun SettingsAssembly(
     onWordByWordRenderingChange: (Boolean) -> Unit,
     onSwipeToChangeTrackChange: (Boolean) -> Unit,
     onVersionClick: () -> Unit,
+    onOpenTypography: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -109,6 +110,7 @@ fun SettingsAssembly(
                 onWordByWordRenderingChange = onWordByWordRenderingChange,
                 swipeToChangeTrack = uiState.swipeToChangeTrack,
                 onSwipeToChangeTrackChange = onSwipeToChangeTrackChange,
+                onTypographyClick = onOpenTypography,
             )
             AppInfoArea(uiState.version, onVersionClick)
         }

@@ -48,7 +48,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.yichao.evilgodxu.R
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
+import com.yichao.evilgodxu.data.settings.LyricLayoutParams
 import com.yichao.evilgodxu.data.settings.ThemeMode
+import com.yichao.evilgodxu.data.settings.musicPanelLyricLayoutFlow
 import com.yichao.evilgodxu.data.settings.settingsFlow
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme
@@ -63,6 +67,14 @@ fun MusicPanelOverlay(
     val context = LocalContext.current
 
     val settings by context.settingsFlow().collectAsStateWithLifecycle(initialValue = null)
+    // 音乐面板歌词排版：字号与可见行数独立可调
+    val musicPanelLayout by context.musicPanelLyricLayoutFlow()
+        .collectAsStateWithLifecycle(
+            initialValue = LyricLayoutParams(
+                LyricLayoutDefaults.MUSIC_PANEL_FONT_SIZE_SP,
+                LyricLayoutDefaults.MUSIC_PANEL_VISIBLE_LINES,
+            ),
+        )
     val isSystemDark = isSystemInDarkTheme()
     val isDarkTheme = when (settings?.themeMode) {
         ThemeMode.DARK -> true
@@ -256,7 +268,9 @@ fun MusicPanelOverlay(
                                         LyricsPanel(
                                             playbackState = playbackState,
                                             modifier = Modifier.fillMaxSize(),
-                                            onClick = { playbackState.setLyricsVisible(false) }
+                                            onClick = { playbackState.setLyricsVisible(false) },
+                                            fontSize = musicPanelLayout.fontSizeSp.sp,
+                                            visibleLines = musicPanelLayout.visibleLines,
                                         )
                                     } else {
                                         CurrentCover(

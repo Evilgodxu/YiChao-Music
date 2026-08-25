@@ -157,6 +157,19 @@
     <string name="settings_word_by_word_desc">Highlight lyrics word by word with bounce; off uses whole-line highlight</string>
     <string name="settings_swipe_track_title">Swipe to change track</string>
     <string name="settings_swipe_track_desc">Swipe up/down on the home screen to change tracks</string>
+    <string name="settings_typography_title">Typography</string>
+    <string name="settings_typography_desc">Lyric font size and visible lines</string>
+
+    <!-- Cards & typography settings -->
+    <string name="typography_screen_title">Cards &amp; Typography</string>
+    <string name="typography_section_music_panel">Music panel</string>
+    <string name="typography_section_home_portrait">Home portrait</string>
+    <string name="typography_section_home_landscape">Home landscape</string>
+    <string name="typography_section_mini_player">Mini player</string>
+    <string name="typography_font_size">Font size</string>
+    <string name="typography_visible_lines">Visible lines</string>
+    <string name="typography_3d_intensity">3D intensity</string>
+    <string name="typography_mini_player_desc">Fixed single-line marquee, not adjustable</string>
 
     <!-- Home playlists -->
     <string name="playlist_section_smart">Smart playlists</string>

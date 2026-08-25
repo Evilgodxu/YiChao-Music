@@ -68,7 +68,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
+import com.yichao.evilgodxu.data.settings.LyricLayoutParams
+import com.yichao.evilgodxu.data.settings.homePortraitLyricLayoutFlow
 import com.yichao.evilgodxu.musicpanel.CoverContextMenu
 import com.yichao.evilgodxu.musicpanel.CoverRefreshDialog
 import com.yichao.evilgodxu.musicpanel.CoverReplaceDialog
@@ -119,15 +123,24 @@ fun PlayerArea(
 
     // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
 
-    // 歌词区固定高度：显示 DEFAULT_VISIBLE_LINES 行，但预留 9 行高度供歌词换行时展开，避免随内容变化而跳动
+    // 首页竖屏歌词排版：字号与可见行数独立可调
+    val context = LocalContext.current
+    val homePortraitLayout by context.homePortraitLyricLayoutFlow()
+        .collectAsStateWithLifecycle(
+            initialValue = LyricLayoutParams(
+                LyricLayoutDefaults.HOME_PORTRAIT_FONT_SIZE_SP,
+                LyricLayoutDefaults.HOME_PORTRAIT_VISIBLE_LINES,
+            ),
+        )
+
+    // 歌词区固定高度：按当前字号预留行高供歌词换行时展开，避免随内容变化而跳动
     val textMeasurer = rememberTextMeasurer()
     val lyricLineHeight = with(LocalDensity.current) {
-        textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = 16.sp)).size.height.toDp()
+        textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = homePortraitLayout.fontSizeSp.sp)).size.height.toDp()
     }
     val lyricsAreaHeight = (lyricLineHeight + 4.dp) * 9 + 2.dp * 4 + 4.dp
 
     // 长按功能状态：复用音乐面板的封面/歌词刷新与标题/艺人重命名能力
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val lyricsRefreshFailedMessage = stringResource(R.string.music_panel_lyrics_refresh_failed)
     var showCoverMenu by remember { mutableStateOf(false) }
@@ -261,7 +274,8 @@ fun PlayerArea(
                             playbackState = playbackState,
                             onClick = { lyricTuneVisible = !lyricTuneVisible },
                             onLongClick = { if (playbackState.currentTrack != null) showLyricsMenu = true },
-                            fontSize = 16.sp,
+                            fontSize = homePortraitLayout.fontSizeSp.sp,
+                            visibleLines = homePortraitLayout.visibleLines,
                             contentColor = Color.White,
                         )
                     } else {

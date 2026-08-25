@@ -16,10 +16,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
 import com.yichao.evilgodxu.theme.AppSwitch
+import com.yichao.evilgodxu.ui.icons.AppIcons
 
-// 播放分区：悬浮播放与逐字渲染开关
+// 播放分区：悬浮播放与逐字渲染开关、排版入口
 @Composable
 fun PlayerArea(
     miniPlayerEnabled: Boolean,
@@ -28,6 +30,7 @@ fun PlayerArea(
     onWordByWordRenderingChange: (Boolean) -> Unit,
     swipeToChangeTrack: Boolean,
     onSwipeToChangeTrackChange: (Boolean) -> Unit,
+    onTypographyClick: () -> Unit,
 ) {
     SettingsSection(title = stringResource(R.string.settings_section_player)) {
         PlayerSwitchRow(
@@ -47,6 +50,12 @@ fun PlayerArea(
             description = stringResource(R.string.settings_swipe_track_desc),
             checked = swipeToChangeTrack,
             onCheckedChange = onSwipeToChangeTrackChange,
+        )
+        SettingsClickableItem(
+            icon = AppIcons.TextFields,
+            title = stringResource(R.string.settings_typography_title),
+            subtitle = stringResource(R.string.settings_typography_desc),
+            onClick = onTypographyClick,
         )
     }
 }
