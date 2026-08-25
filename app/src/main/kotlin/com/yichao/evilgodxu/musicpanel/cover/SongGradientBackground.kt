@@ -92,7 +92,7 @@ private suspend fun songGradient(context: Context, model: Any, darkenStatusBarAr
 }
 
 // 顶部压暗封面色：保留封面色调又足够深，保证状态栏白色图标始终可见
-private fun Color.darkenedForStatusBar(): Color = lerp(this, md_theme_dark_surface, 0.6f)
+private fun Color.darkenedForStatusBar(): Color = lerp(this, md_theme_dark_surface, 0.3f)
 
 // 与白色前景（按钮标题/歌词）亮度相近时轻微压暗，保证文字可读
 private fun Color.darkenIfNearWhite(): Color {
