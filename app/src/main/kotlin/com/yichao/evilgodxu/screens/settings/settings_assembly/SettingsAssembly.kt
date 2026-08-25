@@ -3,7 +3,10 @@ package com.yichao.evilgodxu.screens.settings.settings_assembly
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -72,7 +75,7 @@ fun SettingsAssembly(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
-                windowInsets = WindowInsets(0, 0, 0, 0),
+                windowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top),
                 navigationIcon = {
                     IconButton(onClick = {
                         val now = SystemClock.elapsedRealtime()

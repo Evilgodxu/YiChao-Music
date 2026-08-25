@@ -14,6 +14,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,18 +66,24 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             bitmap = cached!!,
             contentDescription = track?.title,
             contentScale = ContentScale.Crop,
+            // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
+            filterQuality = FilterQuality.High,
             modifier = modifier.background(Color.Black),
         )
         embedded != null -> Image(
             bitmap = embedded!!,
             contentDescription = track?.title,
             contentScale = ContentScale.Crop,
+            // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
+            filterQuality = FilterQuality.High,
             modifier = modifier.background(Color.Black),
         )
         onlineUrl != null -> AsyncImage(
             model = onlineUrl,
             contentDescription = track.title,
             contentScale = ContentScale.Crop,
+            // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
+            filterQuality = FilterQuality.High,
             modifier = modifier.background(Color.Black),
         )
         else -> Box(

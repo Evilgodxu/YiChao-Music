@@ -4,7 +4,10 @@ import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -60,7 +63,7 @@ fun TypographySettingsAssembly(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.typography_screen_title)) },
-                windowInsets = WindowInsets(0, 0, 0, 0),
+                windowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top),
                 navigationIcon = {
                     IconButton(onClick = {
                         val now = SystemClock.elapsedRealtime()

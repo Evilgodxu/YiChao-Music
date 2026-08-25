@@ -46,10 +46,11 @@ internal object MusicMetadataCache {
     fun decodeSampledBitmap(bytes: ByteArray): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        // 按最长边 2 的幂采样：解码后最长边落在 [COVER_MAX_EDGE, 2*COVER_MAX_EDGE)，
+        // 兼顾大屏清晰度与内存占用，非正方形封面同样受最长边约束
+        val longEdge = maxOf(bounds.outWidth, bounds.outHeight)
         var sampleSize = 1
-        while (bounds.outWidth / (sampleSize * 2) >= COVER_MAX_EDGE &&
-            bounds.outHeight / (sampleSize * 2) >= COVER_MAX_EDGE
-        ) {
+        while (longEdge / (sampleSize * 2) >= COVER_MAX_EDGE) {
             sampleSize *= 2
         }
         val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
@@ -77,8 +78,9 @@ internal object MusicMetadataCache {
         }
         ensureNoMedia(convertedFile.parentFile!!)
         // compress 返回值已反映编码结果，配合文件长度校验即可，无需再解码验证
+        // 高质量有损编码（92，视觉近似无损），大屏放大显示无明显压缩伪影
         val success = convertedFile.outputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, output)
+            bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 92, output)
         }
         if (success && isValid(convertedFile.absolutePath)) {
             return convertedFile.absolutePath

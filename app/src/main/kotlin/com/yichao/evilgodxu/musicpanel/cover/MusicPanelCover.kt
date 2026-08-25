@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -95,6 +96,8 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             model = model,
             contentDescription = track?.title,
             contentScale = ContentScale.Crop,
+            // 高清渲染：mipmap 三线性过滤，3D 透视/旋转缩放均无锯齿与模糊
+            filterQuality = FilterQuality.High,
             modifier = modifier.background(Color.Black),
         )
     } else {
@@ -128,6 +131,8 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             model = model,
             contentDescription = track?.title,
             contentScale = ContentScale.Crop,
+            // 高清渲染：mipmap 三线性过滤，列表小图缩放平滑
+            filterQuality = FilterQuality.High,
             modifier = modifier.background(Color.Black),
         )
     } else {
