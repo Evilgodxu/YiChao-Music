@@ -162,6 +162,11 @@
     <string name="settings_typography_title">排版</string>
     <string name="settings_typography_desc">歌词字号与显示行数</string>
 
+    <!-- 洛雪音源 -->
+    <string name="settings_section_luoxun">洛雪音源</string>
+    <string name="settings_luoxun_import_title">导入音源</string>
+    <string name="settings_luoxun_import_desc">从链接或文本导入洛雪音源</string>
+
     <!-- 卡片与排版设置 -->
     <string name="typography_screen_title">排版设置</string>
     <string name="typography_section_music_panel">音乐面板</string>

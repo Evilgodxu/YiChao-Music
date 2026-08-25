@@ -160,6 +160,11 @@
     <string name="settings_typography_title">Typography</string>
     <string name="settings_typography_desc">Lyric font size and visible lines</string>
 
+    <!-- LX Music source -->
+    <string name="settings_section_luoxun">LX Music Source</string>
+    <string name="settings_luoxun_import_title">Import source</string>
+    <string name="settings_luoxun_import_desc">Import from a link or text</string>
+
     <!-- Cards & typography settings -->
     <string name="typography_screen_title">Cards &amp; Typography</string>
     <string name="typography_section_music_panel">Music panel</string>

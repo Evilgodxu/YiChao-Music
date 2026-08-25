@@ -38,6 +38,7 @@ import com.yichao.evilgodxu.screens.settings.dialog.ThemeSelectionDialog
 import com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area.AppInfoArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area.AppearanceArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.language_area.LanguageArea
+import com.yichao.evilgodxu.screens.settings.settings_assembly.luoxun_area.LuoxunArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.player_area.PlayerArea
 
 // 设置页分区组装器：编排外观、语言与关于分区
@@ -116,6 +117,8 @@ fun SettingsAssembly(
                 onSwipeToChangeTrackChange = onSwipeToChangeTrackChange,
                 onTypographyClick = onOpenTypography,
             )
+            // 导入功能尚未实现，点击暂为空操作
+            LuoxunArea(onImportClick = {})
             AppInfoArea(uiState.version, onVersionClick)
         }
     }
