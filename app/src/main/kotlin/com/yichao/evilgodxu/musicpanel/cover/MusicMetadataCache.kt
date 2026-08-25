@@ -13,9 +13,9 @@ import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
 internal object MusicMetadataCache {
-    // 封面铺满大屏（首页横竖屏大封面），按最长边 2048px 解码：
-    // 覆盖高 DPI 横竖屏近 1:1 显示需求，位图内存控制在 ~16MB 以内
-    private const val COVER_MAX_EDGE = 2048
+    // 封面支持最高 4K 原图（3840 长边）：覆盖主流在线封面与内嵌封面分辨率上限；
+    // 位图内存峰值约 3840²×4 ≈ 59MB，解码后即压缩保存并回收，不常驻
+    private const val COVER_MAX_EDGE = 3840
 
     // 使用应用私有目录，免外部存储权限（Android 10+ 分区存储下公共 Download 目录不可直接写）
     private fun downloadsDir(context: Context): File =
@@ -46,8 +46,8 @@ internal object MusicMetadataCache {
         return parent.isDirectory || parent.mkdirs()
     }
 
-    /** 封面会铺满大屏显示，按最长边等比缩放解码，避免全尺寸位图的内存峰值 */
-    fun decodeSampledBitmap(bytes: ByteArray): Bitmap? {
+    /** 按最长边等比高质量解码；maxEdge 可调以适配显示场景（显示端无需 4K 全尺寸位图） */
+    fun decodeSampledBitmap(bytes: ByteArray, maxEdge: Int = COVER_MAX_EDGE): Bitmap? {
         // 用 ImageDecoder 替代 BitmapFactory.inSampleSize：
         // inSampleSize 为最近邻点采样，4K 等高分辨率封面降采样会产生混叠锯齿（解码时即固化）；
         // ImageDecoder 按目标尺寸高质量滤波缩放，直接解码到目标分辨率，无锯齿且内存可控
@@ -57,8 +57,8 @@ internal object MusicMetadataCache {
                 // 软件位图：保证后续 compress(WEBP/PNG) 与 recycle() 可用
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 val longEdge = maxOf(info.size.width, info.size.height)
-                if (longEdge > COVER_MAX_EDGE) {
-                    val scale = COVER_MAX_EDGE.toFloat() / longEdge
+                if (longEdge > maxEdge) {
+                    val scale = maxEdge.toFloat() / longEdge
                     decoder.setTargetSize(
                         (info.size.width * scale).roundToInt().coerceAtLeast(1),
                         (info.size.height * scale).roundToInt().coerceAtLeast(1),

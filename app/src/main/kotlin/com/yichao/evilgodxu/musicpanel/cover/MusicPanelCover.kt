@@ -84,13 +84,23 @@ internal fun CurrentCover(
     }
 }
 
-@Composable
-internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
-    // 封面缓存为绝对路径字符串，包装成 File 才能被 Coil 识别（直接传路径会丢失 scheme）
+// 封面加载顺序：本地缓存（内嵌/已匹配在线）→ 在线封面 → 占位符。
+// 本地音频源的内嵌封面由后台提取，提取完成前不直接回退在线封面，保证内嵌优先
+private fun coverModel(track: MusicTrack?): Any? {
     val coverFile = track?.coverCachePath
         ?.takeIf { MusicMetadataCache.isValid(it) }
         ?.let { File(it) }
-    val model: Any? = coverFile ?: track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
+    if (coverFile != null) return coverFile
+    if (track?.isLocalAudioSource == true) return null
+    return track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
+}
+
+@Composable
+internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
+    // 仅当封面相关字段变化时重算，避免列表重组时重复文件系统 stat
+    val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
+        coverModel(track)
+    }
     if (model != null) {
         AsyncImage(
             model = model,
@@ -118,14 +128,11 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
-    // 列表行小图：优先磁盘缓存文件与在线缩略 URL，避免加载全尺寸封面
-    val coverFile = track?.coverCachePath
-        ?.takeIf { MusicMetadataCache.isValid(it) }
-        ?.let { File(it) }
-    val thumbUrl = track?.neteaseCoverUrl
-        ?.takeIf { it.isNotBlank() }
-        ?.let { NeteaseMusicApi.thumbUrl(it) }
-    val model: Any? = coverFile ?: thumbUrl
+    // 列表小图直接使用磁盘缓存或在线原图，由 Coil 按显示尺寸高质量下采样；
+    // 128px CDN 缩略图在高 DPI 下列表放大显示会模糊，故不再使用
+    val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
+        coverModel(track)
+    }
     if (model != null) {
         AsyncImage(
             model = model,

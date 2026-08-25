@@ -152,14 +152,10 @@ object MusicScanner {
         albumId: Long,
         fallbackPath: String
     ): AlbumArtResult? {
-        // 优先官方缩略图 API：从 MediaStore 缩略图缓存读取小图，最轻量且带系统缓存
-        try {
-            return AlbumArtResult(
-                contentResolver.loadThumbnail(audioUri, Size(256, 256), null),
-                AlbumArtSource.THUMBNAIL
-            )
-        } catch (e: Exception) {
-            CrashLogManager.logException("MusicScanner", "加载缩略图封面失败: $fallbackPath", e)
+        // 内嵌封面原图优先：画质要求原图（最高 4K），256px 系统缩略图放大到列表/大封面会模糊，
+        // 故内嵌原图 → 专辑封面 → 系统缩略图兜底
+        fallbackPath.takeIf { it.isNotBlank() }?.let { path ->
+            extractEmbeddedArt(path)?.let { return AlbumArtResult(it, AlbumArtSource.EMBEDDED) }
         }
         extractEmbeddedArt(context, audioUri)?.let { return AlbumArtResult(it, AlbumArtSource.EMBEDDED) }
         if (albumId > 0) {
@@ -173,8 +169,14 @@ object MusicScanner {
                 CrashLogManager.logException("MusicScanner", "读取专辑封面失败: $fallbackPath", e)
             }
         }
-        fallbackPath.takeIf { it.isNotBlank() }?.let { path ->
-            extractEmbeddedArt(path)?.let { return AlbumArtResult(it, AlbumArtSource.EMBEDDED) }
+        // 官方缩略图 API 兜底：从 MediaStore 缩略图缓存读取小图，最轻量且带系统缓存
+        try {
+            return AlbumArtResult(
+                contentResolver.loadThumbnail(audioUri, Size(256, 256), null),
+                AlbumArtSource.THUMBNAIL
+            )
+        } catch (e: Exception) {
+            CrashLogManager.logException("MusicScanner", "加载缩略图封面失败: $fallbackPath", e)
         }
         return null
     }

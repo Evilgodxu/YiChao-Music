@@ -60,12 +60,15 @@ private fun defaultSongGradient(): Brush =
         )
     )
 
-// 当前歌曲封面来源：磁盘缓存优先，其次在线封面 URL
+// 当前歌曲封面来源：磁盘缓存优先，其次在线封面 URL；
+// 本地音频源在后台提取内嵌封面完成前不触发在线封面请求
 private fun songCoverModel(track: MusicTrack?): Any? {
     val coverFile = track?.coverCachePath
         ?.takeIf { MusicMetadataCache.isValid(it) }
         ?.let { File(it) }
-    return coverFile ?: track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
+    if (coverFile != null) return coverFile
+    if (track?.isLocalAudioSource == true) return null
+    return track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
 }
 
 // 以小尺寸解码封面，取上下半区平均色组成向下渐变；

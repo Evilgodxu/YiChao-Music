@@ -27,6 +27,9 @@ import com.yichao.evilgodxu.musicpanel.MusicTrack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// 首页封面显示解码上限：覆盖 4K 屏大封面显示需求，避免 4K 缓存原图全尺寸进内存
+private const val DISPLAY_MAX_EDGE = 2560
+
 // 首页大封面：优先显示已应用的封面缓存文件（修改封面后即时重载），其次音频内嵌原图，最后在线原图
 @Composable
 internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
@@ -42,22 +45,22 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
         value = cachePath?.let { path ->
             withContext(Dispatchers.IO) {
                 MusicMetadataCache.loadCoverBytes(path)
-                    ?.let { MusicMetadataCache.decodeSampledBitmap(it)?.asImageBitmap() }
+                    // 显示端按最长边限幅解码，避免 4K 缓存封面全尺寸进内存
+                    ?.let { MusicMetadataCache.decodeSampledBitmap(it, DISPLAY_MAX_EDGE)?.asImageBitmap() }
             }
         }
     }
-    // 按曲目音频身份在 IO 线程提取内嵌封面，作为无缓存封面时的高质量回退
+    // 仅当无缓存封面时按曲目音频身份在 IO 线程提取内嵌封面，避免每次显示重复元数据 I/O
     val embedded by produceState<androidx.compose.ui.graphics.ImageBitmap?>(
         initialValue = null,
-        key1 = track?.audioUri,
-        key2 = track?.path,
+        key1 = cachePath,
+        key2 = track?.audioUri,
     ) {
-        value = track?.let { t ->
-            if (t.path.isNotBlank() || t.audioUri.startsWith("content:") || t.audioUri.startsWith("file:")) {
-                withContext(Dispatchers.IO) {
-                    MusicScanner.loadEmbeddedCover(context, Uri.parse(t.audioUri), t.path)?.asImageBitmap()
-                }
-            } else null
+        value = if (cachePath != null) null
+        else track?.takeIf { it.isLocalAudioSource }?.let { t ->
+            withContext(Dispatchers.IO) {
+                MusicScanner.loadEmbeddedCover(context, Uri.parse(t.audioUri), t.path)?.asImageBitmap()
+            }
         }
     }
     val onlineUrl = track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }

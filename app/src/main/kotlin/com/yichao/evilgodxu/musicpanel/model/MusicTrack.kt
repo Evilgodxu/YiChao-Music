@@ -20,7 +20,12 @@ package com.yichao.evilgodxu.musicpanel
     val lyricOffsetMs: Long = 0L,
     // 是否由在线播放产生（含已缓存为本地文件）；仅当前播放时保留，切歌后自动清理
     val isOnlinePlay: Boolean = false,
-)
+) {
+    // 是否为可读取本地音频源：本地文件路径或 MediaStore 本地文件 URI
+    // 本地源的内嵌封面由后台提取，提取完成前不直接回退在线封面
+    val isLocalAudioSource: Boolean
+        get() = path.isNotBlank() || audioUri.startsWith("content:") || audioUri.startsWith("file:")
+}
 
 // 播放模式
 enum class PlayMode { RepeatOne, RepeatAll, Shuffle }
