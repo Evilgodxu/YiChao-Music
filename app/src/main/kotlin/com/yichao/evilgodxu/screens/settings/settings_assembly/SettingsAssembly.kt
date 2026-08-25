@@ -117,8 +117,8 @@ fun SettingsAssembly(
                 onSwipeToChangeTrackChange = onSwipeToChangeTrackChange,
                 onTypographyClick = onOpenTypography,
             )
-            // 导入功能尚未实现，点击暂为空操作
-            LuoxunArea(onImportClick = {})
+            // 导入结果处理尚未实现
+            LuoxunArea(onImport = {})
             AppInfoArea(uiState.version, onVersionClick)
         }
     }

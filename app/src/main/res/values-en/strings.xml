@@ -164,6 +164,16 @@
     <string name="settings_section_luoxun">LX Music Source</string>
     <string name="settings_luoxun_import_title">Import source</string>
     <string name="settings_luoxun_import_desc">Import from a link or text</string>
+    <string name="settings_luoxun_dialog_title">Import Method</string>
+    <string name="settings_luoxun_import_local">Local File</string>
+    <string name="settings_luoxun_import_link">From Link</string>
+    <string name="settings_luoxun_import_text">From Text</string>
+    <string name="settings_luoxun_link_title">Import from Link</string>
+    <string name="settings_luoxun_text_title">Import from Text</string>
+    <string name="settings_luoxun_link_hint">Enter the source link</string>
+    <string name="settings_luoxun_text_hint">Enter the source content</string>
+    <string name="settings_luoxun_confirm">OK</string>
+    <string name="settings_luoxun_cancel">Cancel</string>
 
     <!-- Cards & typography settings -->
     <string name="typography_screen_title">Cards &amp; Typography</string>

@@ -166,6 +166,16 @@
     <string name="settings_section_luoxun">洛雪音源</string>
     <string name="settings_luoxun_import_title">导入音源</string>
     <string name="settings_luoxun_import_desc">从链接或文本导入洛雪音源</string>
+    <string name="settings_luoxun_dialog_title">选择导入方式</string>
+    <string name="settings_luoxun_import_local">本地导入</string>
+    <string name="settings_luoxun_import_link">链接导入</string>
+    <string name="settings_luoxun_import_text">文本导入</string>
+    <string name="settings_luoxun_link_title">链接导入</string>
+    <string name="settings_luoxun_text_title">文本导入</string>
+    <string name="settings_luoxun_link_hint">请输入音源链接</string>
+    <string name="settings_luoxun_text_hint">请输入音源内容</string>
+    <string name="settings_luoxun_confirm">确定</string>
+    <string name="settings_luoxun_cancel">取消</string>
 
     <!-- 卡片与排版设置 -->
     <string name="typography_screen_title">排版设置</string>
