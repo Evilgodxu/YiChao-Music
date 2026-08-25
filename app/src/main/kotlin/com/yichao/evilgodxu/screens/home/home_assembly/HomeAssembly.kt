@@ -312,7 +312,11 @@ fun HomeAssembly(
             }
     ) {
         val contentWidth = maxWidth
-        SongGradientBackground(track = playbackState.currentTrack)
+        // 横屏系统栏隐藏，无需为状态栏压暗顶部
+        SongGradientBackground(
+            track = playbackState.currentTrack,
+            darkenStatusBarArea = !isLandscapeMode,
+        )
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()

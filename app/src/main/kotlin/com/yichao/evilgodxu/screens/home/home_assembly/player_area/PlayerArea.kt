@@ -351,17 +351,16 @@ fun PlayerArea(
                 }
             }
             Spacer(Modifier.height(20.dp))
-            // 标题与艺术家
+            // 标题与艺术家：过长时跑马灯滚动并带边缘渐隐，与横屏一致
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
+                MarqueeInfoLine(
                     text = playbackState.currentTrack?.title.orEmpty(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .padding(horizontal = 32.dp)
+                        .fillMaxWidth()
                         .combinedClickable(
                             onClick = {},
                             onLongClick = {
@@ -376,14 +375,14 @@ fun PlayerArea(
                 )
                 if (playbackState.currentTrack != null) {
                     Spacer(Modifier.height(4.dp))
-                    Text(
+                    MarqueeInfoLine(
                         text = playbackState.currentTrack?.artist.orEmpty(),
                         fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
                         color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .padding(horizontal = 32.dp)
+                            .fillMaxWidth()
                             .combinedClickable(
                                 onClick = {},
                                 onLongClick = {

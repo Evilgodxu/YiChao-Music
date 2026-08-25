@@ -281,7 +281,7 @@ private fun CoverInfo(
 
 // 单行信息文本：宽度超出容器时启用跑马灯并叠加歌词同款水平边缘渐变，保证全文完整显示
 @Composable
-private fun MarqueeInfoLine(
+internal fun MarqueeInfoLine(
     text: String,
     fontSize: TextUnit,
     fontWeight: FontWeight,

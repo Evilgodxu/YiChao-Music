@@ -31,14 +31,15 @@ import kotlinx.coroutines.withContext
 internal fun SongGradientBackground(
     track: MusicTrack?,
     modifier: Modifier = Modifier,
+    darkenStatusBarArea: Boolean = true,
 ) {
     val context = LocalContext.current
     val defaultGradient = defaultSongGradient()
     var gradient by remember { mutableStateOf(defaultGradient) }
     val model = songCoverModel(track)
-    LaunchedEffect(model) {
+    LaunchedEffect(model, darkenStatusBarArea) {
         gradient = if (model != null) {
-            songGradient(context, model) ?: defaultGradient
+            songGradient(context, model, darkenStatusBarArea) ?: defaultGradient
         } else {
             defaultGradient
         }
@@ -68,8 +69,8 @@ private fun songCoverModel(track: MusicTrack?): Any? {
 }
 
 // 以小尺寸解码封面，取上下半区平均色组成向下渐变；
-// 顶部用封面色向深色压暗，状态栏区域保持足够深，白色状态栏图标不被系统按浅色背景切换为黑色
-private suspend fun songGradient(context: Context, model: Any): Brush? = withContext(Dispatchers.IO) {
+// 竖屏时顶部压暗保证状态栏区域足够深，横屏系统栏隐藏时跳过该处理
+private suspend fun songGradient(context: Context, model: Any, darkenStatusBarArea: Boolean): Brush? = withContext(Dispatchers.IO) {
     val result = context.imageLoader.execute(
         ImageRequest.Builder(context)
             .data(model)
@@ -83,7 +84,7 @@ private suspend fun songGradient(context: Context, model: Any): Brush? = withCon
     val topColor = bitmap.avgColor(topHalf = true).darkenIfNearWhite()
     Brush.verticalGradient(
         colorStops = arrayOf(
-            0f to topColor.darkenedForStatusBar(),
+            0f to if (darkenStatusBarArea) topColor.darkenedForStatusBar() else topColor,
             0.12f to topColor,
             1f to bitmap.avgColor(topHalf = false).darkenIfNearWhite(),
         )
