@@ -2,16 +2,20 @@ package com.yichao.evilgodxu.musicpanel
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.graphics.ColorSpace
+import android.graphics.ImageDecoder
 import android.os.Environment
 import com.yichao.evilgodxu.log.CrashLogManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.nio.ByteBuffer
+import kotlin.math.roundToInt
 
 internal object MusicMetadataCache {
-    // 封面铺满大屏（首页横竖屏大封面），按最长边 1024px 采样，兼顾清晰度与内存
-    private const val COVER_MAX_EDGE = 1024
+    // 封面铺满大屏（首页横竖屏大封面），按最长边 2048px 解码：
+    // 覆盖高 DPI 横竖屏近 1:1 显示需求，位图内存控制在 ~16MB 以内
+    private const val COVER_MAX_EDGE = 2048
 
     // 使用应用私有目录，免外部存储权限（Android 10+ 分区存储下公共 Download 目录不可直接写）
     private fun downloadsDir(context: Context): File =
@@ -42,19 +46,28 @@ internal object MusicMetadataCache {
         return parent.isDirectory || parent.mkdirs()
     }
 
-    /** 封面会铺满大屏显示，解码前按最长边采样，避免全尺寸位图的内存峰值 */
+    /** 封面会铺满大屏显示，按最长边等比缩放解码，避免全尺寸位图的内存峰值 */
     fun decodeSampledBitmap(bytes: ByteArray): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        // 按最长边 2 的幂采样：解码后最长边落在 [COVER_MAX_EDGE, 2*COVER_MAX_EDGE)，
-        // 兼顾大屏清晰度与内存占用，非正方形封面同样受最长边约束
-        val longEdge = maxOf(bounds.outWidth, bounds.outHeight)
-        var sampleSize = 1
-        while (longEdge / (sampleSize * 2) >= COVER_MAX_EDGE) {
-            sampleSize *= 2
-        }
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        // 用 ImageDecoder 替代 BitmapFactory.inSampleSize：
+        // inSampleSize 为最近邻点采样，4K 等高分辨率封面降采样会产生混叠锯齿（解码时即固化）；
+        // ImageDecoder 按目标尺寸高质量滤波缩放，直接解码到目标分辨率，无锯齿且内存可控
+        return runCatching {
+            val source = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
+            ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                // 软件位图：保证后续 compress(WEBP/PNG) 与 recycle() 可用
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                val longEdge = maxOf(info.size.width, info.size.height)
+                if (longEdge > COVER_MAX_EDGE) {
+                    val scale = COVER_MAX_EDGE.toFloat() / longEdge
+                    decoder.setTargetSize(
+                        (info.size.width * scale).roundToInt().coerceAtLeast(1),
+                        (info.size.height * scale).roundToInt().coerceAtLeast(1),
+                    )
+                }
+                // 统一 sRGB 输出，避免广色域封面在不同设备上渲染偏差
+                decoder.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
+            }
+        }.getOrNull()
     }
 
     fun saveCover(context: Context, id: Long, originalBytes: ByteArray): String? = try {
