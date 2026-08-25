@@ -27,8 +27,8 @@ import com.yichao.evilgodxu.musicpanel.MusicTrack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// 首页封面显示解码上限：覆盖 4K 屏大封面显示需求，避免 4K 缓存原图全尺寸进内存
-private const val DISPLAY_MAX_EDGE = 2560
+// 首页封面显示解码上限：与缓存保存上限对齐，避免超大图全尺寸进内存
+private const val DISPLAY_MAX_EDGE = 2048
 
 // 首页大封面：优先显示已应用的封面缓存文件（修改封面后即时重载），其次音频内嵌原图，最后在线原图
 @Composable

@@ -3,7 +3,6 @@ package com.yichao.evilgodxu.musicpanel
 import android.content.Context
 import android.net.Uri
 import com.yichao.evilgodxu.log.CrashLogManager
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -59,12 +58,10 @@ object MetadataEnricher {
         // 纯在线歌曲（无本地文件）不参与本地提取，沿用在线封面
         val needCover = tracks.filter { track ->
             val path = track.coverCachePath
-            val fileId = File(path).nameWithoutExtension.toLongOrNull()
-            // 封面缓存按歌曲身份归属（文件名为 track.id，在线/手动刷新的封面为 neteaseId）且文件有效
-            // 才视为已具备归属封面并跳过提取
-            val coverOwned = fileId != null &&
-                MusicMetadataCache.isValid(path) &&
-                (fileId == track.id || (track.neteaseId > 0L && fileId == track.neteaseId))
+            // 封面缓存按内容哈希命名且文件有效才视为已具备封面并跳过提取；
+            // 旧版按歌曲 id 命名的缓存不匹配，重新提取时自动迁移为哈希命名（同图去重）
+            val coverOwned = MusicMetadataCache.isValid(path) &&
+                MusicMetadataCache.isHashKeyFileName(path)
             // 有可提取内嵌封面的本地音频源才尝试提取：本地文件路径或 MediaStore 本地文件（在线缓存歌）均纳入
             !coverOwned && (track.path.isNotBlank() || isLocalFileUri(track.audioUri))
         }
@@ -79,14 +76,8 @@ object MetadataEnricher {
                         ) ?: return@async null
                         val cover = result.bitmap
                         try {
-                            val oldPath = track.coverCachePath
-                            // 封面一律按歌曲身份缓存：内嵌封面/缩略图/专辑封面统一归属单曲，
-                            // 避免按专辑共享缓存文件导致同一专辑内歌曲封面互相覆盖
                             val coverPath = MusicMetadataCache.saveCover(context, track.id, cover).orEmpty()
-                            // 清理被替换的旧封面文件，避免残留
-                            if (oldPath.isNotBlank() && oldPath != coverPath) {
-                                MusicMetadataCache.deleteCoverFile(oldPath)
-                            }
+                            // 旧文件若已无引用，由 cleanupOrphanedMetadata 统一回收，避免误删被共享的封面
                             track.copy(coverCachePath = coverPath)
                         } finally {
                             cover.recycle()
@@ -117,7 +108,9 @@ object MetadataEnricher {
     /** 后台加载在线封面，返回封面更新列表 */
     private suspend fun enrichOnlineCovers(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
         val needCover = tracks.filter { track ->
-            !MusicMetadataCache.isValid(track.coverCachePath)
+            // 旧版按歌曲 id 命名的缓存也纳入重匹配，落盘时自动迁移为内容哈希命名
+            !MusicMetadataCache.isValid(track.coverCachePath) ||
+                !MusicMetadataCache.isHashKeyFileName(track.coverCachePath)
         }
         if (needCover.isEmpty()) return emptyList()
         return coroutineScope {
@@ -128,15 +121,11 @@ object MetadataEnricher {
                             ?: return@async null
                         val coverBytes = NeteaseMusicApi.loadCoverBytes(match.coverUrl.orEmpty())
                             ?: return@async null // 下载失败时保留已有缓存与匹配信息，避免下次重复请求
-                        val oldPath = track.coverCachePath
                         // 优先把匹配到的封面写入音频文件元数据，同时保留独立封面缓存：
                         // 音频文件内嵌封面无法被 MediaItem 引用，系统媒体面板只能通过
                         // coverCachePath 对应的 content:// URI 读取封面
                         if (MusicMetadataWriter.writeCoverToSource(context, track, coverBytes)) {
                             val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
-                            if (coverPath.isNotBlank() && oldPath.isNotBlank() && oldPath != coverPath) {
-                                MusicMetadataCache.deleteCoverFile(oldPath)
-                            }
                             track.copy(
                                 neteaseId = match.id,
                                 neteaseCoverUrl = match.coverUrl.orEmpty(),
@@ -145,9 +134,6 @@ object MetadataEnricher {
                         } else {
                             val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
                             if (coverPath.isBlank()) return@async null
-                            if (oldPath.isNotBlank() && oldPath != coverPath) {
-                                MusicMetadataCache.deleteCoverFile(oldPath)
-                            }
                             track.copy(
                                 neteaseId = match.id,
                                 neteaseCoverUrl = match.coverUrl.orEmpty(),

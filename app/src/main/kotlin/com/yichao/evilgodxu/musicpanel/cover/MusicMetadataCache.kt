@@ -8,14 +8,16 @@ import android.os.Environment
 import com.yichao.evilgodxu.log.CrashLogManager
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 import kotlin.math.roundToInt
 
 internal object MusicMetadataCache {
-    // 封面支持最高 4K 原图（3840 长边）：覆盖主流在线封面与内嵌封面分辨率上限；
-    // 位图内存峰值约 3840²×4 ≈ 59MB，解码后即压缩保存并回收，不常驻
-    private const val COVER_MAX_EDGE = 3840
+    // 封面保存上限与显示端对齐（2K）：覆盖折叠屏/平板横屏等最大显示场景，超过部分永不显示；
+    // 位图内存峰值约 2048²×4 ≈ 16MB，解码后即压缩保存并回收，不常驻
+    private const val COVER_MAX_EDGE = 2048
 
     // 使用应用私有目录，免外部存储权限（Android 10+ 分区存储下公共 Download 目录不可直接写）
     private fun downloadsDir(context: Context): File =
@@ -23,8 +25,9 @@ internal object MusicMetadataCache {
 
     internal fun coverRoot(context: Context): File = File(downloadsDir(context), "Cover")
     private fun lyricRoot(context: Context): File = File(downloadsDir(context), "Lyrics")
-    private fun coverFile(context: Context, id: Long) = File(coverRoot(context), "$id.webp")
-    private fun originalCoverFile(context: Context, id: Long) = File(coverRoot(context), "$id.image")
+    // 封面按内容哈希命名：同图仅存一份，跨歌曲/专辑天然去重
+    private fun coverFile(context: Context, key: String) = File(coverRoot(context), "$key.webp")
+    private fun originalCoverFile(context: Context, key: String) = File(coverRoot(context), "$key.image")
 
     // 歌词文件按“标题 - 艺术家”命名，空字段自动忽略，保证可读且避免同名覆盖
     private fun lyricFile(context: Context, title: String, artist: String): File {
@@ -46,7 +49,7 @@ internal object MusicMetadataCache {
         return parent.isDirectory || parent.mkdirs()
     }
 
-    /** 按最长边等比高质量解码；maxEdge 可调以适配显示场景（显示端无需 4K 全尺寸位图） */
+    /** 按最长边等比高质量解码；maxEdge 可调以适配显示场景（显示端无需保存上限全尺寸位图） */
     fun decodeSampledBitmap(bytes: ByteArray, maxEdge: Int = COVER_MAX_EDGE): Bitmap? {
         // 用 ImageDecoder 替代 BitmapFactory.inSampleSize：
         // inSampleSize 为最近邻点采样，4K 等高分辨率封面降采样会产生混叠锯齿（解码时即固化）；
@@ -78,38 +81,48 @@ internal object MusicMetadataCache {
             bitmap.recycle()
         }
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicMetadataCache", "保存封面失败: 路径=${coverFile(context, id).absolutePath}", e)
+        CrashLogManager.logException("MusicMetadataCache", "保存封面失败: 来源=${originalBytes.size}B", e)
         null
     }
 
     fun saveCover(context: Context, id: Long, bitmap: Bitmap): String? = try {
-        val convertedFile = coverFile(context, id)
-        // 目标目录未能创建（如缺少全文件权限）时直接返回，避免写入抛 ENOENT
-        if (!ensureParentDir(convertedFile)) {
-            CrashLogManager.logException("MusicMetadataCache", "创建封面目录失败: 路径=${convertedFile.parentFile?.absolutePath}")
-            return null
+        // 先编码到内存并取内容哈希作为文件名：同图共享同一文件，天然去重
+        val webpBytes = ByteArrayOutputStream().use { out ->
+            if (bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 92, out)) out.toByteArray() else null
         }
-        ensureNoMedia(convertedFile.parentFile!!)
-        // compress 返回值已反映编码结果，配合文件长度校验即可，无需再解码验证
-        // 高质量有损编码（92，视觉近似无损），大屏放大显示无明显压缩伪影
-        val success = convertedFile.outputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 92, output)
+        if (webpBytes != null) {
+            val convertedFile = coverFile(context, contentKey(webpBytes))
+            if (isValid(convertedFile.absolutePath)) return convertedFile.absolutePath
+            // 目标目录未能创建（如缺少全文件权限）时直接返回，避免写入抛 ENOENT
+            if (!ensureParentDir(convertedFile)) {
+                CrashLogManager.logException("MusicMetadataCache", "创建封面目录失败: 路径=${convertedFile.parentFile?.absolutePath}")
+                return null
+            }
+            ensureNoMedia(convertedFile.parentFile!!)
+            // compress 返回值已反映编码结果，配合文件长度校验即可，无需再解码验证
+            // 高质量有损编码（92，视觉近似无损），大屏放大显示无明显压缩伪影
+            convertedFile.writeBytes(webpBytes)
+            if (isValid(convertedFile.absolutePath)) return convertedFile.absolutePath
         }
-        if (success && isValid(convertedFile.absolutePath)) {
-            return convertedFile.absolutePath
+        // WEBP 编码/写入失败，回退为 PNG 原样保存
+        val pngBytes = ByteArrayOutputStream().use { out ->
+            if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) out.toByteArray() else return null
         }
-        // WEBP 编码失败，回退为 PNG 原样保存
-        val fallbackFile = originalCoverFile(context, id)
+        val fallbackFile = originalCoverFile(context, contentKey(pngBytes))
         if (!ensureParentDir(fallbackFile)) {
             CrashLogManager.logException("MusicMetadataCache", "创建封面目录失败: 路径=${fallbackFile.parentFile?.absolutePath}")
             return null
         }
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fallbackFile.outputStream())
+        fallbackFile.writeBytes(pngBytes)
         fallbackFile.absolutePath
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicMetadataCache", "保存封面失败: 路径=${coverFile(context, id).absolutePath}", e)
+        CrashLogManager.logException("MusicMetadataCache", "保存封面失败: 封面尺寸=${bitmap.width}x${bitmap.height}", e)
         null
     }
+
+    // 封面内容 SHA-256 前 8 字节的十六进制作为缓存文件名，实现同图去重
+    private fun contentKey(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     fun saveLyrics(context: Context, title: String, artist: String, lines: List<LyricLine>): String? = try {
         val file = lyricFile(context, title, artist)
@@ -195,17 +208,18 @@ internal object MusicMetadataCache {
 
     fun isValid(path: String): Boolean = path.isNotBlank() && File(path).let { it.isFile && it.length() > 0 }
 
+    // 是否为新版内容哈希命名的封面缓存（旧版按歌曲 id 命名，用于一次性迁移为哈希命名）
+    fun isHashKeyFileName(path: String): Boolean = runCatching {
+        File(path).nameWithoutExtension.matches(HASH_KEY_REGEX)
+    }.getOrDefault(false)
+
+    private val HASH_KEY_REGEX = Regex("[0-9a-f]{16}")
+
     fun loadCoverBytes(path: String): ByteArray? = try {
         if (!isValid(path)) null else File(path).readBytes()
     } catch (e: Exception) {
         CrashLogManager.logException("MusicMetadataCache", "读取封面文件失败: $path", e)
         null
-    }
-
-    fun deleteCoverFile(path: String) {
-        if (path.isNotBlank()) {
-            File(path).delete()
-        }
     }
 
     fun cleanupOrphanedMetadata(context: Context, referencedPaths: Set<String>) {

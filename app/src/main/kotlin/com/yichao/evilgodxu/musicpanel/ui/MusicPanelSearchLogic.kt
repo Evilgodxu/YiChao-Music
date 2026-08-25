@@ -175,13 +175,7 @@ internal suspend fun applyCoverCandidate(
             val writeSuccess = MusicMetadataWriter.writeCover(context, track, bytes)
             val path = MusicMetadataCache.saveCover(context, candidate.id, bytes).orEmpty()
             if (path.isBlank()) return@withContext null
-            val oldPath = track.coverCachePath
-            if (writeSuccess) {
-                // 封面已内嵌进音频文件：删除旧封面缓存，保留本轮缓存文件供面板即时显示
-                MusicMetadataCache.deleteCoverFile(oldPath)
-            } else if (oldPath.isNotBlank() && oldPath != path) {
-                MusicMetadataCache.deleteCoverFile(oldPath)
-            }
+            // 旧文件若已无引用，由 cleanupOrphanedMetadata 统一回收，避免误删被共享的封面
             track.copy(
                 neteaseId = candidate.id,
                 neteaseCoverUrl = if (writeSuccess) "" else candidate.coverUrl.orEmpty(),
