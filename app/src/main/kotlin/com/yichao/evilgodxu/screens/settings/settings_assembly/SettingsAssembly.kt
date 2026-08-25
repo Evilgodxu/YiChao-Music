@@ -72,6 +72,7 @@ fun SettingsAssembly(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = {
                         val now = SystemClock.elapsedRealtime()

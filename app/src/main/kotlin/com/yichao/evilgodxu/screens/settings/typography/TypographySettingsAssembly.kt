@@ -60,6 +60,7 @@ fun TypographySettingsAssembly(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.typography_screen_title)) },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = {
                         val now = SystemClock.elapsedRealtime()
