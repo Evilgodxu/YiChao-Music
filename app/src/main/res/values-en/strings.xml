@@ -165,11 +165,9 @@
     <string name="typography_section_music_panel">Music panel</string>
     <string name="typography_section_home_portrait">Home portrait</string>
     <string name="typography_section_home_landscape">Home landscape</string>
-    <string name="typography_section_mini_player">Mini player</string>
     <string name="typography_font_size">Font size</string>
     <string name="typography_visible_lines">Visible lines</string>
     <string name="typography_3d_intensity">3D intensity</string>
-    <string name="typography_mini_player_desc">Fixed single-line marquee, not adjustable</string>
 
     <!-- Home playlists -->
     <string name="playlist_section_smart">Smart playlists</string>

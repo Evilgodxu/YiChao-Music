@@ -167,11 +167,9 @@
     <string name="typography_section_music_panel">音乐面板</string>
     <string name="typography_section_home_portrait">首页竖屏</string>
     <string name="typography_section_home_landscape">首页横屏</string>
-    <string name="typography_section_mini_player">迷你播放器</string>
     <string name="typography_font_size">字号</string>
     <string name="typography_visible_lines">显示行数</string>
     <string name="typography_3d_intensity">3D 强度</string>
-    <string name="typography_mini_player_desc">固定单行跑马灯，不支持调节</string>
 
     <!-- 首页歌单 -->
     <string name="playlist_section_smart">系统歌单</string>

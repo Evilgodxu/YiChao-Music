@@ -18,7 +18,7 @@ object LyricLayoutDefaults {
     const val LANDSCAPE_FONT_SIZE_SP = 14
     const val MUSIC_PANEL_VISIBLE_LINES = 5
     const val HOME_PORTRAIT_VISIBLE_LINES = 5
-    const val LANDSCAPE_VISIBLE_LINES = 9
+    const val LANDSCAPE_VISIBLE_LINES = 7
     const val LANDSCAPE_3D_INTENSITY = 1f
     const val FONT_SIZE_MIN_SP = 12
     const val FONT_SIZE_MAX_SP = 24

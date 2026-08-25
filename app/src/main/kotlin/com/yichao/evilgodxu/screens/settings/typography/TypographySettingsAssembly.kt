@@ -160,15 +160,6 @@ fun TypographySettingsAssembly(
                     onIncrease = { onLandscape3DChange(1) },
                 )
             }
-            // 迷你播放器：固定单行跑马灯，不支持调节
-            SettingsSection(title = stringResource(R.string.typography_section_mini_player)) {
-                Text(
-                    text = stringResource(R.string.typography_mini_player_desc),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                )
-            }
         }
     }
 }
