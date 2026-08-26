@@ -38,7 +38,7 @@ import com.yichao.evilgodxu.screens.settings.dialog.ThemeSelectionDialog
 import com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area.AppInfoArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area.AppearanceArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.language_area.LanguageArea
-import com.yichao.evilgodxu.screens.settings.settings_assembly.luoxun_area.LuoxunArea
+import com.yichao.evilgodxu.screens.settings.settings_assembly.proxy_source_area.ProxySourceArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.player_area.PlayerArea
 
 // 设置页分区组装器：编排外观、语言与关于分区
@@ -118,7 +118,7 @@ fun SettingsAssembly(
                 onTypographyClick = onOpenTypography,
             )
             // 导入结果处理尚未实现
-            LuoxunArea(onImport = {})
+            ProxySourceArea(onImport = {})
             AppInfoArea(uiState.version, onVersionClick)
         }
     }

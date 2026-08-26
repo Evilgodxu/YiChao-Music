@@ -18,9 +18,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.R
 
-// 洛雪音源导入方式选择对话框：本地/链接/文本
+// 代理音源导入方式选择对话框：本地/链接/文本
 @Composable
-fun LuoxunImportDialog(
+fun ProxySourceImportDialog(
     onDismiss: () -> Unit,
     onLocalImport: () -> Unit,
     onLinkImport: () -> Unit,
@@ -30,7 +30,7 @@ fun LuoxunImportDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                stringResource(R.string.settings_luoxun_dialog_title),
+                stringResource(R.string.settings_proxy_source_dialog_title),
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
             )
@@ -40,9 +40,9 @@ fun LuoxunImportDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ImportOption(R.string.settings_luoxun_import_local, onLocalImport)
-                ImportOption(R.string.settings_luoxun_import_link, onLinkImport)
-                ImportOption(R.string.settings_luoxun_import_text, onTextImport)
+                ImportOption(R.string.settings_proxy_source_import_local, onLocalImport)
+                ImportOption(R.string.settings_proxy_source_import_link, onLinkImport)
+                ImportOption(R.string.settings_proxy_source_import_text, onTextImport)
             }
         },
         confirmButton = {},

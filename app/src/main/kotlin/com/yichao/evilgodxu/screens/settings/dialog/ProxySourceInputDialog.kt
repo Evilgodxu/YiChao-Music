@@ -29,9 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 
-// 洛雪音源导入输入对话框：链接单行、文本多行
+// 代理音源导入输入对话框：链接单行、文本多行
 @Composable
-fun LuoxunInputDialog(
+fun ProxySourceInputDialog(
     title: String,
     placeholder: String,
     singleLine: Boolean,
@@ -76,7 +76,7 @@ fun LuoxunInputDialog(
                         onClick = onDismiss,
                     ) {
                         Text(
-                            text = stringResource(R.string.settings_luoxun_cancel),
+                            text = stringResource(R.string.settings_proxy_source_cancel),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -93,7 +93,7 @@ fun LuoxunInputDialog(
                         onClick = { onConfirm(value.trim()) },
                     ) {
                         Text(
-                            text = stringResource(R.string.settings_luoxun_confirm),
+                            text = stringResource(R.string.settings_proxy_source_confirm),
                             color = if (canConfirm) MaterialTheme.colorScheme.onPrimary
                                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                             fontSize = 13.sp,

@@ -561,7 +561,7 @@ private fun QualitySelectDialog(
     )
 }
 
-// 音质选项卡片，样式与洛雪音源导入方式选项一致
+// 音质选项卡片，样式与代理音源导入方式选项一致
 @Composable
 private fun QualityOptionCard(
     label: String,
