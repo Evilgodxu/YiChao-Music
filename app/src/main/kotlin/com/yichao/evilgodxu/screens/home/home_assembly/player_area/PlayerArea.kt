@@ -133,12 +133,13 @@ fun PlayerArea(
             ),
         )
 
-    // 歌词区固定高度：按当前字号预留行高供歌词换行时展开，避免随内容变化而跳动
+    // 歌词区高度随可见行数与字号自适应：每行占行高与上下内边距之和，行间为固定间距
     val textMeasurer = rememberTextMeasurer()
     val lyricLineHeight = with(LocalDensity.current) {
         textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = homePortraitLayout.fontSizeSp.sp)).size.height.toDp()
     }
-    val lyricsAreaHeight = (lyricLineHeight + 4.dp) * 9 + 2.dp * 4 + 4.dp
+    val lyricsAreaHeight = (lyricLineHeight + 4.dp) * homePortraitLayout.visibleLines +
+        2.dp * (homePortraitLayout.visibleLines - 1) + 4.dp
 
     // 长按功能状态：复用音乐面板的封面/歌词刷新与标题/艺人重命名能力
     val scope = rememberCoroutineScope()

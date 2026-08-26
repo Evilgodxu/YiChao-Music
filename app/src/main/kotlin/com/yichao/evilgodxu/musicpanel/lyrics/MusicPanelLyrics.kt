@@ -111,7 +111,7 @@ internal fun LyricsPanel(
             .padding(top = 4.dp, bottom = 0.dp)
             // 裁剪到蒙层范围，防溢出的行以未渐变原色出现在顶部导致闪烁
             .clipToBounds()
-            .verticalFadeMask(),
+            .verticalFadeMask(fadeFraction = FADE_TOTAL_LINES / visibleLines),
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
@@ -332,6 +332,9 @@ private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
 // 歌词面板默认可见行数：保持奇数使当前行垂直居中（上下各 (n-1)/2 行）
 private const val DEFAULT_VISIBLE_LINES = 5
+
+// 上下边缘渐变覆盖的总行数（上下各半）：随可见行数换算比例，行数增减时淡出区间保持一致
+private const val FADE_TOTAL_LINES = 1.25f
 
 // 上下边缘淡出：按纵向透明度梯度对内容做 DstIn 蒙层，使上下行渐变消失
 internal fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {
