@@ -2,6 +2,7 @@ package com.yichao.evilgodxu.screens.settings
 
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.ThemeMode
+import com.yichao.evilgodxu.musicpanel.proxy.ProxySourceSpec
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -12,4 +13,10 @@ data class SettingsUiState(
     val wordByWordRendering: Boolean = true,
     val swipeToChangeTrack: Boolean = true,
     val version: String = "",
+    // 已导入的代理音源列表
+    val proxySources: List<ProxySourceSpec> = emptyList(),
+    // 最近一次代理音源导入的提示信息（成功或失败原因），点击后清空
+    val proxyImportMessage: String? = null,
+    // 最近一次导入是否失败（决定提示文案颜色）
+    val proxyImportFailed: Boolean = false,
 )

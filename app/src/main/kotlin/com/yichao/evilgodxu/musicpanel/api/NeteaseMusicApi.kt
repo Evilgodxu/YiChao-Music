@@ -31,6 +31,8 @@ data class NeteaseSongSearchResult(
     val source: MusicSearchSource = MusicSearchSource.NETEASE,
     /** 平台内歌曲标识（QQ 的 songmid、酷狗的 hash），取播放地址/歌词时使用 */
     val sourceId: String? = null,
+    /** 封面 ID：代理音源搜索结果仅有封面 ID 时，播放时经 pic 动作换取真实地址 */
+    val coverId: String? = null,
 )
 
 internal data class NeteaseLyricData(val lines: List<LyricLine>)

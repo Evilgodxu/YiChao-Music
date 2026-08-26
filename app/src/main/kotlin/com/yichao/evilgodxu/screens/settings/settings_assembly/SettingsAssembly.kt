@@ -55,6 +55,9 @@ fun SettingsAssembly(
     onSwipeToChangeTrackChange: (Boolean) -> Unit,
     onVersionClick: () -> Unit,
     onOpenTypography: () -> Unit,
+    onProxySourceImport: (String) -> Unit,
+    onProxySourceRemove: (String) -> Unit,
+    onProxyImportMessageDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -117,8 +120,14 @@ fun SettingsAssembly(
                 onSwipeToChangeTrackChange = onSwipeToChangeTrackChange,
                 onTypographyClick = onOpenTypography,
             )
-            // 导入结果处理尚未实现
-            ProxySourceArea(onImport = {})
+            ProxySourceArea(
+                sources = uiState.proxySources,
+                importMessage = uiState.proxyImportMessage,
+                importFailed = uiState.proxyImportFailed,
+                onImport = onProxySourceImport,
+                onRemove = onProxySourceRemove,
+                onMessageDismiss = onProxyImportMessageDismiss,
+            )
             AppInfoArea(uiState.version, onVersionClick)
         }
     }

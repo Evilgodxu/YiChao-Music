@@ -1,0 +1,227 @@
+package com.yichao.evilgodxu.musicpanel.proxy
+
+import android.content.Context
+import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.musicpanel.LyricLine
+import com.yichao.evilgodxu.musicpanel.MusicHttpClient
+import com.yichao.evilgodxu.musicpanel.MusicQuality
+import com.yichao.evilgodxu.musicpanel.MusicSearchSource
+import com.yichao.evilgodxu.musicpanel.NeteaseSongSearchResult
+import com.yichao.evilgodxu.musicpanel.mergeTranslations
+import com.yichao.evilgodxu.musicpanel.parseLrcText
+import com.yichao.evilgodxu.musicpanel.stableIdFromString
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import org.json.JSONTokener
+import java.net.URLEncoder
+
+// 代理音源执行引擎：按规范构建请求、解析响应并映射到在线搜索/播放统一模型。
+// 所有入口在对应的平台/动作未配置或请求失败时返回 null，由调用方回退内置音源。
+internal object ProxySourceEngine {
+
+    private const val SEARCH_COUNT = 50
+
+    suspend fun search(
+        context: Context,
+        source: MusicSearchSource,
+        keyword: String,
+    ): List<NeteaseSongSearchResult>? = withContext(Dispatchers.IO) {
+        val action = ProxySourceStore.platformSpec(context, source.platformKey())?.search
+            ?: return@withContext null
+        val body = executeAction(
+            action,
+            mapOf("keyword" to keyword, "page" to "1", "count" to SEARCH_COUNT.toString()),
+        ) ?: return@withContext null
+        val listPath = action.result.list
+        val array = if (listPath == null) {
+            body as? JSONArray
+        } else {
+            ProxyJsonPath.resolve(body, listPath) as? JSONArray
+        } ?: return@withContext null
+        List(array.length()) { index -> mapSearchResult(array.opt(index), action, source) }
+            .filterNotNull()
+            .distinctBy { it.id }
+            .also { if (it.isEmpty()) return@withContext null }
+    }
+
+    // 按音质档位解析播放直链：直链同时用于播放与缓存下载
+    suspend fun resolveUrl(
+        context: Context,
+        target: NeteaseSongSearchResult,
+        quality: MusicQuality,
+    ): String? = withContext(Dispatchers.IO) {
+        val action = ProxySourceStore.platformSpec(context, target.source.platformKey())?.url
+            ?: return@withContext null
+        val qualityValue = action.qualities[quality] ?: return@withContext null
+        val body = executeAction(
+            action,
+            placeholders(target) + ("quality" to qualityValue),
+        ) ?: return@withContext null
+        resolveString(body, action.result.url) ?: return@withContext null
+    }
+
+    suspend fun lyricLines(
+        context: Context,
+        source: MusicSearchSource,
+        target: NeteaseSongSearchResult,
+    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        val action = ProxySourceStore.platformSpec(context, source.platformKey())?.lyric
+            ?: return@withContext null
+        val body = executeAction(action, placeholders(target)) ?: return@withContext null
+        val lrc = resolveString(body, action.result.lyric) ?: return@withContext null
+        val tlyric = resolveString(body, action.result.tlyric).orEmpty()
+        mergeTranslations(parseLrcText(lrc), parseLrcText(tlyric))
+    }
+
+    // 换取封面直链：优先搜索结果中的 coverUrl，否则经 pic 动作按 coverId 解析
+    suspend fun coverUrl(context: Context, target: NeteaseSongSearchResult): String? =
+        withContext(Dispatchers.IO) {
+            target.coverUrl?.takeIf { it.isNotBlank() }?.let { return@withContext it }
+            val coverId = target.coverId?.takeIf { it.isNotBlank() } ?: return@withContext null
+            val action = ProxySourceStore.platformSpec(context, target.source.platformKey())?.pic
+                ?: return@withContext null
+            val body = executeAction(action, placeholders(target)) ?: return@withContext null
+            resolveString(body, action.result.url) ?: return@withContext null
+        }
+
+    // 下载封面字节：供在线播放时落盘缓存封面
+    suspend fun coverBytes(context: Context, target: NeteaseSongSearchResult): ByteArray? =
+        withContext(Dispatchers.IO) {
+            val url = coverUrl(context, target) ?: return@withContext null
+            try {
+                MusicHttpClient.client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                    if (resp.isSuccessful) resp.body.bytes() else null
+                }
+            } catch (e: Exception) {
+                CrashLogManager.logException("ProxySource", "下载代理封面失败", e)
+                null
+            }
+        }
+
+    private fun mapSearchResult(
+        item: Any?,
+        action: ProxyActionSpec,
+        source: MusicSearchSource,
+    ): NeteaseSongSearchResult? {
+        if (item !is JSONObject) return null
+        val result = action.result
+        val title = resolveString(item, result.title) ?: return null
+        val idLong = resolveLong(item, result.id)
+        val sourceId = resolveString(item, result.sourceId) ?: idLong?.toString()
+        val id = idLong ?: sourceId?.let { stableIdFromString(it) } ?: return null
+        return NeteaseSongSearchResult(
+            id = id,
+            title = title,
+            artist = resolveJoinString(item, result.artist).orEmpty(),
+            coverUrl = resolveString(item, result.coverUrl),
+            duration = resolveLong(item, result.duration) ?: 0L,
+            source = source,
+            sourceId = sourceId,
+            coverId = resolveString(item, result.coverId),
+        )
+    }
+
+    private fun placeholders(target: NeteaseSongSearchResult): Map<String, String> {
+        val id = target.id.toString()
+        return mapOf(
+            "id" to id,
+            "sourceId" to (target.sourceId ?: id),
+            "coverId" to target.coverId.orEmpty(),
+            "title" to target.title,
+            "artist" to target.artist,
+            "album" to "",
+            "duration" to target.duration.toString(),
+        )
+    }
+
+    private suspend fun executeAction(
+        action: ProxyActionSpec,
+        values: Map<String, String>,
+    ): Any? = withContext(Dispatchers.IO) {
+        try {
+            val url = buildUrl(action, values)
+            val builder = Request.Builder().url(url)
+            action.headers.forEach { (key, value) ->
+                val rendered = render(value, values)
+                if (rendered.isNotEmpty()) builder.header(key, rendered)
+            }
+            val request = if (action.isPost) {
+                val form = action.params.entries.joinToString("&") { (key, value) ->
+                    "${encode(key)}=${encode(render(value, values))}"
+                }
+                builder.post(form.toRequestBody("application/x-www-form-urlencoded".toMediaType())).build()
+            } else {
+                builder.get().build()
+            }
+            MusicHttpClient.client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    null
+                } else {
+                    JSONTokener(resp.body.string()).nextValue()
+                }
+            }
+        } catch (e: Exception) {
+            CrashLogManager.logException("ProxySource", "代理音源请求失败: ${action.url}", e)
+            null
+        }
+    }
+
+    private fun buildUrl(action: ProxyActionSpec, values: Map<String, String>): String {
+        val base = render(action.url, values)
+        val queryValues = if (action.isPost) action.query else action.params
+        if (queryValues.isEmpty()) return base
+        val query = queryValues.entries.joinToString("&") { (key, value) ->
+            "${encode(key)}=${encode(render(value, values))}"
+        }
+        return base + if (base.contains("?")) "&" else "?" + query
+    }
+
+    private fun render(template: String, values: Map<String, String>): String {
+        var result = template
+        values.forEach { (key, value) -> result = result.replace("{$key}", value) }
+        return result
+    }
+
+    private fun resolveString(root: Any, path: String?): String? {
+        val value = ProxyJsonPath.resolve(root, path) ?: return null
+        return when (value) {
+            is String -> value
+            is JSONObject, is JSONArray -> null
+            else -> value.toString()
+        }?.takeIf { it.isNotBlank() }
+    }
+
+    // 歌手字段：字符串数组按 " / " 拼接，单个字符串原样返回
+    private fun resolveJoinString(root: Any, path: String?): String? {
+        val value = ProxyJsonPath.resolve(root, path) ?: return null
+        return when (value) {
+            is JSONArray -> (0 until value.length()).mapNotNull { index ->
+                val item = value.opt(index)
+                if (item is String) item.takeIf { it.isNotBlank() } else null
+            }.joinToString(" / ")
+            is String -> value.takeIf { it.isNotBlank() }
+            else -> null
+        }
+    }
+
+    private fun resolveLong(root: Any, path: String?): Long? {
+        val value = ProxyJsonPath.resolve(root, path) ?: return null
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Double -> value.toLong()
+            is String -> value.toLongOrNull()
+            else -> null
+        }
+    }
+
+    private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+}
+
+// 平台键与应用内搜索平台对齐（netease/qq/kugou/kuwo/migu）
+internal fun MusicSearchSource.platformKey(): String = name.lowercase()

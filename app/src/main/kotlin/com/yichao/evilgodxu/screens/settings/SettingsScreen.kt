@@ -65,6 +65,9 @@ fun SettingsScreen(
         onSwipeToChangeTrackChange = viewModel::setSwipeToChangeTrack,
         onVersionClick = { updateViewModel.checkForUpdate(force = true) },
         onOpenTypography = onOpenTypography,
+        onProxySourceImport = viewModel::importProxySource,
+        onProxySourceRemove = viewModel::removeProxySource,
+        onProxyImportMessageDismiss = viewModel::clearProxyImportMessage,
         modifier = modifier,
     )
 }

@@ -183,6 +183,12 @@
     <string name="settings_proxy_source_text_hint">请输入音源内容</string>
     <string name="settings_proxy_source_confirm">确定</string>
     <string name="settings_proxy_source_cancel">取消</string>
+    <string name="settings_proxy_source_empty">尚未导入音源，导入后在线歌曲将优先使用该音源解析播放与缓存</string>
+    <string name="settings_proxy_source_platforms">覆盖平台：%1$s</string>
+    <string name="settings_proxy_source_remove_desc">移除音源</string>
+    <string name="settings_proxy_source_import_success">导入成功：%1$s</string>
+    <string name="settings_proxy_source_import_failed">导入失败：%1$s</string>
+    <string name="settings_proxy_source_link_error">链接无法访问，请检查网络</string>
 
     <!-- 卡片与排版设置 -->
     <string name="typography_screen_title">排版设置</string>

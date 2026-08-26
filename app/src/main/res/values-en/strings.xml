@@ -183,6 +183,12 @@
     <string name="settings_proxy_source_text_hint">Enter the source content</string>
     <string name="settings_proxy_source_confirm">OK</string>
     <string name="settings_proxy_source_cancel">Cancel</string>
+    <string name="settings_proxy_source_empty">No source imported yet. Imported sources take priority for online playback and caching</string>
+    <string name="settings_proxy_source_platforms">Platforms: %1$s</string>
+    <string name="settings_proxy_source_remove_desc">Remove source</string>
+    <string name="settings_proxy_source_import_success">Imported: %1$s</string>
+    <string name="settings_proxy_source_import_failed">Import failed: %1$s</string>
+    <string name="settings_proxy_source_link_error">Failed to fetch the link, please check the network</string>
 
     <!-- Cards & typography settings -->
     <string name="typography_screen_title">Cards &amp; Typography</string>

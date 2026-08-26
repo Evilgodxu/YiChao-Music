@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.musicpanel.proxy.ProxySourceEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -213,13 +214,19 @@ internal suspend fun performSearch(
     // 立即切到结果视图，使加载指示器在搜索期间可见
     playbackState.showSearchResults = true
     try {
-        // 仅查询当前选中的音乐平台，单平台失败不阻塞其他流程
-        val results = runCatching { sourceOf(playbackState.searchSource).search(query) }
-            .getOrDefault(emptyList())
-            .distinctBy { it.id }
+        // 代理音源优先搜索，失败或未配置时回退内置平台
+        val proxyResults = ProxySourceEngine.search(context, playbackState.searchSource, query)
+        val results = if (proxyResults != null) {
+            proxyResults
+        } else {
+            runCatching { sourceOf(playbackState.searchSource).search(query) }
+                .getOrDefault(emptyList())
+        }.distinctBy { it.id }
         playbackState.searchResults = results
         if (results.isNotEmpty()) playbackState.addSearchHistory(query)
         playbackState.showSearchResults = true
+        // 代理搜索结果的封面为逐条经 pic 动作换取，后台渐进补齐
+        if (proxyResults != null) fillProxySearchCovers(playbackState, context)
     } catch (e: kotlinx.coroutines.CancellationException) {
         // 搜索界面退出导致的协程取消，不是失败，向上传递取消
         throw e
@@ -233,6 +240,30 @@ internal suspend fun performSearch(
         }
     }
 }
+
+// 代理搜索结果的封面为逐条经 pic 动作换取：串行补齐前 N 条，控制聚合接口调用频率
+private fun fillProxySearchCovers(playbackState: MusicPlaybackState, context: Context) {
+    val pending = playbackState.searchResults
+        .filter { it.coverUrl.isNullOrBlank() && !it.coverId.isNullOrBlank() }
+        .take(MAX_PROXY_COVER_FILL)
+    if (pending.isEmpty()) return
+    playbackState.playbackScope.launch {
+        pending.forEach { result ->
+            val url = ProxySourceEngine.coverUrl(context, result) ?: return@forEach
+            withContext(Dispatchers.Main) {
+                val index = playbackState.searchResults.indexOfFirst { it.id == result.id }
+                if (index >= 0) {
+                    val list = playbackState.searchResults.toMutableList()
+                    list[index] = result.copy(coverUrl = url)
+                    playbackState.searchResults = list
+                }
+            }
+        }
+    }
+}
+
+// 代理搜索结果封面逐条换取的条数上限
+private const val MAX_PROXY_COVER_FILL = 8
 
 internal suspend fun downloadAndPlay(
     context: Context,
@@ -272,13 +303,14 @@ internal suspend fun downloadAndPlay(
     // 在线结果后台加载歌词：各平台各有歌词接口
     playbackState.playbackScope.launch(Dispatchers.IO) {
         try {
-            val lines = when (result.source) {
-                MusicSearchSource.NETEASE -> NeteaseMusicApi.lyric(result.id).lines
-                MusicSearchSource.QQ -> QQMusicApi.lyricLines(result).orEmpty()
-                MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(result).orEmpty()
-                MusicSearchSource.KUWO -> KuwoMusicApi.lyricLines(result).orEmpty()
-                MusicSearchSource.MIGU -> MiguMusicApi.lyricLines(result).orEmpty()
-            }
+            val lines = ProxySourceEngine.lyricLines(context, result.source, result)
+                ?: when (result.source) {
+                    MusicSearchSource.NETEASE -> NeteaseMusicApi.lyric(result.id).lines
+                    MusicSearchSource.QQ -> QQMusicApi.lyricLines(result).orEmpty()
+                    MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(result).orEmpty()
+                    MusicSearchSource.KUWO -> KuwoMusicApi.lyricLines(result).orEmpty()
+                    MusicSearchSource.MIGU -> MiguMusicApi.lyricLines(result).orEmpty()
+                }
             if (lines.isNotEmpty()) {
                 val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
                 withContext(Dispatchers.Main) {
@@ -305,8 +337,13 @@ internal suspend fun downloadAndPlay(
     // 在线播放时同步下载封面原图落盘：缓存完成后可直接内嵌写入本地文件，面板与通知栏也即时获得本地封面
     playbackState.playbackScope.launch(Dispatchers.IO) {
         try {
-            val coverUrl = result.coverUrl?.takeIf { it.isNotBlank() } ?: return@launch
-            val bytes = NeteaseMusicApi.loadCoverBytes(coverUrl) ?: return@launch
+            // 代理音源优先按 coverId 换取封面，失败时回退搜索结果的封面直链
+            val bytes = ProxySourceEngine.coverBytes(context, result)
+                ?: run {
+                    val coverUrl = result.coverUrl?.takeIf { it.isNotBlank() } ?: return@run null
+                    NeteaseMusicApi.loadCoverBytes(coverUrl)
+                }
+                ?: return@launch
             val coverPath = MusicMetadataCache.saveCover(context, result.id, bytes).orEmpty()
             if (coverPath.isBlank()) return@launch
             withContext(Dispatchers.Main) {
@@ -585,25 +622,29 @@ internal suspend fun playSearchResult(
 
     playbackState.pendingSearchResults = emptyList()
 
-    // QQ/酷狗按平台标识解析播放地址；网易云结果需向接口请求播放 URL
+    // 代理音源优先解析播放地址，失败时回退内置解析；缓存下载沿用同一直链
     val playTarget: NeteaseSongSearchResult
     val url: String?
     when (target.source) {
         MusicSearchSource.QQ -> {
             playTarget = target
-            url = withContext(Dispatchers.IO) { QQMusicApi.songUrl(target.sourceId.orEmpty()) }
+            url = ProxySourceEngine.resolveUrl(context, target, MusicQuality.HIGH)
+                ?: withContext(Dispatchers.IO) { QQMusicApi.songUrl(target.sourceId.orEmpty()) }
         }
         MusicSearchSource.KUGOU -> {
             playTarget = target
-            url = withContext(Dispatchers.IO) { KugouMusicApi.songUrl(target.sourceId.orEmpty()) }
+            url = ProxySourceEngine.resolveUrl(context, target, MusicQuality.HIGH)
+                ?: withContext(Dispatchers.IO) { KugouMusicApi.songUrl(target.sourceId.orEmpty()) }
         }
         MusicSearchSource.KUWO -> {
             playTarget = target
-            url = withContext(Dispatchers.IO) { KuwoMusicApi.songUrl(target.sourceId.orEmpty()) }
+            url = ProxySourceEngine.resolveUrl(context, target, MusicQuality.HIGH)
+                ?: withContext(Dispatchers.IO) { KuwoMusicApi.songUrl(target.sourceId.orEmpty()) }
         }
         MusicSearchSource.MIGU -> {
             playTarget = target
-            url = withContext(Dispatchers.IO) { MiguMusicApi.songUrl(target.sourceId.orEmpty()) }
+            url = ProxySourceEngine.resolveUrl(context, target, MusicQuality.HIGH)
+                ?: withContext(Dispatchers.IO) { MiguMusicApi.songUrl(target.sourceId.orEmpty()) }
         }
         MusicSearchSource.NETEASE -> {
             val fullResult = if (target.coverUrl.isNullOrBlank() || target.duration <= 0L) {
@@ -612,9 +653,10 @@ internal suspend fun playSearchResult(
                 }
             } else target
             playTarget = fullResult
-            url = withContext(Dispatchers.IO) {
-                NeteaseMusicApi.getSongUrlWithFallback(fullResult.id)
-            }
+            url = ProxySourceEngine.resolveUrl(context, fullResult, MusicQuality.HIGH)
+                ?: withContext(Dispatchers.IO) {
+                    NeteaseMusicApi.getSongUrlWithFallback(fullResult.id)
+                }
         }
     }
 
@@ -628,12 +670,13 @@ internal suspend fun playSearchResult(
     }
 }
 
-// 按指定音质解析在线播放地址；返回 null 表示该音质不可用
+// 按指定音质解析在线播放地址；代理音源优先，返回 null 表示该音质不可用
 internal suspend fun resolvePlayUrlByQuality(
+    context: Context,
     target: NeteaseSongSearchResult,
     quality: MusicQuality,
 ): String? = withContext(Dispatchers.IO) {
-    when (target.source) {
+    ProxySourceEngine.resolveUrl(context, target, quality) ?: when (target.source) {
         MusicSearchSource.NETEASE -> NeteaseMusicApi.songUrl(target.id, quality)
         MusicSearchSource.QQ -> QQMusicApi.songUrl(target.sourceId.orEmpty(), quality)
         MusicSearchSource.KUGOU -> KugouMusicApi.songUrl(target.sourceId.orEmpty())
@@ -650,7 +693,7 @@ internal suspend fun playSearchResultWithQuality(
     playbackState: MusicPlaybackState,
     context: Context,
 ): Boolean {
-    val url = resolvePlayUrlByQuality(target, quality) ?: return false
+    val url = resolvePlayUrlByQuality(context, target, quality) ?: return false
     playbackState.pendingQualityPlayTrackId = target.id + 1000000L
     playbackState.closeSearchResultsOnReady = true
     downloadAndPlay(context, playbackState, target, url)

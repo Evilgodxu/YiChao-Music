@@ -7,22 +7,30 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.OverlayGrantMonitor
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.ThemeMode
+import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.musicpanel.MusicHttpClient
 import com.yichao.evilgodxu.musicpanel.miniPlayerEnabledFlow
 import com.yichao.evilgodxu.musicpanel.saveMiniPlayerEnabled
 import com.yichao.evilgodxu.musicpanel.saveWordByWordRendering
 import com.yichao.evilgodxu.musicpanel.wordByWordRenderingFlow
 import com.yichao.evilgodxu.musicpanel.saveSwipeToChangeTrack
 import com.yichao.evilgodxu.musicpanel.swipeToChangeTrackFlow
+import com.yichao.evilgodxu.musicpanel.proxy.ProxyParseResult
+import com.yichao.evilgodxu.musicpanel.proxy.ProxySourceStore
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.Request
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -63,6 +71,7 @@ class SettingsViewModel(
                 _uiState.update { it.copy(swipeToChangeTrack = enabled) }
             }
         }
+        refreshProxySources()
     }
 
     fun setMiniPlayerEnabled(enabled: Boolean) {
@@ -129,6 +138,64 @@ class SettingsViewModel(
         localizationManager.applyAppLocale(localizationManager.resolveLanguage(language))
         viewModelScope.launch {
             settingsRepository.setAppLanguage(language)
+        }
+    }
+
+    // 导入代理音源：链接内容先拉取，文本内容直接解析，结果即时生效
+    fun importProxySource(content: String) {
+        viewModelScope.launch {
+            val (message, failed) = withContext(Dispatchers.IO) {
+                val raw = if (looksLikeUrl(content)) fetchUrl(content) else content
+                when {
+                    raw.isNullOrBlank() -> context.getString(
+                        R.string.settings_proxy_source_import_failed,
+                        context.getString(R.string.settings_proxy_source_link_error),
+                    ) to true
+                    else -> when (val result = ProxySourceStore.import(context, raw)) {
+                        is ProxyParseResult.Success -> context.getString(
+                            R.string.settings_proxy_source_import_success,
+                            result.spec.name,
+                        ) to false
+                        is ProxyParseResult.Failure -> context.getString(
+                            R.string.settings_proxy_source_import_failed,
+                            result.reason,
+                        ) to true
+                    }
+                }
+            }
+            _uiState.update {
+                it.copy(proxyImportMessage = message, proxyImportFailed = failed)
+            }
+            refreshProxySources()
+        }
+    }
+
+    fun removeProxySource(name: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { ProxySourceStore.remove(context, name) }
+            refreshProxySources()
+        }
+    }
+
+    fun clearProxyImportMessage() {
+        _uiState.update { it.copy(proxyImportMessage = null, proxyImportFailed = false) }
+    }
+
+    private fun refreshProxySources() {
+        _uiState.update { it.copy(proxySources = ProxySourceStore.all(context)) }
+    }
+
+    private fun looksLikeUrl(content: String): Boolean =
+        content.startsWith("http://") || content.startsWith("https://")
+
+    private fun fetchUrl(url: String): String? {
+        return try {
+            MusicHttpClient.client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                if (resp.isSuccessful) resp.body?.string()?.trim() else null
+            }
+        } catch (e: Exception) {
+            CrashLogManager.logException("SettingsViewModel", "拉取代理音源链接失败: $url", e)
+            null
         }
     }
 
