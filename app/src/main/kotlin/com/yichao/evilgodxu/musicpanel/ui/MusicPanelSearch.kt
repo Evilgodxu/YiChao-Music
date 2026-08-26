@@ -411,6 +411,8 @@ internal fun SearchResultRow(
                 when (result.source) {
                     MusicSearchSource.QQ -> R.string.music_panel_search_source_qq
                     MusicSearchSource.KUGOU -> R.string.music_panel_search_source_kugou
+                    MusicSearchSource.KUWO -> R.string.music_panel_search_source_kuwo
+                    MusicSearchSource.MIGU -> R.string.music_panel_search_source_migu
                     MusicSearchSource.NETEASE -> R.string.music_panel_search_source
                 }
             ),

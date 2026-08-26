@@ -61,6 +61,8 @@
     <string name="music_panel_search_source">Netease</string>
     <string name="music_panel_search_source_qq">QQ Music</string>
     <string name="music_panel_search_source_kugou">Kugou</string>
+    <string name="music_panel_search_source_kuwo">Kuwo</string>
+    <string name="music_panel_search_source_migu">Migu</string>
     <string name="music_panel_playback_settings">Playback settings</string>
     <string name="music_panel_usb_exclusive">USB audio exclusive</string>
     <string name="music_panel_usb_enabled">Enabled: %s</string>

@@ -79,6 +79,8 @@ internal suspend fun applyLyricsCandidate(
             val lines = when (candidate.source) {
                 MusicSearchSource.QQ -> QQMusicApi.lyricLines(candidate).orEmpty()
                 MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(candidate).orEmpty()
+                MusicSearchSource.KUWO -> KuwoMusicApi.lyricLines(candidate).orEmpty()
+                MusicSearchSource.MIGU -> MiguMusicApi.lyricLines(candidate).orEmpty()
                 else -> NeteaseMusicApi.lyric(candidate.id).lines
             }
             if (lines.isEmpty()) return@withContext null
@@ -279,6 +281,8 @@ internal suspend fun downloadAndPlay(
                 MusicSearchSource.NETEASE -> NeteaseMusicApi.lyric(result.id).lines
                 MusicSearchSource.QQ -> QQMusicApi.lyricLines(result).orEmpty()
                 MusicSearchSource.KUGOU -> KugouMusicApi.lyricLines(result).orEmpty()
+                MusicSearchSource.KUWO -> KuwoMusicApi.lyricLines(result).orEmpty()
+                MusicSearchSource.MIGU -> MiguMusicApi.lyricLines(result).orEmpty()
             }
             if (lines.isNotEmpty()) {
                 val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
@@ -602,6 +606,14 @@ internal suspend fun playSearchResult(
         MusicSearchSource.KUGOU -> {
             playTarget = target
             url = withContext(Dispatchers.IO) { KugouMusicApi.songUrl(target.sourceId.orEmpty()) }
+        }
+        MusicSearchSource.KUWO -> {
+            playTarget = target
+            url = withContext(Dispatchers.IO) { KuwoMusicApi.songUrl(target.sourceId.orEmpty()) }
+        }
+        MusicSearchSource.MIGU -> {
+            playTarget = target
+            url = withContext(Dispatchers.IO) { MiguMusicApi.songUrl(target.sourceId.orEmpty()) }
         }
         MusicSearchSource.NETEASE -> {
             val fullResult = if (target.coverUrl.isNullOrBlank() || target.duration <= 0L) {

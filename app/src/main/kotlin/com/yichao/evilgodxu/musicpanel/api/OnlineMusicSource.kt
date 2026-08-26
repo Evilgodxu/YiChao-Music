@@ -10,4 +10,6 @@ internal val onlineMusicSources: List<OnlineMusicSource> = listOf(
     NeteaseMusicApi,
     QQMusicApi,
     KugouMusicApi,
+    KuwoMusicApi,
+    MiguMusicApi,
 )

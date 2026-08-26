@@ -18,7 +18,7 @@ internal data class NeteaseSongMatch(
 )
 
 // 在线音乐搜索来源
-enum class MusicSearchSource { NETEASE, QQ, KUGOU }
+enum class MusicSearchSource { NETEASE, QQ, KUGOU, KUWO, MIGU }
 
 data class NeteaseSongSearchResult(
     val id: Long,
