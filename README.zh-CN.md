@@ -14,7 +14,7 @@
 ![AGP](https://img.shields.io/badge/AGP-9.3.1-blue)
 ![Gradle](https://img.shields.io/badge/Gradle-9.7.0-blue)
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.08.00-blue)
-![minSdk](https://img.shields.io/badge/minSdk-28-orange)
+![minSdk](https://img.shields.io/badge/minSdk-34-orange)
 ![targetSdk](https://img.shields.io/badge/targetSdk-37-orange)
 
 </div>
@@ -176,7 +176,7 @@ KEY_PASSWORD=你的别名密码
 
 - 歌词动效与网易云音乐解析早期参考 [Qplayer](https://github.com/TIMER-err/qplayer)
 - 列表拖拽排序早期参考 [Reorderable](https://github.com/Calvin-LL/Reorderable),现为项目内自实现(算法等价)
-- 基于 [musicdl](https://github.com/CharlesPikachu/musicdl) 实现 QQ 与酷狗 Kotlin 原生音源解析
+- 基于 [musicdl](https://github.com/CharlesPikachu/musicdl) 实现 QQ 酷狗 酷我 咪咕 的 Kotlin 原生音源解析
 
 ## License
 

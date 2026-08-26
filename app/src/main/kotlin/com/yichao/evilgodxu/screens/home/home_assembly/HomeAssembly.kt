@@ -64,8 +64,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.permission.PermissionType
@@ -205,10 +203,7 @@ fun HomeAssembly(
     // 进入横屏沉浸模式时隐藏系统栏
     LaunchedEffect(isLandscapeMode) {
         if (isLandscapeMode) {
-            activity?.let {
-                WindowInsetsControllerCompat(it.window, it.window.decorView)
-                    .hide(WindowInsetsCompat.Type.systemBars())
-            }
+            activity?.window?.insetsController?.hide(android.view.WindowInsets.Type.systemBars())
         }
     }
 

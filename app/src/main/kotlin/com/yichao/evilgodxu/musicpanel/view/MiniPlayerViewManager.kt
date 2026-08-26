@@ -7,12 +7,12 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
@@ -76,7 +76,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
@@ -248,11 +247,10 @@ class MiniPlayerViewManager(
             .setInterpolator(DecelerateInterpolator())
             .start()
 
-        ContextCompat.registerReceiver(
-            context,
+        context.registerReceiver(
             screenOffReceiver,
             IntentFilter(Intent.ACTION_SCREEN_OFF),
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            Context.RECEIVER_NOT_EXPORTED
         )
     }
 
@@ -327,12 +325,8 @@ class MiniPlayerViewManager(
 
     // 实时获取当前窗口顶部状态栏 inset（横屏时状态栏位于侧边，顶部为 0）
     private fun currentTopInset(): Int = runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsCompat.toWindowInsetsCompat(windowManager.currentWindowMetrics.windowInsets)
-                .getInsets(WindowInsetsCompat.Type.statusBars()).top
-        } else {
-            getStatusBarHeight()
-        }
+        windowManager.currentWindowMetrics.windowInsets
+            .getInsets(WindowInsets.Type.statusBars()).top
     }.getOrElse { if (isLandscape()) 0 else getStatusBarHeight() }
 
     // 迷你播放器纵向位置：横屏状态栏在侧边，顶部仅保留 1dp 间距；

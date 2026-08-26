@@ -3,7 +3,6 @@ package com.yichao.evilgodxu.screens.home.home_assembly.permission_area
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -106,37 +105,34 @@ fun PermissionDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    // 全部文件权限仅 API 30 及以上存在，低版本不显示
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        PermissionCardRow(
-                            icon = {
-                                Icon(
-                                    AppIcons.Folder,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            },
-                            title = stringResource(R.string.permission_all_files_title),
-                            granted = uiState.allFilesGranted,
-                            onRequest = {
-                                // 跳转系统设置前启动权限监控，授权后自动返回本应用
-                                activity?.let {
-                                    onStartPermissionMonitor(PermissionType.MANAGE_EXTERNAL_STORAGE, it)
-                                }
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                    Uri.parse("package:${context.packageName}"),
-                                )
-                                if (activity != null) {
-                                    activity.startActivity(intent)
-                                } else {
-                                    // 无宿主 Activity 时需加 NEW_TASK
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(intent)
-                                }
-                            },
-                        )
-                    }
+                    PermissionCardRow(
+                        icon = {
+                            Icon(
+                                AppIcons.Folder,
+                                null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        },
+                        title = stringResource(R.string.permission_all_files_title),
+                        granted = uiState.allFilesGranted,
+                        onRequest = {
+                            // 跳转系统设置前启动权限监控，授权后自动返回本应用
+                            activity?.let {
+                                onStartPermissionMonitor(PermissionType.MANAGE_EXTERNAL_STORAGE, it)
+                            }
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                Uri.parse("package:${context.packageName}"),
+                            )
+                            if (activity != null) {
+                                activity.startActivity(intent)
+                            } else {
+                                // 无宿主 Activity 时需加 NEW_TASK
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            }
+                        },
+                    )
                     PermissionCardRow(
                         icon = {
                             Icon(

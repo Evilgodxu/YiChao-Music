@@ -2,6 +2,7 @@ package com.yichao.evilgodxu.theme
 
 import android.app.Activity
 import android.graphics.Bitmap
+import android.view.WindowInsetsController
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,7 +29,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.core.view.drawToBitmap
-import androidx.core.view.WindowCompat
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.settings.ThemeMode
 import org.koin.compose.koinInject
@@ -72,10 +72,14 @@ fun StatusBarStyleEffect() {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             SystemBarAppearance.isLightStatusBars = statusBarLight
             SystemBarAppearance.isLightNavigationBars = navigationBarLight
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = statusBarLight
-                isAppearanceLightNavigationBars = navigationBarLight
-            }
+            window.insetsController?.setSystemBarsAppearance(
+                if (statusBarLight) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+            )
+            window.insetsController?.setSystemBarsAppearance(
+                if (navigationBarLight) WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS else 0,
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+            )
         }
     }
 }

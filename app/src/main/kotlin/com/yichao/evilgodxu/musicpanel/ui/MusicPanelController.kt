@@ -5,9 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Environment
-import android.os.Build
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.core.content.ContextCompat
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
 import com.yichao.evilgodxu.log.CrashLogManager
@@ -164,12 +162,8 @@ class MusicPanelController(private val context: Context) {
     }
 
     private fun hasRequiredPermissions(): Boolean =
-        ContextCompat.checkSelfPermission(context, mediaAudioPermission()) ==
-            PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(context, mediaImagePermission()) ==
-            PackageManager.PERMISSION_GRANTED &&
-            (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
-                PackageManager.PERMISSION_GRANTED) &&
-            (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager())
+        context.checkSelfPermission(mediaAudioPermission()) == PackageManager.PERMISSION_GRANTED &&
+            context.checkSelfPermission(mediaImagePermission()) == PackageManager.PERMISSION_GRANTED &&
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+            Environment.isExternalStorageManager()
 }

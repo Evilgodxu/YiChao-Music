@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.LocaleList
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -21,9 +23,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.core.content.IntentCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -48,7 +47,7 @@ import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 
 class YiChaoActivity : ComponentActivity() {
-    private lateinit var windowInsetsController: WindowInsetsControllerCompat
+    private lateinit var windowInsetsController: WindowInsetsController
     private val localizationManager: LocalizationManager by inject()
     private val updateViewModel: UpdateViewModel by inject()
     private lateinit var musicPanelController: MusicPanelController
@@ -123,8 +122,22 @@ class YiChaoActivity : ComponentActivity() {
     }
 
     private fun applySystemBarAppearance() {
-        windowInsetsController.isAppearanceLightStatusBars = SystemBarAppearance.isLightStatusBars
-        windowInsetsController.isAppearanceLightNavigationBars = SystemBarAppearance.isLightNavigationBars
+        windowInsetsController.setSystemBarsAppearance(
+            if (SystemBarAppearance.isLightStatusBars) {
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+            } else {
+                0
+            },
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+        )
+        windowInsetsController.setSystemBarsAppearance(
+            if (SystemBarAppearance.isLightNavigationBars) {
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+            } else {
+                0
+            },
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -138,7 +151,7 @@ class YiChaoActivity : ComponentActivity() {
         val uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND ->
-                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
             else -> null
         } ?: return
         musicPanelController.playExternalInBackground(uri)
@@ -208,17 +221,18 @@ class YiChaoActivity : ComponentActivity() {
     }
 
     private fun setupSystemBars() {
-        windowInsetsController = WindowInsetsControllerCompat(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController = window.insetsController ?: return
+        windowInsetsController.systemBarsBehavior =
+            WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         updateSystemBarsVisibility()
     }
 
     // 横屏隐藏系统栏，竖屏显示
     private fun updateSystemBarsVisibility(orientation: Int = resources.configuration.orientation) {
         if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+            windowInsetsController.hide(WindowInsets.Type.systemBars())
         } else {
-            windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
+            windowInsetsController.show(WindowInsets.Type.systemBars())
         }
     }
 }

@@ -8,13 +8,10 @@
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
-    <!-- 音乐访问：API 33+ 使用媒体权限，API 32 及以下回退到旧的外部存储权限 -->
+    <!-- 音乐访问：读取本地音乐文件 -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <!-- 读取本地封面候选图片（API 33+，读取音乐内嵌封面） -->
+    <!-- 读取本地封面候选图片 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
     <!-- 蓝牙设备 -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
@@ -42,7 +39,6 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locale_config"
-        tools:targetApi="33"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         <activity

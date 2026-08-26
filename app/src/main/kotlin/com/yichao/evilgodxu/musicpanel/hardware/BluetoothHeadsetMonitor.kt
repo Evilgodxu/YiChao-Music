@@ -12,10 +12,8 @@ import android.content.pm.PackageManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import androidx.core.content.ContextCompat
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -151,7 +149,7 @@ class BluetoothHeadsetMonitor(
     }
 
     private fun hasBluetoothPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
+        return context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) ==
                 PackageManager.PERMISSION_GRANTED
     }
 
@@ -192,10 +190,8 @@ class BluetoothHeadsetMonitor(
         }
         try {
             resolveBluetoothDevice(audioDevice.address)?.let { device ->
-                // alias（Android 11+）为用户为设备设置的名称，未设置时返回 null，优先展示
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    device.alias?.takeIf { it.isNotBlank() }?.let { return it }
-                }
+                // alias 为用户为设备设置的名称，未设置时返回 null，优先展示
+                device.alias?.takeIf { it.isNotBlank() }?.let { return it }
                 // getName() 返回远程设备在其广播或配对过程中声明的名称
                 device.name?.takeIf { it.isNotBlank() }?.let { return it }
             }

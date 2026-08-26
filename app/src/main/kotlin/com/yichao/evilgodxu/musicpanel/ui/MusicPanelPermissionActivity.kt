@@ -4,13 +4,11 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 
 // 透明权限申请 Activity，用于从 Service/无障碍服务上下文动态申请权限：
 // 1. 申请 READ_MEDIA_AUDIO（音频文件访问）
@@ -55,23 +53,19 @@ class MusicPanelPermissionActivity : ComponentActivity() {
     }
 
     private fun hasAudioPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) ==
+        return checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
     }
 
     private fun hasImagePermission(): Boolean {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) ==
+        return checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) ==
                 PackageManager.PERMISSION_GRANTED
     }
 
-    private fun hasBluetoothPermission(): Boolean {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) ==
-                PackageManager.PERMISSION_GRANTED
-    }
+    private fun hasBluetoothPermission(): Boolean =
+        checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
-    private fun hasAllFilesAccess(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+    private fun hasAllFilesAccess(): Boolean = Environment.isExternalStorageManager()
 
     private fun launchAllFilesSettings() {
         val intent = Intent(

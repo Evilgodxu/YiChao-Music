@@ -13,7 +13,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioMixerAttributes
-import android.os.Build
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.CoroutineScope
@@ -39,23 +38,11 @@ class UsbAudioMonitor(
     // 待请求权限的 USB 设备（系统广播携带的 device 可直接用于 requestPermission，无需先检查 interface）
     private var pendingPermissionDevice: UsbDevice? = null
 
-    // Android 13+ 需显式声明类型参数，旧版本用无参重载保持兼容
-    @Suppress("DEPRECATION")
     private fun deviceFromIntent(intent: Intent): UsbDevice? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-        } else {
-            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-        }
+        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
 
-    // Android 13+ 必须显式指定导出标志，旧版本按系统默认行为注册
     private fun registerReceiver(receiver: BroadcastReceiver, filter: IntentFilter) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            context.registerReceiver(receiver, filter)
-        }
+        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
     }
 
     // USB 权限结果广播接收器
@@ -322,7 +309,7 @@ class UsbAudioMonitor(
                     .firstOrNull { isUsbAudioDeviceType(it.type) }
                     ?: return false
                 activeUsbDevice = usbDevice
-                // 官方位完美（独占）混音属性（API 34+），旧版本仅做设备路由
+                // 申请官方位完美（独占）混音属性，确保按位完美模式输出
                 applyBitPerfectMixerAttributes(audioManager, usbDevice)
                 audioSinkDeviceSetter?.invoke(usbDevice)
                 return true
@@ -331,10 +318,7 @@ class UsbAudioMonitor(
 
         // 仅当 USB 设备恰好支持当前播放格式（采样率/位深/声道）的 BIT_PERFECT
         // 输出时生效，避免格式不匹配被系统忽略或导致异常。
-        // MIXER_BEHAVIOR_BIT_PERFECT 为 API 34 常量，仅在该版本及以上执行。
         private fun applyBitPerfectMixerAttributes(audioManager: AudioManager, device: AudioDeviceInfo) {
-            // getSupportedMixerAttributes 系列 API 34+ 才存在，旧版本跳过位完美设置
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
             try {
                 val format = AudioFormat.Builder()
                     .setSampleRate(currentSampleRate)
@@ -363,8 +347,6 @@ class UsbAudioMonitor(
         }
 
         private fun clearBitPerfectMixerAttributes(audioManager: AudioManager, device: AudioDeviceInfo) {
-            // 与 applyBitPerfectMixerAttributes 保持同一版本门槛，避免旧版本调用不存在的 API
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
             try {
                 audioManager.clearPreferredMixerAttributes(
                     AudioAttributes.Builder()
