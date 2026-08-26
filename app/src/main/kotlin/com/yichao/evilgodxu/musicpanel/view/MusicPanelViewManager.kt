@@ -1,7 +1,6 @@
 package com.yichao.evilgodxu.musicpanel
 
 import android.annotation.SuppressLint
-import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.media.AudioDeviceInfo
@@ -317,22 +316,8 @@ class MusicPanelViewManager(
             .toString()
     }
 
-    private fun resolveAudioPath(uri: Uri): String? {
-        if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
-            context.contentResolver.query(
-                uri,
-                arrayOf(android.provider.MediaStore.Audio.Media.DATA),
-                null,
-                null,
-                null
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    return cursor.getString(0)
-                }
-            }
-        }
-        return uri.path
-    }
+    private fun resolveAudioPath(uri: Uri): String? =
+        resolveLocalPath(context, uri.toString())
 
     private fun isSameAudioTrack(track: MusicTrack, targetUri: Uri, targetPath: String?): Boolean {
         return normalizedAudioUri(track.audioUri) == normalizedAudioUri(targetUri.toString()) ||

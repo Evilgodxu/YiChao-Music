@@ -545,7 +545,8 @@ class MusicPlaybackState {
             context.settingsDataStore.data.first()
         }
         val cachedPlaylist = withContext(Dispatchers.IO) {
-            loadCachedPlaylist(context, playlistCacheKey)
+            // 历史缓存可能残留同文件不同 URI 形态的重复条目，按真实文件路径去重，避免冷启动直接展示重名歌曲
+            loadCachedPlaylist(context, playlistCacheKey).distinctBy { trackIdentityKey(context, it) }
         }
         // 恢复上次选中的歌单来源与默认库备份，扫描刷新后保持选中
         val savedSource = withContext(Dispatchers.IO) {
@@ -555,7 +556,7 @@ class MusicPlaybackState {
             }
         }
         val cachedBackup = withContext(Dispatchers.IO) {
-            loadCachedPlaylist(context, defaultPlaylistCacheKeyPref)
+            loadCachedPlaylist(context, defaultPlaylistCacheKeyPref).distinctBy { trackIdentityKey(context, it) }
         }
         val savedUri = preferences[savedUriKey]
         val savedPosition = preferences[savedPositionKey] ?: 0L

@@ -6,8 +6,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Size
+import java.io.File
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
@@ -237,6 +239,58 @@ private val NON_MUSIC_PATH_MARKERS = listOf(
 private fun isNonMusicPath(path: String): Boolean =
     path.isNotBlank() && NON_MUSIC_PATH_MARKERS.any { marker -> path.contains(marker, ignoreCase = true) }
 
+// 解析音频 URI 对应的本地文件真实路径，用于跨 URI 形态识别同一文件：
+// 同一文件可能以 MediaStore 行、SAF 文档 URI、直路文件路径等多种形态出现
+internal fun resolveLocalPath(context: Context, audioUri: String): String? {
+    if (audioUri.isBlank()) return null
+    val uri = Uri.parse(audioUri)
+    if (uri.scheme == ContentResolver.SCHEME_FILE) return uri.path
+    if (uri.scheme != ContentResolver.SCHEME_CONTENT) return null
+    if (uri.authority == "com.android.externalstorage.documents") {
+        val documentId = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: return null
+        val separator = documentId.indexOf(':')
+        if (separator < 0) return null
+        val volume = documentId.substring(0, separator)
+        val relPath = documentId.substring(separator + 1)
+        if (relPath.isBlank()) return null
+        val root = if (volume == "primary") {
+            context.getExternalFilesDir(null)?.absolutePath?.substringBefore("/Android/data")
+        } else {
+            "/storage/$volume"
+        } ?: return null
+        return File(root, relPath).absolutePath
+    }
+    return runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(MediaStore.Audio.Media.DATA),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).takeIf { it.isNotBlank() } else null
+        }
+    }.getOrNull()
+}
+
+// 归一化音频 URI：统一 scheme 大小写并去除查询参数/片段，作为兜底去重键
+internal fun normalizedAudioUri(audioUri: String): String =
+    Uri.parse(audioUri)
+        .normalizeScheme()
+        .buildUpon()
+        .clearQuery()
+        .fragment(null)
+        .build()
+        .toString()
+
+// 曲目去重键：优先真实文件路径，跨 SAF/MediaStore/直路路径等 URI 形态识别同一文件；
+// 无本地路径时回退归一化 URI
+internal fun trackIdentityKey(context: Context, track: MusicTrack): String {
+    val realPath = track.path.takeIf { it.isNotBlank() }
+        ?: resolveLocalPath(context, track.audioUri)
+    return realPath?.let { File(it).absolutePath } ?: normalizedAudioUri(track.audioUri)
+}
+
 // 播放列表刷新器：首页与音乐面板共用扫描入口，串行执行避免并发重复扫描
 object PlaylistRefresher {
     private val scanMutex = Mutex()
@@ -260,23 +314,27 @@ object PlaylistRefresher {
             if (!started) return@withLock
             try {
                 val tracks = MusicScanner.scan(context)
-                withContext(Dispatchers.Main) {
+                // 合并去重在 IO 线程执行：同一文件可能经 SAF 选择器 / 缓存下载 / MediaStore 多条 URI
+                // 形态进入列表，仅按 URI 去重会残留同文件多条目且每次刷新重新产生，故按真实文件路径合并
+                val mergedBase = withContext(Dispatchers.IO) {
                     // 在线播放曲目（含已缓存）仅保留当前播放项，其余未播放的一律丢弃，
                     // 其余外部曲目（path 为空）照常合并，避免刷新后在线歌曲常驻
                     val activeId = state.currentTrack?.id
                     val externalTracks = state.playlist.filter {
                         it.path.isBlank() && (!it.isOnlinePlay || it.id == activeId)
                     }
-                    val previous = state.playlist.associateBy { normalizedUri(it.audioUri) }
+                    (tracks + externalTracks).distinctBy { trackIdentityKey(context, it) }
+                }
+                withContext(Dispatchers.Main) {
+                    val previous = state.playlist.associateBy { normalizedAudioUri(it.audioUri) }
                     // 缓存下载后 audioUri 由 downloads 集合切换为 audio/media 集合，归一化后仍不一致；
                     // 按“标题 - 艺术家”兜底匹配旧列表，复用在线播放期间已保存的歌词/封面缓存
                     val previousByTitleArtist = state.playlist
                         .filter { it.lyricCachePath.isNotBlank() || it.coverCachePath.isNotBlank() }
                         .associateBy { titleArtistKey(it) }
-                    val mergedTracks = (tracks + externalTracks)
-                        .distinctBy { normalizedUri(it.audioUri) }
+                    val mergedTracks = mergedBase
                         .map { track ->
-                            val cached = previous[normalizedUri(track.audioUri)]
+                            val cached = previous[normalizedAudioUri(track.audioUri)]
                                 ?: previousByTitleArtist[titleArtistKey(track)]
                                 ?: return@map track
                             track.copy(
@@ -321,15 +379,6 @@ object PlaylistRefresher {
             }
         }
     }
-
-    private fun normalizedUri(audioUri: String): String =
-        Uri.parse(audioUri)
-            .normalizeScheme()
-            .buildUpon()
-            .clearQuery()
-            .fragment(null)
-            .build()
-            .toString()
 
     // 归一化“标题 + 艺术家”作为歌词/封面缓存复用的匹配键
     private fun titleArtistKey(track: MusicTrack): String =
