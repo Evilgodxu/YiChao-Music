@@ -413,11 +413,14 @@ internal suspend fun cacheToDownloads(
 
         withContext(Dispatchers.Main) {
             updateTrackAudioUri(playbackState, trackId, audioUri)
+        }
+        // 先完成封面落盘（此时播放源仍是在线流，文件未被播放占用），再重定向播放源，
+        // 避免播放器切到本地文件后仍被同一文件的整文件重写打断
+        embedCachedCover(context, playbackState, trackId)
+        withContext(Dispatchers.Main) {
             // 缓存完成：把当前播放源重定向至本地缓存文件，实现在线/离线无缝过渡
             redirectCachedCurrentItem(context, playbackState)
         }
-        // 用在线播放时已下载的封面原图内嵌写入缓存文件，无额外网络匹配
-        embedCachedCover(context, playbackState, trackId)
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
         MetadataEnricher.enrichAndCleanup(context, playbackState)
     } catch (e: Exception) {

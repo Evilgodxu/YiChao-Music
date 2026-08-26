@@ -40,7 +40,7 @@ object MetadataEnricher {
 
         // 并行加载在线封面和歌词（两者互不依赖），合并后一次性更新
         val (coverUpdates, lyricUpdates) = coroutineScope {
-            async { enrichOnlineCovers(context, tracks) } to
+            async { enrichOnlineCovers(context, playbackState, tracks) } to
                 async { enrichLyrics(context, tracks) }
         }.let { (c, l) -> c.await() to l.await() }
 
@@ -106,7 +106,11 @@ object MetadataEnricher {
     }.getOrDefault(false)
 
     /** 后台加载在线封面，返回封面更新列表 */
-    private suspend fun enrichOnlineCovers(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
+    private suspend fun enrichOnlineCovers(
+        context: Context,
+        playbackState: MusicPlaybackState,
+        tracks: List<MusicTrack>,
+    ): List<MusicTrack> {
         val needCover = tracks.filter { track ->
             // 旧版按歌曲 id 命名的缓存也纳入重匹配，落盘时自动迁移为内容哈希命名
             !MusicMetadataCache.isValid(track.coverCachePath) ||
@@ -133,22 +137,17 @@ object MetadataEnricher {
                         // 优先把匹配到的封面写入音频文件元数据，同时保留独立封面缓存：
                         // 音频文件内嵌封面无法被 MediaItem 引用，系统媒体面板只能通过
                         // coverCachePath 对应的 content:// URI 读取封面
-                        if (MusicMetadataWriter.writeCoverToSource(context, track, coverBytes)) {
-                            val coverPath = MusicMetadataCache.saveCover(context, matchedId, coverBytes).orEmpty()
-                            track.copy(
-                                neteaseId = matchedId,
-                                neteaseCoverUrl = matchedUrl,
-                                coverCachePath = coverPath
-                            )
-                        } else {
-                            val coverPath = MusicMetadataCache.saveCover(context, matchedId, coverBytes).orEmpty()
-                            if (coverPath.isBlank()) return@async null
-                            track.copy(
-                                neteaseId = matchedId,
-                                neteaseCoverUrl = matchedUrl,
-                                coverCachePath = coverPath
-                            )
+                        val coverPath = MusicMetadataCache.saveCover(context, matchedId, coverBytes).orEmpty()
+                        if (coverPath.isBlank()) return@async null
+                        // 正在播放的曲目跳过音频文件整文件重写，避免打断播放，仅更新封面缓存
+                        if (track.id != playbackState.currentTrack?.id) {
+                            MusicMetadataWriter.writeCoverToSource(context, track, coverBytes)
                         }
+                        track.copy(
+                            neteaseId = matchedId,
+                            neteaseCoverUrl = matchedUrl,
+                            coverCachePath = coverPath
+                        )
                     } catch (e: Exception) {
                         CrashLogManager.logException(
                             "MetadataEnricher",

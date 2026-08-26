@@ -38,8 +38,15 @@ internal object KuwoMusicApi : OnlineMusicSource {
             List(lists.length()) { index ->
                 val item = lists.getJSONObject(index)
                 val rid = item.optString("MUSICRID").ifBlank { item.optString("musicrid") }.removePrefix("MUSIC_")
-                val cover = item.optString("hts_MVPIC").ifBlank { item.optString("albumpic") }
-                    .ifBlank { item.optString("pic") }.takeIf { it.isNotBlank() }?.toHttps()
+                // 专辑封面优先取 web_albumpic_short（形如 120/xx/xx.jpg），拼接 CDN 前缀并放大为 300 尺寸；
+                // 无专辑封面时回退 hts_MVPIC（MV 图）等兜底字段
+                val albumShort = item.optString("web_albumpic_short")
+                val cover = if (albumShort.isNotBlank()) {
+                    "https://img1.kuwo.cn/star/albumcover/300/" + albumShort.removePrefix("120/")
+                } else {
+                    item.optString("hts_MVPIC").ifBlank { item.optString("albumpic") }
+                        .ifBlank { item.optString("pic") }.takeIf { it.isNotBlank() }?.toHttps()
+                }
                 val durationSec = item.optString("DURATION").toLongOrNull()
                     ?: item.optLong("duration", 0L)
                 NeteaseSongSearchResult(
