@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.musicpanel
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -108,76 +109,85 @@ internal fun LyricsPanel(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(top = 4.dp, bottom = 0.dp)
-            // 裁剪到蒙层范围，防溢出的行以未渐变原色出现在顶部导致闪烁
-            .clipToBounds()
-            .verticalFadeMask(fadeFraction = FADE_TOTAL_LINES / visibleLines),
+            .padding(top = 4.dp, bottom = 0.dp),
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
             Text(stringResource(R.string.music_panel_no_lyrics), color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         } else {
-            AnimatedContent(
-                targetState = activeIndex,
-                transitionSpec = {
-                    val movingForward = targetState > initialState
-                    val distance = { height: Int -> (height / 4).coerceAtLeast(1) }
-                    if (movingForward) {
-                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it }
-                            + fadeIn(animationSpec = tween(180))) togetherWith
-                            (slideOutVertically(animationSpec = tween(260)) { -distance(it) }
-                                + fadeOut(animationSpec = tween(180)))
-                    } else {
-                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -distance(it) }
-                            + fadeIn(animationSpec = tween(180))) togetherWith
-                            (slideOutVertically(animationSpec = tween(260)) { it }
-                                + fadeOut(animationSpec = tween(180)))
-                    }
-                },
-                label = "lyric_column_scroll"
-            ) { renderedActiveIndex ->
-                LyricColumnLayout(
-                    currentRow = offset,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    repeat(visibleLines) { row ->
-                        val index = renderedActiveIndex - offset + row
-                        val line = lines.getOrNull(index)
-                        if (line == null) {
-                            LyricSpacer()
-                            return@repeat
+            // 窗口容器固定，滚动与过渡都在其内部进行：行溢出与滑出内容经过边缘即被渐隐裁剪
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(animationSpec = tween(220))
+                    .clipToBounds()
+                    .verticalFadeMask(fadeFraction = FADE_TOTAL_LINES / visibleLines),
+            ) {
+                AnimatedContent(
+                    targetState = activeIndex,
+                    transitionSpec = {
+                        val movingForward = targetState > initialState
+                        val distance = { height: Int -> (height / 4).coerceAtLeast(1) }
+                        if (movingForward) {
+                            (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it }
+                                + fadeIn(animationSpec = tween(180))) togetherWith
+                                (slideOutVertically(animationSpec = tween(260)) { -distance(it) }
+                                    + fadeOut(animationSpec = tween(180)))
+                        } else {
+                            (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -distance(it) }
+                                + fadeIn(animationSpec = tween(180))) togetherWith
+                                (slideOutVertically(animationSpec = tween(260)) { it }
+                                    + fadeOut(animationSpec = tween(180)))
                         }
-                        val isCurrent = index == activeIndex
-                        val emphasis by animateFloatAsState(
-                            targetValue = if (isCurrent) 1f else 0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            ),
-                            label = "lyric_emphasis"
-                        )
-                        val scale = 0.98f + 0.16f * emphasis
-                        val nextTimeMs = lines.getOrNull(index + 1)?.timeMs ?: line.timeMs + 3000L
-                        LyricText(
-                            line = line,
-                            nextTimeMs = nextTimeMs,
-                            positionMs = lyricPosition,
-                            isCurrent = isCurrent,
-                            wordByWordEnabled = wordByWordEnabled,
-                            fontSize = fontSize,
-                            fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
-                            activeColor = activeColor,
-                            pendingColor = pendingColor,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    },
+                    // 换行时新旧可视区高度有差异，居中排列并由外层动画平滑窗口高度
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "lyric_column_scroll"
+                ) { renderedActiveIndex ->
+                    LyricColumnLayout(
+                        currentRow = offset,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                    repeat(visibleLines) { row ->
+                            val index = renderedActiveIndex - offset + row
+                            val line = lines.getOrNull(index)
+                            if (line == null) {
+                                LyricSpacer()
+                                return@repeat
+                            }
+                            val isCurrent = index == activeIndex
+                            val emphasis by animateFloatAsState(
+                                targetValue = if (isCurrent) 1f else 0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                label = "lyric_emphasis"
+                            )
+                            val scale = 0.98f + 0.16f * emphasis
+                            val nextTimeMs = lines.getOrNull(index + 1)?.timeMs ?: line.timeMs + 3000L
+                            LyricText(
+                                line = line,
+                                nextTimeMs = nextTimeMs,
+                                positionMs = lyricPosition,
+                                isCurrent = isCurrent,
+                                wordByWordEnabled = wordByWordEnabled,
+                                fontSize = fontSize,
+                                fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
+                                activeColor = activeColor,
+                                pendingColor = pendingColor,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                 }
+            }
             }
         }
     }
