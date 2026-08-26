@@ -26,12 +26,23 @@ internal object QQMusicApi : OnlineMusicSource {
     private const val UID = "3931641530"
     private const val GUID_CHARS = "abcdef1234567890"
 
-    // 音质代号 + 扩展名，按从高到低依次尝试
-    private val SORTED_QUALITIES = arrayOf(
+    // 音质代号 + 扩展名，按从高到低分组：无损 flac / 高品 ogg / 标准 mp3、m4a
+    private val LOSSLESS_QUALITIES = arrayOf(
         "AI00" to ".flac", "Q000" to ".flac", "Q001" to ".flac", "F000" to ".flac",
+    )
+    private val HIGH_QUALITIES = arrayOf(
         "O801" to ".ogg", "O800" to ".ogg", "O600" to ".ogg", "O400" to ".ogg",
+    )
+    private val STANDARD_QUALITIES = arrayOf(
         "M800" to ".mp3", "M500" to ".mp3", "C600" to ".m4a", "C400" to ".m4a", "C200" to ".m4a"
     )
+
+    // 音质档位对应的候选编码组合；无损档无法获取时降级处理其它组合保证可播
+    private fun qualityCandidates(quality: MusicQuality): Array<Pair<String, String>> = when (quality) {
+        MusicQuality.LOSSLESS -> LOSSLESS_QUALITIES + HIGH_QUALITIES + STANDARD_QUALITIES
+        MusicQuality.HIGH -> HIGH_QUALITIES + STANDARD_QUALITIES
+        MusicQuality.STANDARD -> STANDARD_QUALITIES
+    }
 
     override suspend fun search(keyword: String): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         try {
@@ -96,11 +107,11 @@ internal object QQMusicApi : OnlineMusicSource {
         }
     }
 
-    /** 获取播放地址，从高音质到低音质逐个尝试，返回第一个可用链接 */
-    suspend fun songUrl(mid: String): String? = withContext(Dispatchers.IO) {
+    /** 获取指定音质的播放地址；无损档自动降级高品/标准，保证尽可能可播 */
+    suspend fun songUrl(mid: String, quality: MusicQuality = MusicQuality.LOSSLESS): String? = withContext(Dispatchers.IO) {
         if (mid.isBlank()) return@withContext null
         try {
-            for ((code, ext) in SORTED_QUALITIES) {
+            for ((code, ext) in qualityCandidates(quality)) {
                 val body = JSONObject()
                 body.put("comm", commonParams(ct = 19))
                 val vkey = JSONObject()

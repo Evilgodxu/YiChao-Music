@@ -63,6 +63,11 @@
     <string name="music_panel_search_source_kugou">酷狗</string>
     <string name="music_panel_search_source_kuwo">酷我</string>
     <string name="music_panel_search_source_migu">咪咕</string>
+    <string name="music_panel_quality_title">选择音质</string>
+    <string name="music_panel_quality_failed">该音质无法播放，请选择其它音质</string>
+    <string name="music_quality_lossless">无损</string>
+    <string name="music_quality_high">高品</string>
+    <string name="music_quality_standard">标准</string>
     <string name="music_panel_playback_settings">播放设置</string>
     <string name="music_panel_usb_exclusive">USB 音频独占</string>
     <string name="music_panel_usb_enabled">已启用：%s</string>

@@ -216,6 +216,16 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         return null
     }
 
+    // 按音质档位解析播放地址；返回 null 表示该层级不可用（无版权/试听受限等）
+    suspend fun songUrl(songId: Long, quality: MusicQuality): String? {
+        val level = when (quality) {
+            MusicQuality.LOSSLESS -> "lossless"
+            MusicQuality.HIGH -> "exhigh"
+            MusicQuality.STANDARD -> "standard"
+        }
+        return getSongUrlInfo(songId, level)?.url
+    }
+
     /** 补全歌曲元数据（标题/艺术家/封面等） */
     suspend fun songDetail(songId: Long): NeteaseSongSearchResult? = withContext(Dispatchers.IO) {
         try {

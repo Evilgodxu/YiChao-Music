@@ -158,6 +158,13 @@ class MusicPlaybackState {
                         searchResults = emptyList()
                         pendingSearchResults = emptyList()
                     }
+                    // 音质试播就绪即播放成功：关闭音质对话框并清除待确认标记
+                    if (pendingQualityPlayTrackId != null) {
+                        pendingQualityPlayTrackId = null
+                        qualityBusy = false
+                        qualityPickTrack = null
+                        qualityError = null
+                    }
                     syncPlaybackState()
                 }
                 Player.STATE_ENDED -> {
@@ -187,6 +194,14 @@ class MusicPlaybackState {
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            // 音质试播失败：移除刚加入的试播曲目（不残留播放列表），保留对话框供用户换其它音质
+            val pendingId = pendingQualityPlayTrackId
+            if (pendingId != null && qualityPickTrack != null) {
+                pendingQualityPlayTrackId = null
+                qualityBusy = false
+                qualityError = appContext?.getString(R.string.music_panel_quality_failed)
+                removeTrack(pendingId)
+            }
             // errorMsg 为可空类型，appContext 为空时置 null（播放不会发生，正常显示无错误）
             errorMsg = appContext?.getString(R.string.music_panel_play_failed)
             isPlaying = false
@@ -236,6 +251,14 @@ class MusicPlaybackState {
     var showSearchResults by mutableStateOf(false)
     var pendingSearchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var closeSearchResultsOnReady by mutableStateOf(false)
+    // 首页音质选择对话框：非空时显示，目标为待播在线歌曲
+    var qualityPickTrack by mutableStateOf<NeteaseSongSearchResult?>(null)
+    // 音质尝试中：解析地址与等待播放结果期间置 true，阻止重复点击/误关对话框
+    var qualityBusy by mutableStateOf(false)
+    // 最近一次音质尝试失败提示（失败时保留对话框展示，供用户换其它音质）
+    var qualityError by mutableStateOf<String?>(null)
+    // 音质试播曲目 ID：播放就绪(READY)后清空；播放失败时据此移除试播曲目并保留对话框
+    var pendingQualityPlayTrackId by mutableStateOf<Long?>(null)
     var coverCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var isCoverSearching by mutableStateOf(false)
     var localCoverCandidates by mutableStateOf<List<RecentCover>>(emptyList())

@@ -563,38 +563,45 @@ private suspend fun embedCachedCover(
     }
 }
 
-internal suspend fun playSearchResult(
+// 本地曲库命中同曲时直接播放；命中返回 true
+internal suspend fun tryPlayLocalMatch(
     target: NeteaseSongSearchResult,
     playbackState: MusicPlaybackState,
     context: Context,
     scope: kotlinx.coroutines.CoroutineScope,
-) {
+): Boolean {
     val normalizedTitle = normalizeTitle(target.title)
     val normalizedArtist = normalizeTitle(target.artist)
     val localMatch = playbackState.playlist.firstOrNull { t ->
         t.path.isNotBlank() &&
         normalizeTitle(t.title) == normalizedTitle &&
         (normalizedArtist.isBlank() || normalizeTitle(t.artist) == normalizedArtist)
-    }
-    if (localMatch != null) {
-        val idx = playbackState.playlist.indexOfFirst { it.id == localMatch.id }
-        if (idx >= 0) {
-            if (target.source == MusicSearchSource.NETEASE) {
-                scope.launch {
-                    enrichOnlineMetadata(context, playbackState, localMatch, target)
-                }
-            }
-            playbackState.errorMsg = null
-            playbackState.currentIndex = idx
-            playbackState.currentTrack = playbackState.playlist[idx]
-            playbackState.isSearchMode = false
-            playbackState.showSearchResults = false
-            playbackState.searchQuery = ""
-            playbackState.searchResults = emptyList()
-            playTrackAt(context, playbackState, idx)
-            return
+    } ?: return false
+    val idx = playbackState.playlist.indexOfFirst { it.id == localMatch.id }
+    if (idx < 0) return false
+    if (target.source == MusicSearchSource.NETEASE) {
+        scope.launch {
+            enrichOnlineMetadata(context, playbackState, localMatch, target)
         }
     }
+    playbackState.errorMsg = null
+    playbackState.currentIndex = idx
+    playbackState.currentTrack = playbackState.playlist[idx]
+    playbackState.isSearchMode = false
+    playbackState.showSearchResults = false
+    playbackState.searchQuery = ""
+    playbackState.searchResults = emptyList()
+    playTrackAt(context, playbackState, idx)
+    return true
+}
+
+internal suspend fun playSearchResult(
+    target: NeteaseSongSearchResult,
+    playbackState: MusicPlaybackState,
+    context: Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    if (tryPlayLocalMatch(target, playbackState, context, scope)) return
 
     playbackState.pendingSearchResults = emptyList()
 
@@ -639,4 +646,33 @@ internal suspend fun playSearchResult(
         playbackState.errorMsg = context.getString(R.string.music_panel_play_error)
         playbackState.pendingSearchResults = emptyList()
     }
+}
+
+// 按指定音质解析在线播放地址；返回 null 表示该音质不可用
+internal suspend fun resolvePlayUrlByQuality(
+    target: NeteaseSongSearchResult,
+    quality: MusicQuality,
+): String? = withContext(Dispatchers.IO) {
+    when (target.source) {
+        MusicSearchSource.NETEASE -> NeteaseMusicApi.songUrl(target.id, quality)
+        MusicSearchSource.QQ -> QQMusicApi.songUrl(target.sourceId.orEmpty(), quality)
+        MusicSearchSource.KUGOU -> KugouMusicApi.songUrl(target.sourceId.orEmpty())
+        MusicSearchSource.KUWO -> KuwoMusicApi.songUrl(target.sourceId.orEmpty(), quality)
+        MusicSearchSource.MIGU -> MiguMusicApi.songUrl(target.sourceId.orEmpty(), quality)
+    }
+}
+
+// 按用户选定音质播放在线搜索结果；URL 解析成功即加入播放列表开始播放，
+// 并标记待确认曲目交由播放器回调判定成败（失败时移除曲目、保留音质对话框）
+internal suspend fun playSearchResultWithQuality(
+    target: NeteaseSongSearchResult,
+    quality: MusicQuality,
+    playbackState: MusicPlaybackState,
+    context: Context,
+): Boolean {
+    val url = resolvePlayUrlByQuality(target, quality) ?: return false
+    playbackState.pendingQualityPlayTrackId = target.id + 1000000L
+    playbackState.closeSearchResultsOnReady = true
+    downloadAndPlay(context, playbackState, target, url)
+    return true
 }

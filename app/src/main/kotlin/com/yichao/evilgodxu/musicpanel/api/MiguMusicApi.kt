@@ -72,8 +72,8 @@ internal object MiguMusicApi : OnlineMusicSource {
         }
     }
 
-    /** 获取播放地址：按音质组合逐个请求 listen-url 接口，直到拿到可用的直链 */
-    suspend fun songUrl(identifier: String): String? = withContext(Dispatchers.IO) {
+    /** 获取播放地址；quality 为空时按全部音质组合依次尝试，指定时仅尝试对应档位 */
+    suspend fun songUrl(identifier: String, quality: MusicQuality? = null): String? = withContext(Dispatchers.IO) {
         if (identifier.isBlank()) return@withContext null
         try {
             val parts = identifier.split("|")
@@ -86,7 +86,15 @@ internal object MiguMusicApi : OnlineMusicSource {
                     if (pair.size == 2) pair[0] to pair[1] else null
                 }
                 .ifEmpty { listOf("SQ" to "2", "HQ" to "2", "PQ" to "2", "LQ" to "2") }
-            for ((formatType, resourceType) in formats) {
+            // 指定音质时仅匹配对应档位；标准档优先 PQ，缺省时退而求其次使用 LQ
+            val targets = when (quality) {
+                MusicQuality.LOSSLESS -> formats.filter { it.first == "SQ" }
+                MusicQuality.HIGH -> formats.filter { it.first == "HQ" }
+                MusicQuality.STANDARD -> formats.filter { it.first == "PQ" }
+                    .ifEmpty { formats.filter { it.first == "LQ" } }
+                null -> formats
+            }
+            for ((formatType, resourceType) in targets) {
                 if (formatType == "Z3D") continue
                 val url = fetchListenUrl(contentId, copyrightId, formatType, resourceType) ?: continue
                 val target = url.replace("/MP3_128_16_Stero/", "/MP3_320_16_Stero/").toHttps()

@@ -67,11 +67,15 @@ internal object KuwoMusicApi : OnlineMusicSource {
         }
     }
 
-    /** 获取播放地址：flac 优先，失败时降级 mp3 */
-    suspend fun songUrl(rid: String): String? = withContext(Dispatchers.IO) {
+    /** 获取指定音质播放地址；无损/高品优先 flac，标准使用 mp3，组的后项兜底 */
+    suspend fun songUrl(rid: String, quality: MusicQuality = MusicQuality.LOSSLESS): String? = withContext(Dispatchers.IO) {
         if (rid.isBlank()) return@withContext null
         try {
-            for (format in arrayOf("flac", "mp3")) {
+            val formats = when (quality) {
+                MusicQuality.LOSSLESS, MusicQuality.HIGH -> arrayOf("flac", "mp3")
+                MusicQuality.STANDARD -> arrayOf("mp3")
+            }
+            for (format in formats) {
                 val query = "user=0&corp=kuwo&source=kwplayer_ar_5.1.0.0_B_jiakong_vh.apk&p2p=1" +
                         "&type=convert_url2&sig=0&format=$format&rid=$rid"
                 val body = get("$MOBI_ENDPOINT?f=kuwo&q=${encryptQuery(query)}", userAgent = "okhttp/3.10.0")

@@ -63,6 +63,11 @@
     <string name="music_panel_search_source_kugou">Kugou</string>
     <string name="music_panel_search_source_kuwo">Kuwo</string>
     <string name="music_panel_search_source_migu">Migu</string>
+    <string name="music_panel_quality_title">Select quality</string>
+    <string name="music_panel_quality_failed">This quality is unavailable, try another</string>
+    <string name="music_quality_lossless">Lossless</string>
+    <string name="music_quality_high">High</string>
+    <string name="music_quality_standard">Standard</string>
     <string name="music_panel_playback_settings">Playback settings</string>
     <string name="music_panel_usb_exclusive">USB audio exclusive</string>
     <string name="music_panel_usb_enabled">Enabled: %s</string>

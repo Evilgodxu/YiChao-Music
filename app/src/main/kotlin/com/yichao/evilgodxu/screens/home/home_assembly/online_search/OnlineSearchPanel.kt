@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,9 +52,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.MusicQuality
 import com.yichao.evilgodxu.musicpanel.SearchResultRow
 import com.yichao.evilgodxu.musicpanel.performSearch
-import com.yichao.evilgodxu.musicpanel.playSearchResult
+import com.yichao.evilgodxu.musicpanel.playSearchResultWithQuality
+import com.yichao.evilgodxu.musicpanel.tryPlayLocalMatch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -82,6 +85,12 @@ internal fun OnlineSearchPanel(
                 scope = scope,
             )
         }
+        // 音质选择对话框（独立窗口，不参与面板布局）
+        QualitySelectDialog(
+            playbackState = playbackState,
+            context = context,
+            scope = scope,
+        )
     }
 }
 
@@ -367,7 +376,16 @@ private fun SearchResultList(
                             SearchResultRow(
                                 result = result,
                                 titleColor = Color.White,
-                                onClick = { scope.launch { playSearchResult(result, playbackState, context, scope) } }
+                                onClick = {
+                                    // 本地曲库命中同曲直接播放；否则弹出音质选择对话框由用户选音质
+                                    scope.launch {
+                                        if (!tryPlayLocalMatch(result, playbackState, context, scope)) {
+                                            playbackState.qualityPickTrack = result
+                                            playbackState.qualityBusy = false
+                                            playbackState.qualityError = null
+                                        }
+                                    }
+                                }
                             )
                         }
                     }
@@ -375,4 +393,118 @@ private fun SearchResultList(
             }
         }
     }
+}
+
+// 音质选择对话框：音质尝试失败时不关闭，保留供用户更换音质重试
+@Composable
+private fun QualitySelectDialog(
+    playbackState: MusicPlaybackState,
+    context: Context,
+    scope: CoroutineScope,
+) {
+    val track = playbackState.qualityPickTrack ?: return
+    AlertDialog(
+        onDismissRequest = {
+            if (!playbackState.qualityBusy) {
+                playbackState.qualityPickTrack = null
+                playbackState.qualityError = null
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.music_panel_quality_title),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // 待播歌曲信息
+                Text(
+                    text = listOf(track.title, track.artist)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" - "),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                // 音质档位卡片：尝试中整体禁用，防止并发重复尝试
+                MusicQuality.entries.forEach { quality ->
+                    QualityOptionCard(
+                        label = stringResource(
+                            when (quality) {
+                                MusicQuality.LOSSLESS -> R.string.music_quality_lossless
+                                MusicQuality.HIGH -> R.string.music_quality_high
+                                MusicQuality.STANDARD -> R.string.music_quality_standard
+                            }
+                        ),
+                        enabled = !playbackState.qualityBusy,
+                        onClick = {
+                            scope.launch {
+                                playbackState.qualityBusy = true
+                                playbackState.qualityError = null
+                                val started = playSearchResultWithQuality(track, quality, playbackState, context)
+                                // URL 解析失败直接提示；解析成功后保持忙碌态等待播放器就绪/失败回调结算
+                                if (!started) {
+                                    playbackState.qualityBusy = false
+                                    playbackState.qualityError = context.getString(R.string.music_panel_quality_failed)
+                                }
+                            }
+                        },
+                    )
+                }
+                // 尝试中加载指示
+                if (playbackState.qualityBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                // 最近一次音质尝试失败提示
+                if (playbackState.qualityError != null) {
+                    Text(
+                        text = playbackState.qualityError.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+    )
+}
+
+// 音质选项卡片，样式与洛雪音源导入方式选项一致
+@Composable
+private fun QualityOptionCard(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 14.dp),
+        textAlign = TextAlign.Center,
+        color = if (enabled) MaterialTheme.colorScheme.onSurface
+        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+    )
 }
