@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.graphics.ImageDecoder
+import android.os.Build
 import android.os.Environment
 import com.yichao.evilgodxu.log.CrashLogManager
 import org.json.JSONArray
@@ -88,7 +89,13 @@ internal object MusicMetadataCache {
     fun saveCover(context: Context, id: Long, bitmap: Bitmap): String? = try {
         // 先编码到内存并取内容哈希作为文件名：同图共享同一文件，天然去重
         val webpBytes = ByteArrayOutputStream().use { out ->
-            if (bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 92, out)) out.toByteArray() else null
+            // API 30+ 使用 WEBP 有损编码；API 28/29 无 WEBP 有损格式，降级为同等画质的 JPEG
+            val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                Bitmap.CompressFormat.JPEG
+            }
+            if (bitmap.compress(format, 92, out)) out.toByteArray() else null
         }
         if (webpBytes != null) {
             val convertedFile = coverFile(context, contentKey(webpBytes))

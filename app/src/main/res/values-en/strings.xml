@@ -36,6 +36,7 @@
     <string name="permission_request">Grant</string>
     <string name="permission_all_files_title">All files access</string>
     <string name="permission_music_title">Music access</string>
+    <string name="permission_image_title">Image access</string>
 
     <!-- Music panel -->
     <string name="music_panel_empty">No local music</string>
@@ -56,6 +57,7 @@
     <string name="music_panel_search_history_clear">Clear history</string>
     <string name="music_panel_search_history_delete">Delete</string>
     <string name="music_panel_search_no_results">No songs found</string>
+    <string name="music_panel_search_loading">Searching…</string>
     <string name="music_panel_search_source">Netease</string>
     <string name="music_panel_search_source_qq">QQ Music</string>
     <string name="music_panel_search_source_kugou">Kugou</string>

@@ -13,6 +13,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioMixerAttributes
+import android.os.Build
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.CoroutineScope
@@ -38,12 +39,31 @@ class UsbAudioMonitor(
     // 待请求权限的 USB 设备（系统广播携带的 device 可直接用于 requestPermission，无需先检查 interface）
     private var pendingPermissionDevice: UsbDevice? = null
 
+    // Android 13+ 需显式声明类型参数，旧版本用无参重载保持兼容
+    @Suppress("DEPRECATION")
+    private fun deviceFromIntent(intent: Intent): UsbDevice? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+        } else {
+            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+        }
+
+    // Android 13+ 必须显式指定导出标志，旧版本按系统默认行为注册
+    private fun registerReceiver(receiver: BroadcastReceiver, filter: IntentFilter) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, filter)
+        }
+    }
+
     // USB 权限结果广播接收器
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != ACTION_USB_PERMISSION) return
             val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-            val device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+            val device = deviceFromIntent(intent)
             if (granted && device != null && isAudioDevice(device)) {
                 handleDeviceAttached()
             } else if (!granted) {
@@ -58,14 +78,14 @@ class UsbAudioMonitor(
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
-                    val device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    val device = deviceFromIntent(intent)
                     if (device != null) {
                         // 先请求 USB 权限，权限授予后再检查是否为音频设备
                         requestUsbPermission(device)
                     }
                 }
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    val device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    val device = deviceFromIntent(intent)
                     if (device != null && hasUsbPermission(device) && isAudioDevice(device)) {
                         handleDeviceDetached()
                     } else {
@@ -100,9 +120,9 @@ class UsbAudioMonitor(
             addAction("android.media.action.USB_AUDIO_ACCESSORY_PLUG")
             addAction("android.media.action.USB_AUDIO_DEVICE_PLUG")
         }
-        context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        registerReceiver(usbReceiver, filter)
         // 注册 USB 权限结果接收器
-        context.registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), Context.RECEIVER_NOT_EXPORTED)
+        registerReceiver(usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION))
         receiverRegistered = true
         // 检查当前是否已有 USB 音频设备连接
         checkExistingUsbAudioDevice()
@@ -302,7 +322,7 @@ class UsbAudioMonitor(
                     .firstOrNull { isUsbAudioDeviceType(it.type) }
                     ?: return false
                 activeUsbDevice = usbDevice
-                // 官方位完美（独占）混音属性，minSdk 34 起直接可用
+                // 官方位完美（独占）混音属性（API 34+），旧版本仅做设备路由
                 applyBitPerfectMixerAttributes(audioManager, usbDevice)
                 audioSinkDeviceSetter?.invoke(usbDevice)
                 return true
@@ -311,8 +331,10 @@ class UsbAudioMonitor(
 
         // 仅当 USB 设备恰好支持当前播放格式（采样率/位深/声道）的 BIT_PERFECT
         // 输出时生效，避免格式不匹配被系统忽略或导致异常。
-        // MIXER_BEHAVIOR_BIT_PERFECT 为 API 34 常量，minSdk 34 起可直接使用。
+        // MIXER_BEHAVIOR_BIT_PERFECT 为 API 34 常量，仅在该版本及以上执行。
         private fun applyBitPerfectMixerAttributes(audioManager: AudioManager, device: AudioDeviceInfo) {
+            // getSupportedMixerAttributes 系列 API 34+ 才存在，旧版本跳过位完美设置
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
             try {
                 val format = AudioFormat.Builder()
                     .setSampleRate(currentSampleRate)
@@ -340,8 +362,9 @@ class UsbAudioMonitor(
             }
         }
 
-        // 仅使用 API 31 的 clearPreferredMixerAttributes，minSdk 34 可直接调用
         private fun clearBitPerfectMixerAttributes(audioManager: AudioManager, device: AudioDeviceInfo) {
+            // 与 applyBitPerfectMixerAttributes 保持同一版本门槛，避免旧版本调用不存在的 API
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
             try {
                 audioManager.clearPreferredMixerAttributes(
                     AudioAttributes.Builder()

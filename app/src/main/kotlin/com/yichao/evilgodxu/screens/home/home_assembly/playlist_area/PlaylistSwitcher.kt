@@ -259,12 +259,11 @@ private fun PlaylistSwitchGroups(
     playbackState: MusicPlaybackState,
     onSwitch: (List<MusicTrack>, PlaylistSource?) -> Unit,
 ) {
-    val context = LocalContext.current
     val library = playbackState.libraryTracks
     val groups: List<PlaylistGroup> = if (type == SmartPlaylistType.ALBUM) {
-        albumGroups(library, context.getString(R.string.playlist_unknown_album))
+        albumGroups(library, stringResource(R.string.playlist_unknown_album))
     } else {
-        artistGroups(library, context.getString(R.string.music_scanner_unknown_artist))
+        artistGroups(library, stringResource(R.string.music_scanner_unknown_artist))
     }
     val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) AppIcons.Album else AppIcons.Person
     val currentKey = playbackState.playlistSource?.key

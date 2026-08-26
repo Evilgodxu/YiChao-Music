@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -30,6 +31,9 @@ fun AppNavHost(
     val context = LocalContext.current
     // LocalContext 已被本地化包装，宿主 Activity 需从注册表所有者获取
     val activity = LocalActivityResultRegistryOwner.current as? Activity
+    // 预取提示文案，配置变化时由 Compose 自动更新，避免在回调中读取过期资源
+    val goHomeHint = stringResource(R.string.back_again_go_home)
+    val exitHint = stringResource(R.string.back_again_exit)
 
     // 返回防抖：500ms 内连点只生效一次，防止回退栈被清空
     var lastBackTime by remember { mutableStateOf(0L) }
@@ -48,8 +52,7 @@ fun AppNavHost(
         } else {
             lastHomeBackTime = now
             val hint =
-                if (MusicPanelStateHolder.state.isPlayerActive) context.getString(R.string.back_again_go_home)
-                else context.getString(R.string.back_again_exit)
+                if (MusicPanelStateHolder.state.isPlayerActive) goHomeHint else exitHint
             Toast.makeText(context, hint, Toast.LENGTH_SHORT).show()
         }
     }

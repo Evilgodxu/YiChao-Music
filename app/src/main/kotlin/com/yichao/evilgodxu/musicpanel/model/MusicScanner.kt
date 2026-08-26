@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
 import com.yichao.evilgodxu.R
@@ -169,14 +170,16 @@ object MusicScanner {
                 CrashLogManager.logException("MusicScanner", "读取专辑封面失败: $fallbackPath", e)
             }
         }
-        // 官方缩略图 API 兜底：从 MediaStore 缩略图缓存读取小图，最轻量且带系统缓存
-        try {
-            return AlbumArtResult(
-                contentResolver.loadThumbnail(audioUri, Size(256, 256), null),
-                AlbumArtSource.THUMBNAIL
-            )
-        } catch (e: Exception) {
-            CrashLogManager.logException("MusicScanner", "加载缩略图封面失败: $fallbackPath", e)
+        // 官方缩略图 API 兜底：从 MediaStore 缩略图缓存读取小图（Android 10+），最轻量且带系统缓存
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                return AlbumArtResult(
+                    contentResolver.loadThumbnail(audioUri, Size(256, 256), null),
+                    AlbumArtSource.THUMBNAIL
+                )
+            } catch (e: Exception) {
+                CrashLogManager.logException("MusicScanner", "加载缩略图封面失败: $fallbackPath", e)
+            }
         }
         return null
     }

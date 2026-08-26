@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
@@ -191,8 +192,10 @@ class BluetoothHeadsetMonitor(
         }
         try {
             resolveBluetoothDevice(audioDevice.address)?.let { device ->
-                // alias 为用户为设备设置的名称（未设置时返回 null），优先展示
-                device.alias?.takeIf { it.isNotBlank() }?.let { return it }
+                // alias（Android 11+）为用户为设备设置的名称，未设置时返回 null，优先展示
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    device.alias?.takeIf { it.isNotBlank() }?.let { return it }
+                }
                 // getName() 返回远程设备在其广播或配对过程中声明的名称
                 device.name?.takeIf { it.isNotBlank() }?.let { return it }
             }

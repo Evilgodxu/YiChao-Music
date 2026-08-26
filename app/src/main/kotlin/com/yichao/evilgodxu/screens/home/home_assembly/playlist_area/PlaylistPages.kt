@@ -96,15 +96,14 @@ internal fun PlaylistGroupsPage(
     playbackState: MusicPlaybackState,
     onOpenGroup: (PlaylistGroup) -> Unit,
 ) {
-    val context = LocalContext.current
     val groups = when (type) {
         SmartPlaylistType.ALBUM -> albumGroups(
             playbackState.libraryTracks,
-            context.getString(R.string.playlist_unknown_album),
+            stringResource(R.string.playlist_unknown_album),
         )
         SmartPlaylistType.ARTIST -> artistGroups(
             playbackState.libraryTracks,
-            context.getString(R.string.music_scanner_unknown_artist),
+            stringResource(R.string.music_scanner_unknown_artist),
         )
         else -> emptyList()
     }

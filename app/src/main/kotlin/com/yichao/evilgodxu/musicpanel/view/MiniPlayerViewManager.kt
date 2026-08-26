@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -326,8 +327,12 @@ class MiniPlayerViewManager(
 
     // 实时获取当前窗口顶部状态栏 inset（横屏时状态栏位于侧边，顶部为 0）
     private fun currentTopInset(): Int = runCatching {
-        WindowInsetsCompat.toWindowInsetsCompat(windowManager.currentWindowMetrics.windowInsets)
-            .getInsets(WindowInsetsCompat.Type.statusBars()).top
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsCompat.toWindowInsetsCompat(windowManager.currentWindowMetrics.windowInsets)
+                .getInsets(WindowInsetsCompat.Type.statusBars()).top
+        } else {
+            getStatusBarHeight()
+        }
     }.getOrElse { if (isLandscape()) 0 else getStatusBarHeight() }
 
     // 迷你播放器纵向位置：横屏状态栏在侧边，顶部仅保留 1dp 间距；

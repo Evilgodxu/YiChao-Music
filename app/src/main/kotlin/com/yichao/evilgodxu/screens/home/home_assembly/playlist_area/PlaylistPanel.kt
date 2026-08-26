@@ -190,12 +190,11 @@ private fun PlaylistOverview(
     onDelete: (Playlist) -> Unit,
 ) {
     val allTracks = playbackState.libraryTracks
-    val context = LocalContext.current
     // 专辑/艺术家入口封面取各自类目内第一首歌，避免显示全部库（播放队列）首曲
-    val firstAlbumCover = albumGroups(allTracks, context.getString(R.string.playlist_unknown_album))
+    val firstAlbumCover = albumGroups(allTracks, stringResource(R.string.playlist_unknown_album))
         .firstOrNull()?.trackIds?.firstOrNull()
         ?.let { id -> allTracks.firstOrNull { it.id == id } }
-    val firstArtistCover = artistGroups(allTracks, context.getString(R.string.music_scanner_unknown_artist))
+    val firstArtistCover = artistGroups(allTracks, stringResource(R.string.music_scanner_unknown_artist))
         .firstOrNull()?.trackIds?.firstOrNull()
         ?.let { id -> allTracks.firstOrNull { it.id == id } }
     LazyColumn(

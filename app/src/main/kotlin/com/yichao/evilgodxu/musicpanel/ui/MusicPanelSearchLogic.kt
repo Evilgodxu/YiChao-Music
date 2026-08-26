@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import com.yichao.evilgodxu.R
@@ -376,12 +377,25 @@ internal suspend fun cacheToDownloads(
             // 试听片段(≤30秒)不缓存，保持在线播放
             if (isTrialAudioFile(tempFile)) return
 
+            // API 29+ 用 Downloads 集合 + RELATIVE_PATH；API 28 降级为 Files 集合 + DATA 路径，
+            // 无写权限时 insert 直接失败，维持在线播放
+            val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            } else {
+                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            }
             val contentValues = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
                 put(MediaStore.Downloads.MIME_TYPE, audioMimeType(extension))
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
+                } else {
+                    val dir = File(Environment.getExternalStorageDirectory(), "Download/YiChao/Audio")
+                    dir.mkdirs()
+                    put(MediaStore.Downloads.DATA, File(dir, fileName).absolutePath)
+                }
             }
-            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            val uri = context.contentResolver.insert(collection, contentValues)
             if (uri != null) {
                 context.contentResolver.openOutputStream(uri)?.use { os ->
                     tempFile.inputStream().use { input -> input.copyTo(os, STREAM_BUFFER_SIZE) }
@@ -489,7 +503,11 @@ internal suspend fun findExistingDownload(
     fileName: String,
 ): String? = withContext(Dispatchers.IO) {
     try {
-        val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        } else {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        }
         val projection = arrayOf(MediaStore.Downloads._ID)
         val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ? AND " +
                 "${MediaStore.Downloads.RELATIVE_PATH} = ?"

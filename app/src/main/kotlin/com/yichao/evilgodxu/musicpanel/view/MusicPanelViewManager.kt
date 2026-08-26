@@ -8,6 +8,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.graphics.PixelFormat
@@ -215,7 +216,10 @@ class MusicPanelViewManager(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            blurBehindRadius = 80
+            // blurBehindRadius 仅 Android 12+ 生效，旧版本沿用 FLAG_BLUR_BEHIND 的旧机制
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                blurBehindRadius = 80
+            }
         }
 
         // 在 UI 渲染前同步检查已连接的蓝牙设备，确保首次显示时状态正确
