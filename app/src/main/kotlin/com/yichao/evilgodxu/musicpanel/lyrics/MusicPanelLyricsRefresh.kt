@@ -155,7 +155,19 @@ private fun LyricsRefreshContent(
                         verticalArrangement = Arrangement.spacedBy(1.dp)
                     ) {
                         Surface(shape = RoundedCornerShape(8.dp), border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
-                            AsyncImage(model = ImageRequest.Builder(context).data(candidate.coverUrl).diskCachePolicy(CachePolicy.DISABLED).build(), contentDescription = candidate.title, contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
+                            val coverUrl = candidate.coverUrl?.takeIf { it.isNotBlank() }
+                            Box(Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                                if (coverUrl != null) {
+                                    AsyncImage(model = ImageRequest.Builder(context).data(coverUrl).diskCachePolicy(CachePolicy.DISABLED).build(), contentDescription = candidate.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                } else {
+                                    Text(
+                                        stringResource(candidate.source.sourceNameRes()),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
                         }
                         Text(
                             text = candidate.title,
@@ -173,4 +185,13 @@ private fun LyricsRefreshContent(
             Surface(shape = RoundedCornerShape(10.dp), color = if (selectedId != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, onClick = { if (selectedId != null) onConfirm() }) { Text(stringResource(R.string.music_panel_rename_confirm), Modifier.padding(horizontal = 24.dp, vertical = 10.dp)) }
         }
     }
+}
+
+// 无封面候选的平台名占位符资源
+private fun MusicSearchSource.sourceNameRes(): Int = when (this) {
+    MusicSearchSource.NETEASE -> R.string.music_panel_search_source
+    MusicSearchSource.QQ -> R.string.music_panel_search_source_qq
+    MusicSearchSource.KUGOU -> R.string.music_panel_search_source_kugou
+    MusicSearchSource.KUWO -> R.string.music_panel_search_source_kuwo
+    MusicSearchSource.MIGU -> R.string.music_panel_search_source_migu
 }

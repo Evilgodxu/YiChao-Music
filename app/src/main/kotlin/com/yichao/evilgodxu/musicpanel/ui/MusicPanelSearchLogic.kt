@@ -25,13 +25,12 @@ private val metadataCandidateSources: List<OnlineMusicSource> = listOf(
     KugouMusicApi,
 )
 
-// 多源并行搜索候选：每个来源对每条查询各取前 5 条（取封面可用者），单源失败不影响其它来源
+// 多源并行搜索候选：每个来源对每条查询各取前 5 条，单源失败不影响其它来源；
+// 不做封面过滤（歌词匹配不依赖封面），封面候选由调用方自行筛选
 private suspend fun searchMetadataCandidates(query: String): List<NeteaseSongSearchResult> = coroutineScope {
     metadataCandidateSources.mapNotNull { source ->
         runCatching {
-            source.search(query)
-                .filter { !it.coverUrl.isNullOrBlank() }
-                .take(5)
+            source.search(query).take(5)
         }.getOrNull()
     }.flatten()
 }
@@ -48,10 +47,9 @@ internal suspend fun searchLyricsCandidates(
             .filter { it.isNotBlank() }
             .joinToString(" ")
         val occupied = if (combined.isBlank()) emptyList() else searchMetadataCandidates(combined)
-            .filter { !it.coverUrl.isNullOrBlank() }
         val occupiedIds = occupied.map { it.id }.toSet()
         val titleOnly = if (track.title.isBlank()) emptyList() else searchMetadataCandidates(track.title)
-            .filter { it.id !in occupiedIds && !it.coverUrl.isNullOrBlank() }
+            .filter { it.id !in occupiedIds }
         playbackState.lyricsCandidates = NeteaseMusicApi.rankSearchResults(
             occupied + titleOnly,
             combined.ifBlank { track.title }
