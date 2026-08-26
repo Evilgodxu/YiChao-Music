@@ -11,6 +11,8 @@ internal object ProxySourceStore {
     private const val KEY_SOURCES = "sources_json"
     private const val KEY_ENABLED = "enabled_names"
 
+    // 写路径统一串行化，避免并发导入/移除/启停的读-改-写交错丢失更新
+    @Synchronized
     fun import(context: Context, raw: String): ProxyParseResult {
         val parsed = ProxySourceParser.parse(raw)
         if (parsed is ProxyParseResult.Failure) return parsed
@@ -29,6 +31,7 @@ internal object ProxySourceStore {
         return parsed
     }
 
+    @Synchronized
     fun remove(context: Context, name: String) {
         val list = rawList(context).toMutableList()
         list.removeAll { rawJson ->
@@ -42,13 +45,15 @@ internal object ProxySourceStore {
     }
 
     // 切换音源启用状态，停用的音源即时停止参与解析
+    @Synchronized
     fun setEnabled(context: Context, name: String, enabled: Boolean) {
         val names = enabledNames(context).toMutableSet()
         if (enabled) names.add(name) else names.remove(name)
         saveEnabledNames(context, names)
     }
 
-    // 全部已导入音源，按导入顺序返回（附带启用状态）
+    // 全部已导入音源，按导入顺序返回（附带启用状态）；与写互斥保证列表与启用状态读取一致
+    @Synchronized
     fun all(context: Context): List<ProxySourceSpec> {
         val enabled = enabledNames(context)
         return rawList(context).mapNotNull { rawJson ->
