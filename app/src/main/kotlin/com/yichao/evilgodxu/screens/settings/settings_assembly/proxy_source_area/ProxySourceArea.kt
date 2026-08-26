@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
@@ -28,6 +31,7 @@ import com.yichao.evilgodxu.screens.settings.dialog.ProxySourceImportDialog
 import com.yichao.evilgodxu.screens.settings.dialog.ProxySourceInputDialog
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
 // 代理音源分区：导入、管理第三方音源并展示导入结果
@@ -37,6 +41,7 @@ fun ProxySourceArea(
     importMessage: String?,
     importFailed: Boolean,
     onImport: (String) -> Unit,
+    onToggle: (String, Boolean) -> Unit,
     onRemove: (String) -> Unit,
     onMessageDismiss: () -> Unit,
 ) {
@@ -63,7 +68,7 @@ fun ProxySourceArea(
             subtitle = stringResource(R.string.settings_proxy_source_import_desc),
             onClick = { showImportDialog = true },
         )
-        ImportedSourceList(sources, onRemove)
+        ImportedSourceList(sources, onToggle, onRemove)
         ImportMessage(
             message = importMessage,
             failed = importFailed,
@@ -109,9 +114,13 @@ fun ProxySourceArea(
     }
 }
 
-// 已导入音源列表：名称、版本与覆盖平台，支持逐个移除
+// 已导入音源列表：固定单行高度，默认展示前三个音源，超出后列表内滚动
 @Composable
-private fun ImportedSourceList(sources: List<ProxySourceSpec>, onRemove: (String) -> Unit) {
+private fun ImportedSourceList(
+    sources: List<ProxySourceSpec>,
+    onToggle: (String, Boolean) -> Unit,
+    onRemove: (String) -> Unit,
+) {
     if (sources.isEmpty()) {
         Text(
             text = stringResource(R.string.settings_proxy_source_empty),
@@ -121,40 +130,75 @@ private fun ImportedSourceList(sources: List<ProxySourceSpec>, onRemove: (String
         )
         return
     }
-    sources.forEach { source ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = listOf(source.name, source.version.takeIf { it.isNotBlank() }?.let { "v$it" })
-                        .filterNotNull()
-                        .joinToString(" · "),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(
-                        R.string.settings_proxy_source_platforms,
-                        source.platforms.keys.joinToString(" / ")
-                    ),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-            }
-            IconButton(onClick = { onRemove(source.name) }) {
-                Icon(
-                    imageVector = AppIcons.Delete,
-                    contentDescription = stringResource(R.string.settings_proxy_source_remove_desc),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-            }
+    // 三行以内按实际行数占位，超过三行固定三行高度并进入滚动
+    val listHeight = PROXY_SOURCE_LIST_ROW_HEIGHT * minOf(sources.size, PROXY_SOURCE_LIST_VISIBLE_ROWS)
+    LazyColumn(modifier = Modifier
+        .fillMaxWidth()
+        .height(listHeight)
+    ) {
+        items(sources.size, key = { index -> sources[index].name }) { index ->
+            ProxySourceRow(
+                source = sources[index],
+                onToggle = onToggle,
+                onRemove = onRemove,
+            )
         }
     }
 }
+
+// 单个已导入音源行：信息列 + 启停开关 + 删除按钮
+@Composable
+private fun ProxySourceRow(
+    source: ProxySourceSpec,
+    onToggle: (String, Boolean) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    val textAlpha = if (source.enabled) 1f else 0.4f
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(PROXY_SOURCE_LIST_ROW_HEIGHT)
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = listOf(source.name, source.version.takeIf { it.isNotBlank() }?.let { "v$it" })
+                    .filterNotNull()
+                    .joinToString(" · "),
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha),
+            )
+            Text(
+                text = stringResource(
+                    R.string.settings_proxy_source_platforms,
+                    source.platforms.keys.joinToString(" / ")
+                ),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha * 0.6f),
+            )
+        }
+        AppSwitch(
+            checked = source.enabled,
+            onCheckedChange = { checked -> onToggle(source.name, checked) },
+        )
+        IconButton(onClick = { onRemove(source.name) }) {
+            Icon(
+                imageVector = AppIcons.Delete,
+                contentDescription = stringResource(R.string.settings_proxy_source_remove_desc),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+    }
+}
+
+// 音源列表单行高度与列表可见行数
+private val PROXY_SOURCE_LIST_ROW_HEIGHT = 56.dp
+private const val PROXY_SOURCE_LIST_VISIBLE_ROWS = 3
 
 // 最近一次导入结果提示：成功/失败着色不同，点击后关闭
 @Composable

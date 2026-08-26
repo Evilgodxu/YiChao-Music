@@ -66,6 +66,7 @@ fun SettingsScreen(
         onVersionClick = { updateViewModel.checkForUpdate(force = true) },
         onOpenTypography = onOpenTypography,
         onProxySourceImport = viewModel::importProxySource,
+        onProxySourceToggle = viewModel::setProxySourceEnabled,
         onProxySourceRemove = viewModel::removeProxySource,
         onProxyImportMessageDismiss = viewModel::clearProxyImportMessage,
         modifier = modifier,

@@ -14,6 +14,8 @@ data class ProxySourceSpec(
     val platforms: Map<String, ProxyPlatformSpec>,
     // 原始 JSON，持久化与转发展示使用
     val rawJson: String,
+    // 是否启用：停用的音源不参与任何平台解析
+    val enabled: Boolean = true,
 )
 
 // 平台定义：四类动作均可缺省，缺省的动作回退内置解析

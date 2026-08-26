@@ -141,7 +141,7 @@ class SettingsViewModel(
         }
     }
 
-    // 导入代理音源：链接内容先拉取，文本内容直接解析，结果即时生效
+    // 导入代理音源：链接内容先拉取，文本内容直接解析；成功不常驻提示，列表出现新音源即为反馈
     fun importProxySource(content: String) {
         viewModelScope.launch {
             val (message, failed) = withContext(Dispatchers.IO) {
@@ -152,10 +152,7 @@ class SettingsViewModel(
                         context.getString(R.string.settings_proxy_source_link_error),
                     ) to true
                     else -> when (val result = ProxySourceStore.import(context, raw)) {
-                        is ProxyParseResult.Success -> context.getString(
-                            R.string.settings_proxy_source_import_success,
-                            result.spec.name,
-                        ) to false
+                        is ProxyParseResult.Success -> null to false
                         is ProxyParseResult.Failure -> context.getString(
                             R.string.settings_proxy_source_import_failed,
                             result.reason,
@@ -166,6 +163,14 @@ class SettingsViewModel(
             _uiState.update {
                 it.copy(proxyImportMessage = message, proxyImportFailed = failed)
             }
+            refreshProxySources()
+        }
+    }
+
+    // 切换代理音源启用状态，停用的音源即时停止参与解析
+    fun setProxySourceEnabled(name: String, enabled: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { ProxySourceStore.setEnabled(context, name, enabled) }
             refreshProxySources()
         }
     }

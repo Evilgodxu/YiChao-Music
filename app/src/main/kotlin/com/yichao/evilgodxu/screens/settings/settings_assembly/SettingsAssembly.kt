@@ -56,6 +56,7 @@ fun SettingsAssembly(
     onVersionClick: () -> Unit,
     onOpenTypography: () -> Unit,
     onProxySourceImport: (String) -> Unit,
+    onProxySourceToggle: (String, Boolean) -> Unit,
     onProxySourceRemove: (String) -> Unit,
     onProxyImportMessageDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -125,6 +126,7 @@ fun SettingsAssembly(
                 importMessage = uiState.proxyImportMessage,
                 importFailed = uiState.proxyImportFailed,
                 onImport = onProxySourceImport,
+                onToggle = onProxySourceToggle,
                 onRemove = onProxySourceRemove,
                 onMessageDismiss = onProxyImportMessageDismiss,
             )
