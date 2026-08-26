@@ -42,7 +42,10 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Constraints
@@ -101,6 +104,19 @@ internal fun LyricsPanel(
     val activeIndex = lines.indexOfLast { it.timeMs <= lyricPosition }.coerceAtLeast(0)
     // 当前行居中，上下各显示 (total-1)/2 行（total 为奇数）
     val offset = visibleLines / 2
+    // 视口上限按 N 行标准高度计算：超长句换行与译文叠层会让内容高于 N 行标准，
+    // 窗口固定在 N 行之内，滚动超出部分交由边缘渐隐与裁剪处理
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val maxViewportHeight = remember(visibleLines, fontSize, density) {
+        val lineHeightPx = textMeasurer.measure(
+            AnnotatedString("歌词"),
+            TextStyle(fontSize = fontSize, fontWeight = FontWeight.Normal),
+        ).size.height
+        val slotPx = lineHeightPx + with(density) { 4.dp.roundToPx() }
+        val spacingPx = with(density) { 2.dp.roundToPx() }
+        slotPx * visibleLines + spacingPx * (visibleLines - 1)
+    }
 
     Box(
         modifier = modifier
@@ -147,6 +163,7 @@ internal fun LyricsPanel(
                 ) { renderedActiveIndex ->
                     LyricColumnLayout(
                         currentRow = offset,
+                        maxViewportHeight = maxViewportHeight,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                     repeat(visibleLines) { row ->
@@ -203,6 +220,7 @@ internal fun LyricSpacer() {
 @Composable
 private fun LyricColumnLayout(
     currentRow: Int,
+    maxViewportHeight: Int,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -217,10 +235,10 @@ private fun LyricColumnLayout(
         val totalHeight = placeables.sumOf { it.height }
         val currentTop = placeables.take(currentRow).sumOf { it.height }
         val currentCenter = currentTop + (placeables.getOrNull(currentRow)?.height ?: 0) / 2f
-        // 布局高度取内容实际高度：渐隐比例按行数折算，需面板与歌词内容等高
-        val layoutHeight = if (constraints.hasBoundedHeight && totalHeight > constraints.maxHeight) {
-            constraints.maxHeight
-        } else totalHeight
+        // 视口高度限在 N 行标准内，不随换行/译文叠层膨胀；超出部分滚动越界后由渐隐与裁剪处理
+        val boundedMax = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+        val viewportLimit = minOf(maxViewportHeight, boundedMax)
+        val layoutHeight = totalHeight.coerceAtMost(viewportLimit).coerceAtLeast(1)
         // 平移量 = 布局中线 - 当前行中心，使当前行保持居中
         val shift = (layoutHeight / 2f - currentCenter).roundToInt()
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
@@ -360,9 +378,19 @@ internal fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = 
         )
     )
     onDrawWithContent {
-        drawIntoCanvas { canvas -> canvas.saveLayer(Rect(Offset.Zero, size), Paint()) }
+        val bounds = Rect(Offset.Zero, size)
+        // 绘制级裁剪与蒙层放在同一图层：子层包边像素在进入图层前即被裁除，
+        // 避免英文光晕/字形越过窗口边缘后以未蒙层原色残留
+        drawIntoCanvas { canvas ->
+            canvas.save()
+            canvas.clipRect(bounds)
+            canvas.saveLayer(bounds, Paint())
+        }
         drawContent()
         drawRect(brush = brush, size = size, blendMode = BlendMode.DstIn)
-        drawIntoCanvas { canvas -> canvas.restore() }
+        drawIntoCanvas { canvas ->
+            canvas.restore()
+            canvas.restore()
+        }
     }
 }
