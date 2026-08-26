@@ -89,13 +89,13 @@ internal object KuwoMusicApi : OnlineMusicSource {
         }
     }
 
-    /** 获取歌词：解密 newlyric 响应后压平逐字标签为标准 LRC */
+    /** 获取歌词：解密 newlyric 响应后压平逐字标签，翻译按时间戳并入主行 */
     suspend fun lyricLines(result: NeteaseSongSearchResult): List<LyricLine>? = withContext(Dispatchers.IO) {
         val rid = result.sourceId ?: return@withContext null
         try {
             val raw = getBytes("$LYRIC_ENDPOINT?${buildLyricParams(rid)}")
             val lrc = decodeLyrics(raw) ?: return@withContext null
-            parseLrcText(convertRawLrc(lrc)).takeIf { it.isNotEmpty() }
+            parseKuwoLrc(lrc).takeIf { it.isNotEmpty() }
         } catch (e: Exception) {
             CrashLogManager.logException("KuwoMusicApi", "获取歌词失败", e)
             null
@@ -146,38 +146,32 @@ internal object KuwoMusicApi : OnlineMusicSource {
         null
     }
 
-    // 逐字歌词 <起,持续>字 标签压平为标准 LRC，纯翻译行（<0,0> 开头）保留为同时间戳第二行
-    private fun convertRawLrc(raw: String): String {
+    // 逐字歌词 <起,持续>字 标签压平为文本；酷我双语歌词为 [翻译行(<0,0> 开头), 主行] 同时间戳成对结构，
+    // 翻译行按时间戳并入主行的 translation 字段，避免作为独立行参与当前行定位
+    private fun parseKuwoLrc(raw: String): List<LyricLine> {
         val rxLine = Regex("^\\[(\\d{2}:\\d{2}\\.\\d{3})\\](.*)$")
         val rxWord = Regex("<(-?\\d+),(-?\\d+)>([^<]*)")
         val rxZh = Regex("[\\u4e00-\\u9fa5]")
-        val lines = raw.split(Regex("\r\n|\r|\n"))
-        val out = mutableListOf<String>()
-        var i = 0
-        while (i < lines.size) {
-            val match = rxLine.find(lines[i])
-            if (match == null) {
-                out.add(lines[i]); i++; continue
-            }
+        val main = mutableListOf<LyricLine>()
+        val trans = mutableListOf<LyricLine>()
+        raw.split(Regex("\r\n|\r|\n")).forEach { line ->
+            val match = rxLine.find(line) ?: return@forEach
             val ts = match.groupValues[1]
+            val timeMs = ts.substringBefore(':').toLong() * 60_000 +
+                    ts.substringAfter(':').substringBefore('.').toLong() * 1_000 +
+                    ts.substringAfter('.').toLong()
             val payload = match.groupValues[2]
-            if (payload.replace("<0,0>", "").isBlank()) { i++; continue }
-            if (payload.startsWith("<0,0>") && rxZh.containsMatchIn(payload)) { i++; continue }
-            val words = rxWord.findAll(payload).toList()
-            val lyric = if (words.isNotEmpty()) words.joinToString("") { it.groupValues[3] }
-            else payload.replace("<0,0>", "").trim()
-            var trans = ""
-            if (i + 1 < lines.size) {
-                val next = rxLine.find(lines[i + 1])
-                if (next != null && next.groupValues[2].startsWith("<0,0>") && rxZh.containsMatchIn(next.groupValues[2])) {
-                    trans = next.groupValues[2].replace("<0,0>", "").trim(); i++
-                }
+            if (payload.startsWith("<0,0>")) {
+                val t = payload.replace("<0,0>", "").trim()
+                if (t.isNotEmpty() && rxZh.containsMatchIn(t)) trans.add(LyricLine(timeMs, t))
+            } else {
+                val words = rxWord.findAll(payload).toList()
+                val text = if (words.isNotEmpty()) words.joinToString("") { it.groupValues[3] }
+                else payload.replace("<0,0>", "").trim()
+                if (text.isNotBlank()) main.add(LyricLine(timeMs, text))
             }
-            out.add("[$ts]$lyric")
-            if (trans.isNotEmpty()) out.add("[$ts]$trans")
-            i++
         }
-        return out.joinToString("\n")
+        return mergeTranslations(main, trans).sortedBy { it.timeMs }
     }
 
     // 酷我私有 DES 变体：mobi.s 参数用 SONG_KEY 加密（mode 0 加密 / 1 解密）
