@@ -270,6 +270,9 @@ class MusicPlaybackState {
     var isLyricsSearching by mutableStateOf(false)
     var isLyricsRefreshing by mutableStateOf(false)
     var lyricsRefreshError by mutableStateOf<String?>(null)
+    // 歌词/封面刷新当前来源：按来源独立搜索，切换来源时轮换并重新搜索
+    var lyricsRefreshSource by mutableStateOf(MusicSearchSource.NETEASE)
+    var coverRefreshSource by mutableStateOf(MusicSearchSource.NETEASE)
 
     private fun hasUriAccess(context: Context, audioUri: String): Boolean {
         val uri = Uri.parse(audioUri)
@@ -971,6 +974,10 @@ class MusicPlaybackState {
     fun setLyricsCandidates(candidates: List<NeteaseSongSearchResult>) { lyricsCandidates = candidates }
     @JvmName("updateLyricsRefreshError")
     fun setLyricsRefreshError(error: String?) { lyricsRefreshError = error }
+    @JvmName("updateLyricsRefreshSource")
+    fun setLyricsRefreshSource(source: MusicSearchSource) { lyricsRefreshSource = source }
+    @JvmName("updateCoverRefreshSource")
+    fun setCoverRefreshSource(source: MusicSearchSource) { coverRefreshSource = source }
     @JvmName("updateErrorMsg")
     fun setErrorMsg(message: String?) { errorMsg = message }
     @JvmName("updateTimerMinutes")

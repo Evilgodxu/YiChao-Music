@@ -280,7 +280,7 @@ fun MusicPanelOverlay(
                                             onOnlineCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
                                                 showCoverRefresh = true
-                                                scope.launch { searchCoverCandidates(playbackState, playbackState.currentTrack!!) }
+                                                scope.launch { searchCoverCandidates(playbackState, playbackState.currentTrack!!, playbackState.coverRefreshSource) }
                                             },
                                             onLocalCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
@@ -311,7 +311,7 @@ fun MusicPanelOverlay(
                                     onLyricsRefreshClick = {
                                         lyricsTargetId = playbackState.currentTrack?.id
                                         showLyricsRefresh = true
-                                        playbackState.currentTrack?.let { track -> scope.launch { searchLyricsCandidates(playbackState, track) } }
+                                        playbackState.currentTrack?.let { track -> scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) } }
                                     }
                                 )
                             }
@@ -448,6 +448,20 @@ fun MusicPanelOverlay(
                         selectedId = selectedCoverCandidate?.id,
                         saving = coverSaving,
                         onCandidateSelected = { selectedCoverCandidate = it },
+                        onSwitchSource = {
+                            val next = nextRefreshSource(playbackState.coverRefreshSource)
+                            playbackState.setCoverRefreshSource(next)
+                            selectedCoverCandidate = null
+                            val track = playbackState.currentTrack
+                            if (track != null && track.id == coverTargetId) scope.launch { searchCoverCandidates(playbackState, track, next) }
+                        },
+                        onRefresh = {
+                            val track = playbackState.currentTrack
+                            if (track != null && track.id == coverTargetId) {
+                                selectedCoverCandidate = null
+                                scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
+                            }
+                        },
                         onConfirm = {
                             val candidate = selectedCoverCandidate
                             val track = playbackState.currentTrack
@@ -483,6 +497,20 @@ fun MusicPanelOverlay(
                         selectedId = selectedLyricsCandidate?.id,
                         context = context,
                         onCandidateSelected = { selectedLyricsCandidate = it },
+                        onSwitchSource = {
+                            val next = nextRefreshSource(playbackState.lyricsRefreshSource)
+                            playbackState.setLyricsRefreshSource(next)
+                            selectedLyricsCandidate = null
+                            val track = playbackState.currentTrack
+                            if (track != null && track.id == lyricsTargetId) scope.launch { searchLyricsCandidates(playbackState, track, next) }
+                        },
+                        onRefresh = {
+                            val track = playbackState.currentTrack
+                            if (track != null && track.id == lyricsTargetId) {
+                                selectedLyricsCandidate = null
+                                scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) }
+                            }
+                        },
                         onConfirm = {
                             val candidate = selectedLyricsCandidate
                             val track = playbackState.currentTrack

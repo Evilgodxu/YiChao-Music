@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,11 +39,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.icons.AppIcons
 
 @Composable
 internal fun CoverRefreshOverlay(
@@ -52,6 +56,8 @@ internal fun CoverRefreshOverlay(
     selectedId: Long?,
     saving: Boolean,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
+    onSwitchSource: () -> Unit,
+    onRefresh: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -68,6 +74,8 @@ internal fun CoverRefreshOverlay(
             saving = saving,
             context = context,
             onCandidateSelected = onCandidateSelected,
+            onSwitchSource = onSwitchSource,
+            onRefresh = onRefresh,
             onConfirm = onConfirm,
             onCancel = onCancel,
         )
@@ -83,6 +91,8 @@ internal fun CoverRefreshDialog(
     selectedId: Long?,
     saving: Boolean,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
+    onSwitchSource: () -> Unit,
+    onRefresh: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -94,6 +104,8 @@ internal fun CoverRefreshDialog(
                 saving = saving,
                 context = context,
                 onCandidateSelected = onCandidateSelected,
+                onSwitchSource = onSwitchSource,
+                onRefresh = onRefresh,
                 onConfirm = onConfirm,
                 onCancel = onCancel,
                 modifier = Modifier.padding(16.dp),
@@ -102,7 +114,7 @@ internal fun CoverRefreshDialog(
     }
 }
 
-// 封面刷新共享主体：标题 + 候选 / 状态 + 按钮，供全屏蒙层与对话框复用
+// 封面刷新共享主体：标题行(点击切换来源+刷新按钮) + 候选 / 状态 + 按钮，供全屏蒙层与对话框复用
 @Composable
 private fun CoverRefreshContent(
     playbackState: MusicPlaybackState,
@@ -110,16 +122,41 @@ private fun CoverRefreshContent(
     saving: Boolean,
     context: Context,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
+    onSwitchSource: () -> Unit,
+    onRefresh: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val searching = playbackState.isCoverSearching || saving
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(stringResource(R.string.music_panel_refresh_cover), color = MaterialTheme.colorScheme.onSurface)
+        // 标题行：居中显示当前来源名，点击标题切换来源，右侧独立刷新按钮
+        Box(Modifier.fillMaxWidth()) {
+            Text(
+                text = stringResource(playbackState.coverRefreshSource.sourceNameRes()),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .clickable(enabled = !searching) { onSwitchSource() }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+            IconButton(
+                onClick = onRefresh,
+                enabled = !searching,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                Icon(
+                    imageVector = AppIcons.Refresh,
+                    contentDescription = stringResource(R.string.music_panel_refresh_cover),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
         if (playbackState.isCoverSearching) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
         } else if (playbackState.coverCandidates.isEmpty()) {

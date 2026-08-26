@@ -11,49 +11,66 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.File
 
-// 封面/歌词刷新候选的来源（网易云+QQ+酷狗）
-private val metadataCandidateSources: List<OnlineMusicSource> = listOf(
-    NeteaseMusicApi,
-    QQMusicApi,
-    KugouMusicApi,
+// 刷新候选来源轮换顺序：点击切换来源时按此循环，覆盖全部在线音源
+internal val metadataRefreshSourceCycle: List<MusicSearchSource> = listOf(
+    MusicSearchSource.NETEASE,
+    MusicSearchSource.QQ,
+    MusicSearchSource.KUGOU,
+    MusicSearchSource.KUWO,
+    MusicSearchSource.MIGU,
 )
 
-// 多源并行搜索候选：每个来源对每条查询各取前 5 条，单源失败不影响其它来源；
-// 不做封面过滤（歌词匹配不依赖封面），封面候选由调用方自行筛选
-private suspend fun searchMetadataCandidates(query: String): List<NeteaseSongSearchResult> = coroutineScope {
-    metadataCandidateSources.mapNotNull { source ->
-        runCatching {
-            source.search(query).take(5)
-        }.getOrNull()
-    }.flatten()
+// 切换到下一刷新来源；已到末尾则回到第一个
+internal fun nextRefreshSource(current: MusicSearchSource): MusicSearchSource {
+    val index = metadataRefreshSourceCycle.indexOf(current)
+    return if (index >= 0) metadataRefreshSourceCycle[(index + 1) % metadataRefreshSourceCycle.size]
+           else metadataRefreshSourceCycle.first()
+}
+
+// 单来源单次查询候选：每来源对每条查询各取前 10 条，单源失败不影响其它查询
+private suspend fun searchSourceCandidates(source: OnlineMusicSource, query: String): List<NeteaseSongSearchResult> =
+    runCatching { source.search(query).take(10) }.getOrDefault(emptyList())
+
+// 单来源候选：先以“歌名+歌手”查询、再以纯歌名查询，各取前 10 后合并去重（10+10）
+private suspend fun searchSingleSourceCandidates(
+    source: OnlineMusicSource,
+    title: String,
+    artist: String,
+): List<NeteaseSongSearchResult> {
+    val combined = listOf(title, artist).filter { it.isNotBlank() }.joinToString(" ")
+    val occupied = if (combined.isBlank()) emptyList() else searchSourceCandidates(source, combined)
+    val occupiedIds = occupied.map { it.id }.toSet()
+    val titleOnly = if (title.isBlank()) emptyList() else
+        searchSourceCandidates(source, title).filter { it.id !in occupiedIds }
+    return occupied + titleOnly
+}
+
+// 过滤候选：以是否匹配当前歌曲标题为唯一判定依据，normalize 后相等或互相包含
+private fun matchesTrackTitle(title: String, result: NeteaseSongSearchResult): Boolean {
+    val nTarget = normalizeTitle(title)
+    if (nTarget.isBlank()) return true
+    val nResult = normalizeTitle(result.title)
+    return nResult.isNotEmpty() && (nResult == nTarget || nResult.contains(nTarget) || nTarget.contains(nResult))
 }
 
 internal suspend fun searchLyricsCandidates(
     playbackState: MusicPlaybackState,
     track: MusicTrack,
+    source: MusicSearchSource,
 ) {
     playbackState.isLyricsSearching = true
     playbackState.lyricsCandidates = emptyList()
     playbackState.lyricsRefreshError = null
     try {
-        val combined = listOf(track.title, track.artist)
-            .filter { it.isNotBlank() }
-            .joinToString(" ")
-        val occupied = if (combined.isBlank()) emptyList() else searchMetadataCandidates(combined)
-        val occupiedIds = occupied.map { it.id }.toSet()
-        val titleOnly = if (track.title.isBlank()) emptyList() else searchMetadataCandidates(track.title)
-            .filter { it.id !in occupiedIds }
-        playbackState.lyricsCandidates = NeteaseMusicApi.rankSearchResults(
-            occupied + titleOnly,
-            combined.ifBlank { track.title }
-        ).take(30)
+        playbackState.lyricsCandidates = searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
+            .filter { matchesTrackTitle(track.title, it) }
+            .take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌词候选失败: 歌曲=${track.title}", e)
         playbackState.lyricsCandidates = emptyList()
@@ -134,25 +151,14 @@ internal suspend fun applyLocalLyrics(
 internal suspend fun searchCoverCandidates(
     playbackState: MusicPlaybackState,
     track: MusicTrack,
+    source: MusicSearchSource,
 ) {
     playbackState.isCoverSearching = true
     playbackState.coverCandidates = emptyList()
     try {
-        val titleArtist = listOf(track.title, track.artist)
-            .filter { it.isNotBlank() }
-            .joinToString(" ")
-        val titleArtistCandidates = if (titleArtist.isBlank()) emptyList() else {
-            searchMetadataCandidates(titleArtist)
-                .filter { !it.coverUrl.isNullOrBlank() }
-        }
-        val titleCandidates = if (track.title.isBlank()) emptyList() else {
-            searchMetadataCandidates(track.title)
-                .filter { !it.coverUrl.isNullOrBlank() }
-        }
-        playbackState.coverCandidates = NeteaseMusicApi.rankSearchResults(
-            titleArtistCandidates + titleCandidates,
-            titleArtist.ifBlank { track.title }
-        ).take(30)
+        playbackState.coverCandidates = searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
+            .filter { matchesTrackTitle(track.title, it) && !it.coverUrl.isNullOrBlank() }
+            .take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索封面候选失败: 歌曲=${track.title}", e)
         playbackState.coverCandidates = emptyList()
