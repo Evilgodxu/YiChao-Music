@@ -98,7 +98,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         val body = JSONObject().apply {
             put("s", keyword)
             put("type", 1)
-            put("limit", 20)
+            put("limit", 50)
             put("offset", 0)
         }
         val root = request("search/get", body)

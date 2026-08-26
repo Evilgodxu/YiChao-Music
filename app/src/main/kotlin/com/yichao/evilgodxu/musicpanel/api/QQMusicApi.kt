@@ -69,7 +69,7 @@ internal object QQMusicApi : OnlineMusicSource {
         param.put("searchid", randomSearchId())
         param.put("query", keyword)
         param.put("search_type", 0)
-        param.put("num_per_page", 20)
+        param.put("num_per_page", 50)
         param.put("page_num", 1)
         param.put("highlight", 1)
         param.put("grp", 1)

@@ -33,7 +33,7 @@ internal object KuwoMusicApi : OnlineMusicSource {
         try {
             val query = "vipver=1&client=kt&ft=music&cluster=0&strategy=2012&encoding=utf8" +
                     "&rformat=json&mobi=1&issubtitle=1&show_copyright_off=1" +
-                    "&pn=0&rn=20&all=" + URLEncoder.encode(keyword, "UTF-8")
+                    "&pn=0&rn=50&all=" + URLEncoder.encode(keyword, "UTF-8")
             val lists = JSONObject(get("$SEARCH_ENDPOINT?$query")).optJSONArray("abslist") ?: JSONArray()
             List(lists.length()) { index ->
                 val item = lists.getJSONObject(index)

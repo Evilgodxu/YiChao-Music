@@ -37,7 +37,7 @@ internal object MiguMusicApi : OnlineMusicSource {
                 put("song", 1); put("album", 0); put("singer", 0)
                 put("tagSong", 1); put("mvSong", 0); put("bestShow", 1)
             }
-            val query = "text=${URLEncoder.encode(keyword, "UTF-8")}&pageNo=1&pageSize=20" +
+            val query = "text=${URLEncoder.encode(keyword, "UTF-8")}&pageNo=1&pageSize=50" +
                     "&isCopyright=1&sort=1&searchSwitch=${URLEncoder.encode(searchSwitch.toString(), "UTF-8")}"
             val root = getJson("$SEARCH_ENDPOINT?$query")
             val songData = root.optJSONObject("songResultData")

@@ -11,8 +11,6 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
@@ -212,16 +210,10 @@ internal suspend fun performSearch(
     // 立即切到结果视图，使加载指示器在搜索期间可见
     playbackState.showSearchResults = true
     try {
-        // 并行查询所有已注册的音乐源并聚合展示（单个来源失败不影响其他来源）
-        // 各来源仅对自身结果按 id 去重，不跨平台去重，避免误过滤另一平台的歌曲
-        val results = coroutineScope {
-            onlineMusicSources.map { source ->
-                async {
-                    runCatching { source.search(query) }.getOrDefault(emptyList())
-                        .distinctBy { it.id }
-                }
-            }.awaitAll().flatten()
-        }
+        // 仅查询当前选中的音乐平台，单平台失败不阻塞其他流程
+        val results = runCatching { sourceOf(playbackState.searchSource).search(query) }
+            .getOrDefault(emptyList())
+            .distinctBy { it.id }
         playbackState.searchResults = results
         if (results.isNotEmpty()) playbackState.addSearchHistory(query)
         playbackState.showSearchResults = true

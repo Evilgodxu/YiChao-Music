@@ -29,13 +29,19 @@ import androidx.compose.foundation.text.KeyboardOptions
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicQuality
+import com.yichao.evilgodxu.musicpanel.MusicSearchSource
 import com.yichao.evilgodxu.musicpanel.SearchResultRow
 import com.yichao.evilgodxu.musicpanel.performSearch
 import com.yichao.evilgodxu.musicpanel.playSearchResultWithQuality
@@ -106,7 +113,7 @@ private fun PanelHeader() {
     )
 }
 
-// 搜索输入框
+// 搜索输入框：左侧放大镜点击弹出平台下拉列表，切换后带已有关键词自动重搜
 @Composable
 private fun SearchInput(
     playbackState: MusicPlaybackState,
@@ -114,6 +121,7 @@ private fun SearchInput(
     scope: CoroutineScope,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    var sourceMenuExpanded by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -128,67 +136,130 @@ private fun SearchInput(
             ),
         contentAlignment = Alignment.CenterStart
     ) {
-        Icon(
-            imageVector = AppIcons.Search,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier
-                .padding(start = 16.dp)
-                .size(20.dp)
-        )
-        BasicTextField(
-            value = playbackState.searchQuery,
-            onValueChange = { playbackState.searchQuery = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 48.dp, end = 44.dp),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = Color.White,
-                fontSize = 14.sp
-            ),
-            cursorBrush = SolidColor(Color.White),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    // 回车触发搜索时收起键盘
-                    keyboardController?.hide()
-                    val query = playbackState.searchQuery.trim()
-                    if (query.isNotBlank()) {
-                        scope.launch { performSearch(playbackState, context) }
-                    }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 平台切换触发器
+            Box {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { sourceMenuExpanded = true }
+                        .padding(start = 14.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Search,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = sourceName(playbackState.searchSource),
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Icon(
+                        imageVector = AppIcons.ArrowDropDown,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
-            ),
-            decorationBox = { innerTextField ->
-                Box {
-                    if (playbackState.searchQuery.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.music_panel_search_placeholder),
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 14.sp
+                DropdownMenu(
+                    expanded = sourceMenuExpanded,
+                    onDismissRequest = { sourceMenuExpanded = false },
+                ) {
+                    MusicSearchSource.entries.forEach { source ->
+                        DropdownMenuItem(
+                            text = { Text(sourceName(source)) },
+                            onClick = {
+                                sourceMenuExpanded = false
+                                playbackState.setSearchSource(source)
+                                val query = playbackState.searchQuery.trim()
+                                if (query.isNotBlank()) {
+                                    scope.launch { performSearch(playbackState, context) }
+                                }
+                            },
+                            trailingIcon = {
+                                if (source == playbackState.searchSource) {
+                                    Icon(
+                                        imageVector = AppIcons.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
                         )
                     }
-                    innerTextField()
                 }
             }
-        )
-        if (playbackState.searchQuery.isNotEmpty()) {
-            IconButton(
-                onClick = { playbackState.setSearchQuery("") },
+            BasicTextField(
+                value = playbackState.searchQuery,
+                onValueChange = { playbackState.searchQuery = it },
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(32.dp)
-            ) {
-                Icon(
-                    imageVector = AppIcons.Close,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
+                    .weight(1f)
+                    .padding(start = 2.dp),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.White,
+                    fontSize = 14.sp
+                ),
+                cursorBrush = SolidColor(Color.White),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        // 回车触发搜索时收起键盘
+                        keyboardController?.hide()
+                        val query = playbackState.searchQuery.trim()
+                        if (query.isNotBlank()) {
+                            scope.launch { performSearch(playbackState, context) }
+                        }
+                    }
+                ),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (playbackState.searchQuery.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.music_panel_search_placeholder),
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 14.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (playbackState.searchQuery.isNotEmpty()) {
+                IconButton(
+                    onClick = { playbackState.setSearchQuery("") },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Close,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
 }
+
+// 平台名称文本
+@Composable
+private fun sourceName(source: MusicSearchSource): String = stringResource(
+    when (source) {
+        MusicSearchSource.NETEASE -> R.string.music_panel_search_source
+        MusicSearchSource.QQ -> R.string.music_panel_search_source_qq
+        MusicSearchSource.KUGOU -> R.string.music_panel_search_source_kugou
+        MusicSearchSource.KUWO -> R.string.music_panel_search_source_kuwo
+        MusicSearchSource.MIGU -> R.string.music_panel_search_source_migu
+    }
+)
 
 // 搜索历史列表
 @Composable
@@ -370,7 +441,7 @@ private fun SearchResultList(
                     ) {
                         itemsIndexed(
                             items = playbackState.searchResults,
-                            // 聚合多来源后 id 可能重复，key 需结合来源保证唯一
+                            // 结合来源与 id 保证 key 唯一
                             key = { _, result -> "${result.source}-${result.id}" }
                         ) { _, result ->
                             SearchResultRow(

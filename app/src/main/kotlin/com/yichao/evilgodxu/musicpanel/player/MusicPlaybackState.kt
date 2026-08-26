@@ -243,6 +243,8 @@ class MusicPlaybackState {
     // 在线搜索相关状态
     var isSearchMode by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
+    // 当前选中的在线搜索平台，单平台搜索时使用
+    var searchSource by mutableStateOf(MusicSearchSource.NETEASE)
     var searchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var searchHistory by mutableStateOf<List<String>>(emptyList())
     var isSearching by mutableStateOf(false)
@@ -957,6 +959,8 @@ class MusicPlaybackState {
     fun setSearchResultsVisible(visible: Boolean) { showSearchResults = visible }
     @JvmName("updateSearchQuery")
     fun setSearchQuery(query: String) { searchQuery = query }
+    @JvmName("updateSearchSource")
+    fun setSearchSource(source: MusicSearchSource) { searchSource = source }
     @JvmName("updateLyricsVisible")
     fun setLyricsVisible(visible: Boolean) { isLyricsVisible = visible }
     @JvmName("updateLocalCoverCandidates")
