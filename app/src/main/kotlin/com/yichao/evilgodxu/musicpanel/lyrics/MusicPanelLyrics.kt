@@ -207,7 +207,10 @@ private fun LyricColumnLayout(
         val totalHeight = placeables.sumOf { it.height }
         val currentTop = placeables.take(currentRow).sumOf { it.height }
         val currentCenter = currentTop + (placeables.getOrNull(currentRow)?.height ?: 0) / 2f
-        val layoutHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else totalHeight
+        // 布局高度取内容实际高度：渐隐比例按行数折算，需面板与歌词内容等高
+        val layoutHeight = if (constraints.hasBoundedHeight && totalHeight > constraints.maxHeight) {
+            constraints.maxHeight
+        } else totalHeight
         // 平移量 = 布局中线 - 当前行中心，使当前行保持居中
         val shift = (layoutHeight / 2f - currentCenter).roundToInt()
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
