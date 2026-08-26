@@ -13,12 +13,12 @@ import java.io.FileNotFoundException
  * 向系统媒体控制器（通知栏、锁屏、Android Auto 等）暴露本地缓存的封面文件。
  *
  * Media3 的 MediaSession 会自动为 content:// URI 授予读取权限，
- * 因此系统进程能通过此 Provider 读取应用私有目录下的封面文件。
+ * 因此系统进程能通过此 Provider 读取本地缓存目录下的封面文件。
  *
  * URI 格式: content://{packageName}.musiccover/{文件名不含扩展名}
  * 例如: content://com.yichao.evilgodxu.musiccover/12345
  *
- * 按 webp → image 顺序查找文件。
+ * 按 webp → png → image(旧版) 顺序查找文件。
  */
 class MusicCoverProvider : ContentProvider() {
 
@@ -29,6 +29,7 @@ class MusicCoverProvider : ContentProvider() {
         val ctx = context ?: return null
         val root = MusicMetadataCache.coverRoot(ctx)
         val file = File(root, "$id.webp").takeIf { it.isFile }
+            ?: File(root, "$id.png").takeIf { it.isFile }
             ?: File(root, "$id.image").takeIf { it.isFile }
             ?: return null
         return try {
