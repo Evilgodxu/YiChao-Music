@@ -271,10 +271,17 @@ object PlaylistRefresher {
                         it.path.isBlank() && (!it.isOnlinePlay || it.id == activeId)
                     }
                     val previous = state.playlist.associateBy { normalizedUri(it.audioUri) }
+                    // 缓存下载后 audioUri 由 downloads 集合切换为 audio/media 集合，归一化后仍不一致；
+                    // 按“标题 - 艺术家”兜底匹配旧列表，复用在线播放期间已保存的歌词/封面缓存
+                    val previousByTitleArtist = state.playlist
+                        .filter { it.lyricCachePath.isNotBlank() || it.coverCachePath.isNotBlank() }
+                        .associateBy { titleArtistKey(it) }
                     val mergedTracks = (tracks + externalTracks)
                         .distinctBy { normalizedUri(it.audioUri) }
                         .map { track ->
-                            val cached = previous[normalizedUri(track.audioUri)] ?: return@map track
+                            val cached = previous[normalizedUri(track.audioUri)]
+                                ?: previousByTitleArtist[titleArtistKey(track)]
+                                ?: return@map track
                             track.copy(
                                 neteaseId = cached.neteaseId,
                                 neteaseCoverUrl = cached.neteaseCoverUrl,
@@ -326,6 +333,10 @@ object PlaylistRefresher {
             .fragment(null)
             .build()
             .toString()
+
+    // 归一化“标题 + 艺术家”作为歌词/封面缓存复用的匹配键
+    private fun titleArtistKey(track: MusicTrack): String =
+        normalizeTitle(track.title) + "\u0000" + normalizeTitle(track.artist)
 
     private fun restoreCurrentTrack(state: MusicPlaybackState) {
         if (state.playlist.isEmpty() || state.currentTrack != null) return

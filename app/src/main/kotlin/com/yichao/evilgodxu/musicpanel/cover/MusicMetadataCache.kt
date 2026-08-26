@@ -151,6 +151,12 @@ internal object MusicMetadataCache {
             else "[$timestamp]" + line.words.joinToString("") { "<${lrcTimestamp(it.startMs)}>${it.text}" } + translation
         }
 
+    // 按“标题 - 艺术家”查找已存在的歌词缓存文件：在线播放/手动刷新保存的 .lrc 可直接复用
+    fun findLyrics(context: Context, title: String, artist: String): String? {
+        val file = lyricFile(context, title, artist)
+        return file.absolutePath.takeIf { isValid(it) }
+    }
+
     fun loadLyrics(path: String): List<LyricLine> = try {
         parseLyricsText(File(path).readText())
     } catch (e: Exception) {

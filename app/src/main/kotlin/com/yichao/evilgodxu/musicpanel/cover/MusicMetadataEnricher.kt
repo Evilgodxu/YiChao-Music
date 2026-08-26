@@ -183,6 +183,12 @@ object MetadataEnricher {
             needLyrics.map { track ->
                 async(metadataDispatcher) {
                     try {
+                        // 优先复用已保存的歌词缓存（在线播放/手动刷新已落盘的 .lrc），避免重复网络匹配
+                        val existingPath = MusicMetadataCache.findLyrics(context, track.title, track.artist)
+                        val existingLines = existingPath?.let { MusicMetadataCache.loadLyrics(it) }
+                        if (!existingLines.isNullOrEmpty()) {
+                            return@async track.copy(lyricCachePath = existingPath, lyricLines = existingLines)
+                        }
                         val match = NeteaseMusicApi.match(track.title, track.artist, track.duration)
                             ?: return@async track.copy(lyricFailed = true)
                         val lyric = NeteaseMusicApi.lyric(match.id)
