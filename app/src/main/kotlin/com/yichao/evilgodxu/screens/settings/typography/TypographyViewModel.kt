@@ -72,7 +72,7 @@ class TypographyViewModel(application: Application) : AndroidViewModel(applicati
 
     fun adjustHomePortraitLines(delta: Int) {
         val state = _uiState.value
-        val next = adjustLines(LyricLayoutDefaults.PORTRAIT_LINE_PRESETS, state.homePortrait.visibleLines, delta)
+        val next = adjustLines(LyricLayoutDefaults.HOME_PORTRAIT_LINE_PRESETS, state.homePortrait.visibleLines, delta)
         _uiState.update { it.copy(homePortrait = it.homePortrait.copy(visibleLines = next)) }
         viewModelScope.launch {
             context.saveHomePortraitLyricLayout(_uiState.value.homePortrait.fontSizeSp, next)

@@ -124,10 +124,10 @@ fun TypographySettingsAssembly(
                     title = stringResource(R.string.typography_visible_lines),
                     valueText = "${uiState.homePortrait.visibleLines}",
                     decreaseEnabled = presetCanDecrease(
-                        LyricLayoutDefaults.PORTRAIT_LINE_PRESETS, uiState.homePortrait.visibleLines,
+                        LyricLayoutDefaults.HOME_PORTRAIT_LINE_PRESETS, uiState.homePortrait.visibleLines,
                     ),
                     increaseEnabled = presetCanIncrease(
-                        LyricLayoutDefaults.PORTRAIT_LINE_PRESETS, uiState.homePortrait.visibleLines,
+                        LyricLayoutDefaults.HOME_PORTRAIT_LINE_PRESETS, uiState.homePortrait.visibleLines,
                     ),
                     onDecrease = { onHomePortraitLinesChange(-1) },
                     onIncrease = { onHomePortraitLinesChange(1) },
