@@ -229,9 +229,11 @@ internal object MusicMetadataCache {
         null
     }
 
+    // 按引用集合回收孤儿缓存：删除不再被任何已知歌曲引用的封面/歌词文件。
+    // 参照集合由调用方按全量库+当前歌单构建，跨歌单共享的文件因存在引用而不会被误删
     fun cleanupOrphanedMetadata(context: Context, referencedPaths: Set<String>) {
         val referenced = referencedPaths.filter(String::isNotBlank).toSet()
-        // 引用集为空（如歌单尚未加载）时跳过清理，避免误删全部缓存
+        // 引用集为空（如歌曲库尚未加载）时跳过清理，避免误删全部缓存
         if (referenced.isEmpty()) return
         listOf(coverRoot(context), lyricRoot(context)).forEach { directory ->
             directory
@@ -239,10 +241,10 @@ internal object MusicMetadataCache {
                 ?.listFiles()
                 .orEmpty()
                 .forEach { file ->
-                if (file.isFile && file.absolutePath !in referenced) {
-                    file.delete()
+                    if (file.isFile && file.name != ".nomedia" && file.absolutePath !in referenced) {
+                        file.delete()
+                    }
                 }
-            }
         }
     }
 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.musicpanel.MetadataEnricher
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.PlaylistArt
@@ -73,6 +74,8 @@ internal fun switchToPlaylistQueue(
     // 用播放器全局作用域启动播放，避免弹层关闭取消协程导致首曲不播放
     state.playbackScope.launch { playTrackAt(context, state, 0) }
     state.persistPlaylist()
+    // 切换歌单后后台补全新歌单缺失的封面/歌词，缓存已就绪的歌曲直接命中不重复加载
+    state.playbackScope.launch { MetadataEnricher.enrichAndCleanup(context, state) }
 }
 
 // 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航

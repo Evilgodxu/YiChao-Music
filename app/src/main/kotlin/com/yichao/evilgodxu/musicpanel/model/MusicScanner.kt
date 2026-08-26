@@ -280,7 +280,9 @@ object PlaylistRefresher {
                                 neteaseCoverUrl = cached.neteaseCoverUrl,
                                 coverCachePath = cached.coverCachePath,
                                 lyricCachePath = cached.lyricCachePath,
-                                lyricLines = cached.lyricLines
+                                lyricLines = cached.lyricLines,
+                                coverFailed = cached.coverFailed,
+                                lyricFailed = cached.lyricFailed,
                             )
                         }
                     // 扫描前快照当前歌单选择，扫描后按新库重建并保持选中而非回到默认

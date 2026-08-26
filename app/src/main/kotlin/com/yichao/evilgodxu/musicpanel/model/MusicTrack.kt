@@ -18,6 +18,10 @@ package com.yichao.evilgodxu.musicpanel
     val isFavorite: Boolean = false,
     // 歌词时间轴偏移(毫秒),用于微调持久化
     val lyricOffsetMs: Long = 0L,
+    // 封面自动匹配已尝试且失败：直接显示占位符，不再重复匹配
+    val coverFailed: Boolean = false,
+    // 歌词自动匹配已尝试且失败：不再重复拉取
+    val lyricFailed: Boolean = false,
     // 是否由在线播放产生（含已缓存为本地文件）；仅当前播放时保留，切歌后自动清理
     val isOnlinePlay: Boolean = false,
 ) {

@@ -637,6 +637,8 @@ class MusicPlaybackState {
                     lyricCachePath = savedLyricPath.takeIf { lyricLines.isNotEmpty() }.orEmpty(),
                     lyricLines = lyricLines,
                     lyricOffsetMs = lyricOffset,
+                    coverFailed = item.optBoolean("coverFailed", false),
+                    lyricFailed = item.optBoolean("lyricFailed", false),
                 )
             }
         } catch (e: Exception) {
@@ -664,6 +666,8 @@ class MusicPlaybackState {
                 put("isOnlinePlay", track.isOnlinePlay)
                 put("isFavorite", track.isFavorite)
                 put("lyricOffsetMs", track.lyricOffsetMs)
+                put("coverFailed", track.coverFailed)
+                put("lyricFailed", track.lyricFailed)
             })
         }
         context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
@@ -822,13 +826,18 @@ class MusicPlaybackState {
         coverRevision++
     }
 
-    // 批量更新曲目元数据（封面等），一次触发重组 + 一次持久化
+    // 批量更新曲目元数据（封面等），一次触发重组 + 一次持久化；
+    // 同时回写全量库备份，保证切歌单后其他歌单的歌曲引用到最新封面
     fun batchUpdateTracks(updates: List<MusicTrack>) {
         val updateMap = updates.associateBy { it.id }
-        playlist = playlist.map { orig ->
-            updateMap[orig.id]?.let { it.copy(isFavorite = likedIds.contains(it.id)) } ?: orig
+        val applyUpdates: (List<MusicTrack>) -> List<MusicTrack> = { list ->
+            list.map { orig ->
+                updateMap[orig.id]?.let { it.copy(isFavorite = likedIds.contains(it.id)) } ?: orig
+            }
         }
+        playlist = applyUpdates(playlist)
         currentTrack = currentTrack?.let { updateMap[it.id] ?: it }
+        defaultPlaylistBackup = defaultPlaylistBackup?.let(applyUpdates)
         persistPlaylist()
     }
 

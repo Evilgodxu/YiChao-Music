@@ -23,8 +23,12 @@ object MetadataEnricher {
     suspend fun enrichAndCleanup(context: Context, playbackState: MusicPlaybackState) =
         enrichMutex.withLock {
             enrichPlaylistMetadata(context, playbackState)
+            // 封面/歌词跨歌单共享，参照全量库+当前歌单的引用回收孤儿文件，
+            // 其他歌单仍要使用的文件因在全量库中存在引用而不会被误删
             val referenced = withContext(Dispatchers.Main) {
-                playbackState.playlist.flatMap { listOf(it.coverCachePath, it.lyricCachePath) }.toSet()
+                (playbackState.playlist + playbackState.libraryTracks)
+                    .flatMap { listOf(it.coverCachePath, it.lyricCachePath) }
+                    .toSet()
             }
             withContext(Dispatchers.IO) {
                 MusicMetadataCache.cleanupOrphanedMetadata(context, referenced)
@@ -56,6 +60,7 @@ object MetadataEnricher {
         val tracks = withContext(Dispatchers.Main) { playbackState.playlist.toList() }
         // 本地音频即使带自动匹配的在线封面也允许重试本地提取，修复在线封面文件缺失/损坏导致的永久在线匹配；
         // 纯在线歌曲（无本地文件）不参与本地提取，沿用在线封面
+        // 已尝试且失败（无内嵌封面）或已具备有效封面缓存的歌曲跳过，仅处理真正缺失的
         val needCover = tracks.filter { track ->
             val path = track.coverCachePath
             // 封面缓存按内容哈希命名且文件有效才视为已具备封面并跳过提取；
@@ -63,7 +68,7 @@ object MetadataEnricher {
             val coverOwned = MusicMetadataCache.isValid(path) &&
                 MusicMetadataCache.isHashKeyFileName(path)
             // 有可提取内嵌封面的本地音频源才尝试提取：本地文件路径或 MediaStore 本地文件（在线缓存歌）均纳入
-            !coverOwned && (track.path.isNotBlank() || isLocalFileUri(track.audioUri))
+            !track.coverFailed && !coverOwned && (track.path.isNotBlank() || isLocalFileUri(track.audioUri))
         }
         if (needCover.isEmpty()) return
         val updates = coroutineScope {
@@ -73,7 +78,7 @@ object MetadataEnricher {
                         val result = MusicScanner.loadAlbumArt(
                             context, context.contentResolver,
                             Uri.parse(track.audioUri), track.albumId, track.path
-                        ) ?: return@async null
+                        ) ?: return@async track.copy(coverFailed = true)
                         val cover = result.bitmap
                         try {
                             val coverPath = MusicMetadataCache.saveCover(context, track.id, cover).orEmpty()
@@ -112,9 +117,10 @@ object MetadataEnricher {
         tracks: List<MusicTrack>,
     ): List<MusicTrack> {
         val needCover = tracks.filter { track ->
-            // 旧版按歌曲 id 命名的缓存也纳入重匹配，落盘时自动迁移为内容哈希命名
-            !MusicMetadataCache.isValid(track.coverCachePath) ||
-                !MusicMetadataCache.isHashKeyFileName(track.coverCachePath)
+            // 已尝试且失败的歌曲跳过，避免每次补全都重复网络匹配
+            !track.coverFailed &&
+                (!MusicMetadataCache.isValid(track.coverCachePath) ||
+                    !MusicMetadataCache.isHashKeyFileName(track.coverCachePath))
         }
         if (needCover.isEmpty()) return emptyList()
         return coroutineScope {
@@ -124,16 +130,16 @@ object MetadataEnricher {
                         var matchedId = track.neteaseId
                         var matchedUrl = track.neteaseCoverUrl
                         // 优先复用已保存的封面 URL 直连下载，避免缓存完成场景下重复网络匹配；
-                        // URL 为空或下载失败时才按标题匹配兜底（下载失败保留已有信息，下次重试）
+                        // 匹配或下载失败直接标记失败，转占位符显示，不再反复重试
                         val coverBytes = matchedUrl.takeIf { it.isNotBlank() }
                             ?.let { NeteaseMusicApi.loadCoverBytes(it) }
                             ?: run {
                                 val match = NeteaseMusicApi.match(track.title, track.artist, track.duration)
-                                    ?: return@async null
+                                    ?: return@async track.copy(coverFailed = true)
                                 matchedId = match.id
                                 matchedUrl = match.coverUrl.orEmpty()
                                 NeteaseMusicApi.loadCoverBytes(match.coverUrl.orEmpty())
-                            } ?: return@async null
+                            } ?: return@async track.copy(coverFailed = true)
                         // 优先把匹配到的封面写入音频文件元数据，同时保留独立封面缓存：
                         // 音频文件内嵌封面无法被 MediaItem 引用，系统媒体面板只能通过
                         // coverCachePath 对应的 content:// URI 读取封面
@@ -167,7 +173,8 @@ object MetadataEnricher {
             when {
                 // 已有缓存文件直接沿用
                 MusicMetadataCache.isValid(track.lyricCachePath) -> false
-                // 无缓存：仅在缺歌词时拉取
+                // 已尝试且失败或尚无歌词：仅在缺歌词时拉取
+                track.lyricFailed -> false
                 else -> track.lyricLines.isEmpty()
             }
         }
@@ -177,9 +184,9 @@ object MetadataEnricher {
                 async(metadataDispatcher) {
                     try {
                         val match = NeteaseMusicApi.match(track.title, track.artist, track.duration)
-                            ?: return@async null
+                            ?: return@async track.copy(lyricFailed = true)
                         val lyric = NeteaseMusicApi.lyric(match.id)
-                        if (lyric.lines.isEmpty()) return@async null
+                        if (lyric.lines.isEmpty()) return@async track.copy(lyricFailed = true)
                         // 自动补全仅缓存歌词文件，不写音频元数据（元数据只由在线播放流程写入）
                         val lyricPath = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lyric.lines).orEmpty()
                         track.copy(lyricCachePath = lyricPath, lyricLines = lyric.lines)
@@ -210,7 +217,8 @@ object MetadataEnricher {
             when {
                 cover != null && lyric != null -> cover.copy(
                     lyricCachePath = lyric.lyricCachePath.ifEmpty { cover.lyricCachePath },
-                    lyricLines = lyric.lyricLines.ifEmpty { cover.lyricLines }
+                    lyricLines = lyric.lyricLines.ifEmpty { cover.lyricLines },
+                    lyricFailed = cover.lyricFailed || lyric.lyricFailed,
                 )
                 cover != null -> cover
                 lyric != null -> lyric
