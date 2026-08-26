@@ -151,9 +151,22 @@ fun refreshCurrentMediaItem(state: MusicPlaybackState) {
         if (controller.mediaItemCount != state.playlist.size) return@launch
         val newItem = toMediaItem(context, track)
         if (controller.currentMediaItem?.mediaMetadata?.artworkUri != newItem.mediaMetadata.artworkUri) {
-            controller.replaceMediaItem(index, newItem)
+            replaceMediaItemSeamlessly(controller, index, newItem)
         }
     }
+}
+
+// 随机播放下替换播放项会触发播放器按随机序跳歌：临时关闭随机使替换走列表循环的确定性路径，
+// 替换完成后再恢复，保证当前曲目无缝续播
+private fun replaceMediaItemSeamlessly(
+    controller: MediaController,
+    index: Int,
+    mediaItem: MediaItem,
+) {
+    val shuffleBefore = controller.shuffleModeEnabled
+    if (shuffleBefore) controller.shuffleModeEnabled = false
+    controller.replaceMediaItem(index, mediaItem)
+    if (shuffleBefore) controller.shuffleModeEnabled = true
 }
 
 // 缓存完成后把当前正在播放的在线曲目无缝切换为本地缓存文件，替换不中断播放
@@ -168,7 +181,7 @@ fun redirectCachedCurrentItem(context: Context, state: MusicPlaybackState) {
         if (current.localConfiguration?.uri?.toString() == track.audioUri) return@launch
         if (current.mediaId != track.id.toString()) return@launch
         try {
-            controller.replaceMediaItem(index, toMediaItem(context, track))
+            replaceMediaItemSeamlessly(controller, index, toMediaItem(context, track))
         } catch (e: Exception) {
             CrashLogManager.logException("MusicPlayerHelper", "切换本地缓存播放源失败", e)
         }
