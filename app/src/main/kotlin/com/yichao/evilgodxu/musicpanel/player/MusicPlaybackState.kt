@@ -137,12 +137,8 @@ class MusicPlaybackState {
                 // 切换曲目即持久化最新 URI，确保后台自动下一首也能被冷启动恢复
                 persistState()
             }
-            // 切换曲目时刷新播放列表：把缓存完成时写入内嵌的封面等元数据提取为展示缓存，清理冗余封面文件
-            val triggerContext = appContext ?: return
-            playbackScope.launch {
-                MetadataEnricher.enrichAndCleanup(triggerContext, this@MusicPlaybackState)
-            }
-            // 切换曲目后自动清理未在播放的在线歌曲，避免在线播放曲目在播放列表中常驻
+            // 切换曲目后清理未在播放的在线歌曲，避免在线播放曲目在播放列表中常驻；
+            // 元数据补全只在缓存完成时执行一次，切歌不再触发，避免重复写封面并触发系统级文件扫描
             cleanupIdleOnlineTracks()
             // 再次从控制器校正当前曲目，确保 UI 与真实音频一致（在线曲目切换时尤其关键）
             syncPlaybackState()
@@ -318,12 +314,16 @@ class MusicPlaybackState {
         }
     }
 
-    // 自动清理未在播放的在线歌曲：在线播放曲目（含已缓存的在线来源）不常驻播放列表，仅当前正在播放时保留
+    // 缓存下载进行中的曲目 ID 集合：切歌清理时保留这些曲目，等待缓存完成后重定向至本地文件
+    val cacheInProgressIds: MutableSet<Long> =
+        java.util.Collections.synchronizedSet(mutableSetOf())
+
+    // 自动清理未在播放的纯在线流曲目；已缓存为本地文件或缓存进行中的曲目保留，保证离线播放不中断
     fun cleanupIdleOnlineTracks() {
         // 以控制器实际播放项为权威来源，避免 UI 状态与真实音频脱同步
         val activeId = mediaController?.currentMediaItem?.mediaId?.toLongOrNull() ?: currentTrack?.id
         val kept = playlist.filter { track ->
-            track.id == activeId || !(isOnlineStreaming(track) || track.isOnlinePlay)
+            track.id == activeId || track.id in cacheInProgressIds || !isOnlineStreaming(track)
         }
         if (kept.size == playlist.size) return
         playlist = kept

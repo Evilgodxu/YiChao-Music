@@ -302,6 +302,31 @@ internal suspend fun downloadAndPlay(
         }
     }
 
+    // 在线播放时同步下载封面原图落盘：缓存完成后可直接内嵌写入本地文件，面板与通知栏也即时获得本地封面
+    playbackState.playbackScope.launch(Dispatchers.IO) {
+        try {
+            val coverUrl = result.coverUrl?.takeIf { it.isNotBlank() } ?: return@launch
+            val bytes = NeteaseMusicApi.loadCoverBytes(coverUrl) ?: return@launch
+            val coverPath = MusicMetadataCache.saveCover(context, result.id, bytes).orEmpty()
+            if (coverPath.isBlank()) return@launch
+            withContext(Dispatchers.Main) {
+                val idx = playbackState.playlist.indexOfFirst { it.id == trackId }
+                if (idx < 0) return@withContext
+                val updated = playbackState.playlist[idx].copy(coverCachePath = coverPath)
+                val list = playbackState.playlist.toMutableList()
+                list[idx] = updated
+                playbackState.playlist = list
+                if (playbackState.currentTrack?.id == trackId) {
+                    playbackState.currentTrack = updated
+                }
+            }
+            // 封面就绪后刷新系统媒体面板的当前 MediaItem
+            refreshCurrentMediaItem(playbackState)
+        } catch (e: Exception) {
+            CrashLogManager.logException("MusicPanelSearchLogic", "下载在线封面失败: 歌曲=${result.title}", e)
+        }
+    }
+
     playbackState.playbackScope.launch(Dispatchers.IO) {
         cacheToDownloads(context, result, url, trackId, playbackState)
     }
@@ -314,6 +339,8 @@ internal suspend fun cacheToDownloads(
     trackId: Long,
     playbackState: MusicPlaybackState,
 ) {
+    // 缓存进行中的曲目切歌后仍保留在播放列表，等待下载完成重定向至本地文件
+    playbackState.cacheInProgressIds.add(trackId)
     try {
         // 按实际 URL 后缀推断格式，避免高音质文件误存为 mp3
         val extension = url.substringBefore('?')
@@ -326,7 +353,11 @@ internal suspend fun cacheToDownloads(
         if (existingUri != null) {
             withContext(Dispatchers.Main) {
                 updateTrackAudioUri(playbackState, trackId, existingUri)
+                // 复用已有缓存：把当前播放源重定向至本地文件，实现在线/离线无缝过渡
+                redirectCachedCurrentItem(context, playbackState)
             }
+            // 提取封面/歌词展示缓存并清理冗余封面文件
+            MetadataEnricher.enrichAndCleanup(context, playbackState)
             return
         }
 
@@ -364,11 +395,17 @@ internal suspend fun cacheToDownloads(
 
         withContext(Dispatchers.Main) {
             updateTrackAudioUri(playbackState, trackId, audioUri)
+            // 缓存完成：把当前播放源重定向至本地缓存文件，实现在线/离线无缝过渡
+            redirectCachedCurrentItem(context, playbackState)
         }
-        // 下载完成：刷新播放列表，将封面写入已缓存文件元数据并在本地提取为展示缓存，同时清理冗余封面文件
+        // 用在线播放时已下载的封面原图内嵌写入缓存文件，无额外网络匹配
+        embedCachedCover(context, playbackState, trackId)
+        // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
         MetadataEnricher.enrichAndCleanup(context, playbackState)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "缓存下载文件失败", e)
+    } finally {
+        playbackState.cacheInProgressIds.remove(trackId)
     }
 }
 
@@ -484,6 +521,21 @@ internal fun updateTrackAudioUri(
         playbackState.currentTrack = updated
     }
     playbackState.persistPlaylist()
+}
+
+// 将在线播放时已下载的封面原图内嵌写入已缓存文件；封面尚未就绪时跳过，交由兜底补全处理
+private suspend fun embedCachedCover(
+    context: Context,
+    playbackState: MusicPlaybackState,
+    trackId: Long,
+) {
+    val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return
+    val bytes = MusicMetadataCache.loadCoverBytes(track.coverCachePath) ?: return
+    try {
+        MusicMetadataWriter.writeCoverToSource(context, track, bytes)
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicPanelSearchLogic", "内嵌缓存封面失败: 歌曲=${track.title}", e)
+    }
 }
 
 internal suspend fun playSearchResult(

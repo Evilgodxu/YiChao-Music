@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
@@ -61,9 +62,13 @@ suspend fun playTrackAt(
             } else {
                 0L
             }
+            // 队列一致性同时校验 mediaId 与 URI：在线曲目缓存完成后 URI 已指向本地文件，
+            // 仅比较 mediaId 会误判一致，导致播放源无法重定向（这是在线/离线切换失效的根因）
             val sameQueue = controller.mediaItemCount == items.size &&
-                    (0 until controller.mediaItemCount).all {
-                        controller.getMediaItemAt(it).mediaId == items[it].mediaId
+                    (0 until controller.mediaItemCount).all { i ->
+                        val old = controller.getMediaItemAt(i)
+                        old.mediaId == items[i].mediaId &&
+                            old.localConfiguration?.uri?.toString() == items[i].localConfiguration?.uri?.toString()
                     }
             val sameTrack = controller.currentMediaItem?.mediaId == track.id.toString()
             // 封面更新后需要刷新系统媒体面板的 MediaItem
@@ -147,6 +152,25 @@ fun refreshCurrentMediaItem(state: MusicPlaybackState) {
         val newItem = toMediaItem(context, track)
         if (controller.currentMediaItem?.mediaMetadata?.artworkUri != newItem.mediaMetadata.artworkUri) {
             controller.replaceMediaItem(index, newItem)
+        }
+    }
+}
+
+// 缓存完成后把当前正在播放的在线曲目无缝切换为本地缓存文件，替换不中断播放
+fun redirectCachedCurrentItem(context: Context, state: MusicPlaybackState) {
+    val controller = state.mediaController ?: return
+    state.playbackScope.launch {
+        val track = state.currentTrack ?: return@launch
+        val index = state.currentIndex
+        if (index < 0) return@launch
+        val current = controller.currentMediaItem ?: return@launch
+        // 播放项已指向目标文件或当前播放项已变更时无需替换
+        if (current.localConfiguration?.uri?.toString() == track.audioUri) return@launch
+        if (current.mediaId != track.id.toString()) return@launch
+        try {
+            controller.replaceMediaItem(index, toMediaItem(context, track))
+        } catch (e: Exception) {
+            CrashLogManager.logException("MusicPlayerHelper", "切换本地缓存播放源失败", e)
         }
     }
 }

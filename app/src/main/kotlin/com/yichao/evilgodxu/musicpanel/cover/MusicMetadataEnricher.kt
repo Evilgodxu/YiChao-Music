@@ -117,26 +117,35 @@ object MetadataEnricher {
             needCover.map { track ->
                 async(metadataDispatcher) {
                     try {
-                        val match = NeteaseMusicApi.match(track.title, track.artist, track.duration)
-                            ?: return@async null
-                        val coverBytes = NeteaseMusicApi.loadCoverBytes(match.coverUrl.orEmpty())
-                            ?: return@async null // 下载失败时保留已有缓存与匹配信息，避免下次重复请求
+                        var matchedId = track.neteaseId
+                        var matchedUrl = track.neteaseCoverUrl
+                        // 优先复用已保存的封面 URL 直连下载，避免缓存完成场景下重复网络匹配；
+                        // URL 为空或下载失败时才按标题匹配兜底（下载失败保留已有信息，下次重试）
+                        val coverBytes = matchedUrl.takeIf { it.isNotBlank() }
+                            ?.let { NeteaseMusicApi.loadCoverBytes(it) }
+                            ?: run {
+                                val match = NeteaseMusicApi.match(track.title, track.artist, track.duration)
+                                    ?: return@async null
+                                matchedId = match.id
+                                matchedUrl = match.coverUrl.orEmpty()
+                                NeteaseMusicApi.loadCoverBytes(match.coverUrl.orEmpty())
+                            } ?: return@async null
                         // 优先把匹配到的封面写入音频文件元数据，同时保留独立封面缓存：
                         // 音频文件内嵌封面无法被 MediaItem 引用，系统媒体面板只能通过
                         // coverCachePath 对应的 content:// URI 读取封面
                         if (MusicMetadataWriter.writeCoverToSource(context, track, coverBytes)) {
-                            val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
+                            val coverPath = MusicMetadataCache.saveCover(context, matchedId, coverBytes).orEmpty()
                             track.copy(
-                                neteaseId = match.id,
-                                neteaseCoverUrl = match.coverUrl.orEmpty(),
+                                neteaseId = matchedId,
+                                neteaseCoverUrl = matchedUrl,
                                 coverCachePath = coverPath
                             )
                         } else {
-                            val coverPath = MusicMetadataCache.saveCover(context, match.id, coverBytes).orEmpty()
+                            val coverPath = MusicMetadataCache.saveCover(context, matchedId, coverBytes).orEmpty()
                             if (coverPath.isBlank()) return@async null
                             track.copy(
-                                neteaseId = match.id,
-                                neteaseCoverUrl = match.coverUrl.orEmpty(),
+                                neteaseId = matchedId,
+                                neteaseCoverUrl = matchedUrl,
                                 coverCachePath = coverPath
                             )
                         }
