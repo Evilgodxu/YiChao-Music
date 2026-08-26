@@ -22,8 +22,8 @@ object LyricLayoutDefaults {
     const val LANDSCAPE_3D_INTENSITY = 1f
     const val FONT_SIZE_MIN_SP = 12
     const val FONT_SIZE_MAX_SP = 24
-    // 奇数行预设：当前行居中，上下各 (n-1)/2 行；音乐面板 3/5/7，首页竖屏 3/5/7/9，横屏 7/9/11
-    val PORTRAIT_LINE_PRESETS = listOf(3, 5, 7)
+    // 奇数行预设：当前行居中，上下各 (n-1)/2 行；音乐面板 3/5，首页竖屏 3/5/7/9，横屏 7/9/11
+    val PORTRAIT_LINE_PRESETS = listOf(3, 5)
     val HOME_PORTRAIT_LINE_PRESETS = listOf(3, 5, 7, 9)
     val LANDSCAPE_LINE_PRESETS = listOf(7, 9, 11)
     const val THREE_D_MIN = 0f
