@@ -72,13 +72,14 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun OnlineSearchPanel(
     playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     Column(modifier = modifier) {
         PanelHeader()
-        SearchInput(playbackState = playbackState, context = context, scope = scope)
+        SearchInput(playbackState = playbackState, menuBackgroundColor = menuBackgroundColor, context = context, scope = scope)
         if (playbackState.showSearchResults) {
             SearchResultList(
                 playbackState = playbackState,
@@ -117,6 +118,7 @@ private fun PanelHeader() {
 @Composable
 private fun SearchInput(
     playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
     context: Context,
     scope: CoroutineScope,
 ) {
@@ -171,6 +173,7 @@ private fun SearchInput(
                 DropdownMenu(
                     expanded = sourceMenuExpanded,
                     onDismissRequest = { sourceMenuExpanded = false },
+                    containerColor = menuBackgroundColor,
                 ) {
                     MusicSearchSource.entries.forEach { source ->
                         DropdownMenuItem(

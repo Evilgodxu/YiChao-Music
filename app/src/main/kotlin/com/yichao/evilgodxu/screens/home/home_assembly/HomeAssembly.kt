@@ -82,6 +82,7 @@ import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.Permissio
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistPanel
+import com.yichao.evilgodxu.theme.md_theme_dark_surface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -123,6 +124,8 @@ fun HomeAssembly(
     var playlistProgress by remember { mutableFloatStateOf(0f) }
     // 内容区像素宽度，用于将滑动距离换算为进度比例
     var contentWidthPx by remember { mutableFloatStateOf(0f) }
+    // 首页背景代表色：供在线搜索等浮层容器复用，保持与首页底色一致
+    var homeBackgroundColor by remember { mutableStateOf(md_theme_dark_surface) }
     // 本次手势起始时面板的展开状态，回滑关闭时按相同比例阈值判定
     var gestureSearchOpen by remember { mutableStateOf(false) }
     var gesturePlaylistOpen by remember { mutableStateOf(false) }
@@ -316,6 +319,7 @@ fun HomeAssembly(
         SongGradientBackground(
             track = playbackState.currentTrack,
             darkenStatusBarArea = !isLandscapeMode,
+            onBackgroundColor = { homeBackgroundColor = it },
         )
         Scaffold(
             modifier = Modifier
@@ -372,6 +376,7 @@ fun HomeAssembly(
                 // 在线搜索页：自左侧滑入顶替播放器位置
                 OnlineSearchPanel(
                     playbackState = playbackState,
+                    menuBackgroundColor = homeBackgroundColor,
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {

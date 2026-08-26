@@ -26,22 +26,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 // 歌曲封面沉浸式背景：以小尺寸解码封面，取上下半区平均色组成向下渐变。
-// 首页与 3D 封面轮播共用，随传入曲目实时变化。
+// 首页与 3D 封面轮播共用，随传入曲目实时变化；背景代表色经回调暴露供浮层容器复用。
 @Composable
 internal fun SongGradientBackground(
     track: MusicTrack?,
     modifier: Modifier = Modifier,
     darkenStatusBarArea: Boolean = true,
+    onBackgroundColor: ((Color) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val defaultGradient = defaultSongGradient()
     var gradient by remember { mutableStateOf(defaultGradient) }
     val model = songCoverModel(track)
     LaunchedEffect(model, darkenStatusBarArea) {
-        gradient = if (model != null) {
-            songGradient(context, model, darkenStatusBarArea) ?: defaultGradient
+        if (model != null) {
+            val result = songGradient(context, model, darkenStatusBarArea)
+            if (result != null) {
+                gradient = result.first
+                onBackgroundColor?.invoke(result.second)
+            } else {
+                onBackgroundColor?.invoke(md_theme_dark_surface)
+            }
         } else {
-            defaultGradient
+            gradient = defaultGradient
+            onBackgroundColor?.invoke(md_theme_dark_surface)
         }
     }
     Box(
@@ -71,9 +79,9 @@ private fun songCoverModel(track: MusicTrack?): Any? {
     return track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
 }
 
-// 以小尺寸解码封面，取上下半区平均色组成向下渐变；
+// 以小尺寸解码封面，取上下半区平均色组成向下渐变并返回顶部主色；
 // 竖屏时顶部压暗保证状态栏区域足够深，横屏系统栏隐藏时跳过该处理
-private suspend fun songGradient(context: Context, model: Any, darkenStatusBarArea: Boolean): Brush? = withContext(Dispatchers.IO) {
+private suspend fun songGradient(context: Context, model: Any, darkenStatusBarArea: Boolean): Pair<Brush, Color>? = withContext(Dispatchers.IO) {
     val result = context.imageLoader.execute(
         ImageRequest.Builder(context)
             .data(model)
@@ -91,7 +99,7 @@ private suspend fun songGradient(context: Context, model: Any, darkenStatusBarAr
             0.12f to topColor,
             1f to bitmap.avgColor(topHalf = false).darkenIfNearWhite(),
         )
-    )
+    ) to topColor
 }
 
 // 顶部压暗封面色：保留封面色调又足够深，保证状态栏白色图标始终可见
