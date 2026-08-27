@@ -24,12 +24,18 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,7 +62,7 @@ internal fun CoverRefreshOverlay(
     selectedId: Long?,
     saving: Boolean,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
-    onSwitchSource: () -> Unit,
+    onSourceSelected: (MusicSearchSource) -> Unit,
     onRefresh: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
@@ -74,7 +80,7 @@ internal fun CoverRefreshOverlay(
             saving = saving,
             context = context,
             onCandidateSelected = onCandidateSelected,
-            onSwitchSource = onSwitchSource,
+            onSourceSelected = onSourceSelected,
             onRefresh = onRefresh,
             onConfirm = onConfirm,
             onCancel = onCancel,
@@ -91,7 +97,7 @@ internal fun CoverRefreshDialog(
     selectedId: Long?,
     saving: Boolean,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
-    onSwitchSource: () -> Unit,
+    onSourceSelected: (MusicSearchSource) -> Unit,
     onRefresh: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
@@ -104,7 +110,7 @@ internal fun CoverRefreshDialog(
                 saving = saving,
                 context = context,
                 onCandidateSelected = onCandidateSelected,
-                onSwitchSource = onSwitchSource,
+                onSourceSelected = onSourceSelected,
                 onRefresh = onRefresh,
                 onConfirm = onConfirm,
                 onCancel = onCancel,
@@ -122,7 +128,7 @@ private fun CoverRefreshContent(
     saving: Boolean,
     context: Context,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
-    onSwitchSource: () -> Unit,
+    onSourceSelected: (MusicSearchSource) -> Unit,
     onRefresh: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
@@ -134,17 +140,53 @@ private fun CoverRefreshContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 标题行：居中显示当前来源名，点击标题切换来源，右侧独立刷新按钮
+        // 标题行：居中显示当前来源名，点击弹出来源下拉列表，右侧独立刷新按钮
         Box(Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(playbackState.coverRefreshSource.sourceNameRes()),
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 16.sp,
+            var sourceMenuExpanded by remember { mutableStateOf(false) }
+            Box(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .clickable(enabled = !searching) { onSwitchSource() }
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(enabled = !searching) { sourceMenuExpanded = true }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
-            )
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(playbackState.coverRefreshSource.sourceNameRes()),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 16.sp,
+                    )
+                    Icon(
+                        imageVector = AppIcons.ArrowDropDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                DropdownMenu(
+                    expanded = sourceMenuExpanded,
+                    onDismissRequest = { sourceMenuExpanded = false },
+                ) {
+                    MusicSearchSource.entries.forEach { source ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(source.sourceNameRes())) },
+                            onClick = {
+                                sourceMenuExpanded = false
+                                onSourceSelected(source)
+                            },
+                            trailingIcon = {
+                                if (source == playbackState.coverRefreshSource) {
+                                    Icon(
+                                        imageVector = AppIcons.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+            }
             IconButton(
                 onClick = onRefresh,
                 enabled = !searching,

@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -283,8 +285,15 @@ internal fun AddSongsPicker(
 ) {
     if (!visible) return
     var selected by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var query by remember { mutableStateOf("") }
     val selectable = candidateTracks.filterNot { it.id in existingIds }
-    val allSelected = selectable.isNotEmpty() && selected.size == selectable.size
+    // 按标题/艺术家关键词实时筛选候选曲目
+    val filtered = remember(selectable, query) {
+        val q = query.trim()
+        if (q.isEmpty()) selectable
+        else selectable.filter { it.title.contains(q, ignoreCase = true) || it.artist.contains(q, ignoreCase = true) }
+    }
+    val allSelected = filtered.isNotEmpty() && filtered.all { it.id in selected }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -324,58 +333,131 @@ internal fun AddSongsPicker(
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                // 搜索输入框：按标题/艺术家关键词筛选候选曲目
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                            shape = RoundedCornerShape(18.dp)
+                        ),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    items(selectable, key = { it.audioUri }) { track ->
-                        SelectableTrackRow(
-                            track = track,
-                            checked = track.id in selected,
-                            onToggle = { checked ->
-                                selected = if (checked) selected + track.id else selected - track.id
-                            },
-                        )
+                    Icon(
+                        imageVector = AppIcons.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(start = 10.dp)
+                            .size(16.dp)
+                    )
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 32.dp, end = 28.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 12.sp
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (query.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.music_panel_search_placeholder),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = { query = "" },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = AppIcons.Close,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.playlist_picker_selected, selected.size),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        onClick = {
-                            selected = if (allSelected) emptySet() else selectable.map { it.id }.toSet()
-                        },
-                    ) {
+                if (filtered.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = stringResource(
-                                if (allSelected) R.string.playlist_picker_select_none else R.string.playlist_picker_select_all
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
+                            text = stringResource(R.string.music_panel_search_no_results),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
                         )
                     }
-                    TextButton(
-                        onClick = {
-                            onConfirm(selected.toList())
-                        },
-                        enabled = selected.isNotEmpty(),
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        items(filtered, key = { it.audioUri }) { track ->
+                            SelectableTrackRow(
+                                track = track,
+                                checked = track.id in selected,
+                                onToggle = { checked ->
+                                    selected = if (checked) selected + track.id else selected - track.id
+                                },
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = stringResource(R.string.playlist_picker_add, selected.size),
-                            color = if (selected.isNotEmpty()) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium,
+                            text = stringResource(R.string.playlist_picker_selected, selected.size),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f),
                         )
+                        TextButton(
+                            onClick = {
+                                selected = if (allSelected) emptySet() else filtered.map { it.id }.toSet()
+                            },
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (allSelected) R.string.playlist_picker_select_none else R.string.playlist_picker_select_all
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                onConfirm(selected.toList())
+                            },
+                            enabled = selected.isNotEmpty(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.playlist_picker_add, selected.size),
+                                color = if (selected.isNotEmpty()) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
                     }
                 }
             }

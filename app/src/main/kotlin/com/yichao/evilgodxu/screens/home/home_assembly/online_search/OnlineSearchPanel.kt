@@ -36,7 +36,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,7 +64,6 @@ import com.yichao.evilgodxu.musicpanel.performSearch
 import com.yichao.evilgodxu.musicpanel.playSearchResultWithQuality
 import com.yichao.evilgodxu.musicpanel.tryPlayLocalMatch
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // 首页专属在线搜索面板：搜索输入/历史/结果逻辑与其样式在此独立封装
@@ -344,7 +342,7 @@ private fun SearchHistoryList(
     }
 }
 
-// 搜索状态区：结果计数/刷新/加载/空/错误/列表
+// 搜索状态区：结果计数/刷新/加载/空/列表
 @Composable
 private fun SearchResultList(
     playbackState: MusicPlaybackState,
@@ -381,25 +379,6 @@ private fun SearchResultList(
                     else Color.White
                 )
             }
-        }
-        val errorMsg = playbackState.errorMsg
-        // 错误提示展示 2 秒后自动清除；新错误到来会重置计时
-        LaunchedEffect(errorMsg) {
-            if (errorMsg != null) {
-                delay(2000)
-                playbackState.setErrorMsg(null)
-            }
-        }
-        if (errorMsg != null) {
-            Text(
-                text = errorMsg,
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            )
         }
         // 加载/空/结果间淡入淡出过渡，避免搜索结果生硬插入
         AnimatedContent(

@@ -17,22 +17,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.File
 
-// 刷新候选来源轮换顺序：点击切换来源时按此循环，覆盖全部在线音源
-internal val metadataRefreshSourceCycle: List<MusicSearchSource> = listOf(
-    MusicSearchSource.NETEASE,
-    MusicSearchSource.QQ,
-    MusicSearchSource.KUGOU,
-    MusicSearchSource.KUWO,
-    MusicSearchSource.MIGU,
-)
-
-// 切换到下一刷新来源；已到末尾则回到第一个
-internal fun nextRefreshSource(current: MusicSearchSource): MusicSearchSource {
-    val index = metadataRefreshSourceCycle.indexOf(current)
-    return if (index >= 0) metadataRefreshSourceCycle[(index + 1) % metadataRefreshSourceCycle.size]
-           else metadataRefreshSourceCycle.first()
-}
-
 // 单来源单次查询候选：每来源对每条查询各取前 10 条，单源失败不影响其它查询
 private suspend fun searchSourceCandidates(source: OnlineMusicSource, query: String): List<NeteaseSongSearchResult> =
     runCatching { source.search(query).take(10) }.getOrDefault(emptyList())

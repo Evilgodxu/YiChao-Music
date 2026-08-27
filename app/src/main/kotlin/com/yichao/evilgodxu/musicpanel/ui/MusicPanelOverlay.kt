@@ -448,12 +448,13 @@ fun MusicPanelOverlay(
                         selectedId = selectedCoverCandidate?.id,
                         saving = coverSaving,
                         onCandidateSelected = { selectedCoverCandidate = it },
-                        onSwitchSource = {
-                            val next = nextRefreshSource(playbackState.coverRefreshSource)
-                            playbackState.setCoverRefreshSource(next)
-                            selectedCoverCandidate = null
+                        onSourceSelected = { source ->
                             val track = playbackState.currentTrack
-                            if (track != null && track.id == coverTargetId) scope.launch { searchCoverCandidates(playbackState, track, next) }
+                            if (track != null && track.id == coverTargetId && source != playbackState.coverRefreshSource) {
+                                playbackState.setCoverRefreshSource(source)
+                                selectedCoverCandidate = null
+                                scope.launch { searchCoverCandidates(playbackState, track, source) }
+                            }
                         },
                         onRefresh = {
                             val track = playbackState.currentTrack
@@ -497,12 +498,13 @@ fun MusicPanelOverlay(
                         selectedId = selectedLyricsCandidate?.id,
                         context = context,
                         onCandidateSelected = { selectedLyricsCandidate = it },
-                        onSwitchSource = {
-                            val next = nextRefreshSource(playbackState.lyricsRefreshSource)
-                            playbackState.setLyricsRefreshSource(next)
-                            selectedLyricsCandidate = null
+                        onSourceSelected = { source ->
                             val track = playbackState.currentTrack
-                            if (track != null && track.id == lyricsTargetId) scope.launch { searchLyricsCandidates(playbackState, track, next) }
+                            if (track != null && track.id == lyricsTargetId && source != playbackState.lyricsRefreshSource) {
+                                playbackState.setLyricsRefreshSource(source)
+                                selectedLyricsCandidate = null
+                                scope.launch { searchLyricsCandidates(playbackState, track, source) }
+                            }
                         },
                         onRefresh = {
                             val track = playbackState.currentTrack

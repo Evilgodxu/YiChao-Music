@@ -102,7 +102,6 @@ import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
 import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
 import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
-import com.yichao.evilgodxu.musicpanel.nextRefreshSource
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
 import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
@@ -512,12 +511,13 @@ fun PlayerArea(
             selectedId = selectedCoverCandidate?.id,
             saving = coverSaving,
             onCandidateSelected = { selectedCoverCandidate = it },
-            onSwitchSource = {
-                val next = nextRefreshSource(playbackState.coverRefreshSource)
-                playbackState.setCoverRefreshSource(next)
-                selectedCoverCandidate = null
+            onSourceSelected = { source ->
                 val track = playbackState.currentTrack
-                if (track != null && track.id == coverTargetId) scope.launch { searchCoverCandidates(playbackState, track, next) }
+                if (track != null && track.id == coverTargetId && source != playbackState.coverRefreshSource) {
+                    playbackState.setCoverRefreshSource(source)
+                    selectedCoverCandidate = null
+                    scope.launch { searchCoverCandidates(playbackState, track, source) }
+                }
             },
             onRefresh = {
                 val track = playbackState.currentTrack
@@ -585,12 +585,13 @@ fun PlayerArea(
             selectedId = selectedLyricsCandidate?.id,
             context = context,
             onCandidateSelected = { selectedLyricsCandidate = it },
-            onSwitchSource = {
-                val next = nextRefreshSource(playbackState.lyricsRefreshSource)
-                playbackState.setLyricsRefreshSource(next)
-                selectedLyricsCandidate = null
+            onSourceSelected = { source ->
                 val track = playbackState.currentTrack
-                if (track != null && track.id == lyricsTargetId) scope.launch { searchLyricsCandidates(playbackState, track, next) }
+                if (track != null && track.id == lyricsTargetId && source != playbackState.lyricsRefreshSource) {
+                    playbackState.setLyricsRefreshSource(source)
+                    selectedLyricsCandidate = null
+                    scope.launch { searchLyricsCandidates(playbackState, track, source) }
+                }
             },
             onRefresh = {
                 val track = playbackState.currentTrack
