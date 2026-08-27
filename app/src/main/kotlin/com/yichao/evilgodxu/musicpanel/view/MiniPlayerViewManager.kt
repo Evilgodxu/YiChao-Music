@@ -266,7 +266,8 @@ class MiniPlayerViewManager(
             } else {
                 params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             }
-            runCatching { windowManager.updateViewLayout(view!!, params) }
+            // params 非空即 view 非空（params 由 view.layoutParams 派生），此处无需再断言
+            runCatching { windowManager.updateViewLayout(view, params) }
         }
         applyWindowLayout()
         if (expanded) {

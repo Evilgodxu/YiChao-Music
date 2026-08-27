@@ -196,7 +196,7 @@ class SettingsViewModel(
     private fun fetchUrl(url: String): String? {
         return try {
             MusicHttpClient.client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
-                if (resp.isSuccessful) resp.body?.string()?.trim() else null
+                if (resp.isSuccessful) resp.body.string().trim() else null
             }
         } catch (e: Exception) {
             CrashLogManager.logException("SettingsViewModel", "拉取代理音源链接失败: $url", e)
