@@ -11,8 +11,8 @@
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Android-brightgreen)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-purple)
-![AGP](https://img.shields.io/badge/AGP-9.3.1-blue)
-![Gradle](https://img.shields.io/badge/Gradle-9.7.0-blue)
+![AGP](https://img.shields.io/badge/AGP-9.3.2-blue)
+![Gradle](https://img.shields.io/badge/Gradle-9.7.1-blue)
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.08.00-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-34-orange)
 ![targetSdk](https://img.shields.io/badge/targetSdk-37-orange)
@@ -26,9 +26,11 @@
 - **悬浮音乐面板**:以系统悬浮窗(SYSTEM_ALERT_WINDOW)形式渲染的全功能播放面板,可在任意应用上层使用
 - **迷你播放器**:应用退到后台播放时显示的紧凑悬浮条,显示当前歌词,点击即可展开回完整面板,可在设置中开关
 - **本地曲库**:基于 MediaStore 扫描设备存储,提取内嵌封面与歌词,并支持通过 `VIEW`/`SEND` 意图与系统文件选择器导入音频
-- **多平台在线搜索**:聚合网易云、QQ 音乐与酷狗搜索,支持搜索历史与在线歌曲直接播放
+- **多平台在线搜索**:聚合网易云、QQ 音乐、酷狗、酷我、咪咕五平台搜索,支持搜索历史、音质选择(无损 / 高品 / 标准)与在线缓存(下载到系统下载目录,缓存完成后自动切换到本地播放)
+- **代理音源**:在「设置 → 代理音源」中导入第三方聚合音源(本地文件 / 链接 / 文本),可定制各平台的搜索、播放地址、歌词与封面解析,支持启用 / 停用 / 移除,失败自动回退内置解析;JSON 规范见 [代理音源开发规范](docs/代理音源开发规范.md)
 - **歌单系统**:智能歌单(常听 / 收藏 / 专辑 / 歌手)与自定义歌单(新建 / 重命名 / 删除 / 批量添加歌曲 / 拖拽排序 / 快捷切换),JSON 持久化
 - **同步歌词**:滚动歌词 + 逐字级时间轴(可开关),支持在线歌词匹配 / 刷新、本地歌词导入与内嵌歌词,并可对歌词时间进行微调
+- **歌词排版**:音乐面板 / 首页竖屏 / 首页横屏三场景独立调节歌词字号与显示行数(横屏另含 3D 强度),在「设置 → 排版」中调整
 - **封面管理**:内嵌封面、本地图片候选与在线封面搜索,新封面可写回音频文件
 - **元数据编辑**:重命名歌曲名 / 艺术家并写回文件标签,支持一键复制
 - **USB 音频独占**:自动检测 USB DAC / 声卡并启用独占路由,实时展示播放链路信息(音频格式、源 / 输出采样率、位深、声道、DSD 模式、路由、输出策略与设备)
@@ -45,8 +47,8 @@
 
 | 页面 | 内容 |
 | --- | --- |
-| 首页 | 权限引导对话框(全部授权后自动关闭)、沉浸式播放器(旋转碟片封面 + 封面取色渐变背景)、5 行同步歌词(可微调)、可刷新的播放列表、收藏、定时关闭、横屏模式、右滑在线搜索与左滑歌单面板、上下滑动切歌(长按封面 / 标题可刷新封面、歌词及重命名) |
-| 设置 | 外观(主题)、语言、播放(迷你播放器 / 逐字渲染 / 滑动切歌)、关于(版本、检查更新、GitHub 链接) |
+| 首页 | 权限引导对话框(全部授权后自动关闭)、沉浸式播放器(旋转碟片封面 + 封面取色渐变背景)、5 行同步歌词(字号与行数可调)、可刷新的播放列表、收藏、定时关闭、横屏模式、右滑在线搜索(五平台切换 + 音质选择)与左滑歌单面板、上下滑动切歌(长按封面 / 标题可刷新封面、歌词及重命名) |
+| 设置 | 外观(主题)、语言、播放(迷你播放器 / 逐字渲染 / 滑动切歌)、排版(歌词字号与显示行数)、代理音源(导入 / 启停 / 移除第三方音源)、关于(版本、检查更新、GitHub 链接) |
 
 ## 技术栈
 
@@ -59,11 +61,11 @@
 | 依赖注入 | Koin 4.2.2 |
 | 持久化 | DataStore Preferences 1.2.1 |
 | 图片加载 | Coil 3.5.0 |
-| 网络 | OkHttp 5.4.0 |
+| 网络 | OkHttp 5.5.0 |
 | 序列化 | kotlinx.serialization 1.11.0 |
 | 自适应布局 | androidx.window 1.5.1、material3-adaptive 1.3.0 |
 | 生命周期 | androidx.lifecycle 2.11.0、activity-compose 1.13.0 |
-| 构建 | AGP 9.3.1、Gradle 9.7.0、refreshVersions |
+| 构建 | AGP 9.3.2、Gradle 9.7.1、refreshVersions |
 
 ## 项目结构
 
@@ -76,18 +78,19 @@
 │       │   ├── di/                      # Koin 模块
 │       │   ├── log/                     # CrashLogManager
 │       │   ├── musicpanel/              # 悬浮面板 / 迷你播放器 / 播放核心
-│       │   │   ├── api/                 #   在线音乐源(网易云 / QQ / 酷狗)
+│       │   │   ├── api/                 #   在线音乐源(网易云 / QQ / 酷狗 / 酷我 / 咪咕)
 │       │   │   ├── cover/               #   封面管理与元数据读写
 │       │   │   ├── hardware/            #   USB DAC / 蓝牙 / 播放链路
 │       │   │   ├── lyrics/              #   歌词解析与渲染
 │       │   │   ├── model/               #   曲库扫描与数据实体
 │       │   │   ├── player/              #   播放服务与播放状态
+│       │   │   ├── proxy/               #   代理音源(导入 / 解析 / 执行 / 存储)
 │       │   │   ├── ui/                  #   悬浮面板 UI
 │       │   │   └── view/                #   悬浮窗 / 迷你播放器视图管理
 │       │   ├── navigation/              # Navigation3 类型安全路由
 │       │   ├── screens/                 # 页面(首页 / 设置)
 │       │   │   ├── home/                #   首页播放器 + 权限流程 + 歌单
-│       │   │   └── settings/            #   外观 / 语言 / 播放 / 关于
+│       │   │   └── settings/            #   外观 / 语言 / 播放 / 排版 / 代理音源 / 关于
 │       │   ├── theme/                   # Material 3 配色与字体
 │       │   ├── ui/                      # 全局共享 UI(自适应布局 / 图标)
 │       │   ├── update/                  # 检查更新与应用内更新
@@ -99,7 +102,7 @@
 ├── gradle/
 │   ├── libs.versions.toml               # 版本目录(依赖管理)
 │   └── wrapper/
-├── docs/                                # 架构说明
+├── docs/                                # 架构说明与代理音源规范(代理音源开发规范.md)
 ├── LICENSE
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -116,7 +119,7 @@
 - `{Screen}Assembly.kt` — 页面分区组装器,编排各分区
 - `{Name}Area.kt` — 语义单一、自包含的 UI 分区
 
-被两个及以上功能复用的代码上提至顶层(`data/`、`theme/`、`utils/`、`ui/`),仅单页使用的代码保留在页面模块内。`musicpanel/` 包按职责拆分为 `api` / `cover` / `hardware` / `lyrics` / `model` / `player` / `ui` / `view` 等子包:悬浮窗 UI(完整面板 + 迷你播放器)与播放引擎由 Media3 ExoPlayer + `MediaSessionService` 驱动,并通过窗口级状态持有者共享。
+被两个及以上功能复用的代码上提至顶层(`data/`、`theme/`、`utils/`、`ui/`),仅单页使用的代码保留在页面模块内。`musicpanel/` 包按职责拆分为 `api` / `cover` / `hardware` / `lyrics` / `model` / `player` / `proxy` / `ui` / `view` 等子包:悬浮窗 UI(完整面板 + 迷你播放器)与播放引擎由 Media3 ExoPlayer + `MediaSessionService` 驱动,并通过窗口级状态持有者共享。
 
 ## 权限
 
@@ -170,12 +173,12 @@ KEY_PASSWORD=你的别名密码
 
 ## 免责声明
 
-在线音乐搜索依赖第三方公共网络接口(网易云 / QQ 音乐 / 酷狗),其可用性与播放策略可能随地区与歌曲而异。应用仅供个人学习交流使用,请支持正版版权方。
+在线音乐搜索依赖第三方公共网络接口(网易云 / QQ 音乐 / 酷狗 / 酷我 / 咪咕),其可用性与播放策略可能随地区与歌曲而异。应用仅供个人学习交流使用,请支持正版版权方。
 
 ## 致谢
 
 - 歌词动效与网易云音乐解析早期参考 [Qplayer](https://github.com/TIMER-err/qplayer)
-- 列表拖拽排序早期参考 [Reorderable](https://github.com/Calvin-LL/Reorderable),现为项目内自实现(算法等价)
+- 列表拖拽排序基于 [Reorderable](https://github.com/Calvin-LL/Reorderable)实现
 - 基于 [musicdl](https://github.com/CharlesPikachu/musicdl) 实现 QQ 酷狗 酷我 咪咕 的 Kotlin 原生音源解析
 
 ## License

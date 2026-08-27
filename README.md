@@ -11,8 +11,8 @@
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Android-brightgreen)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-purple)
-![AGP](https://img.shields.io/badge/AGP-9.3.1-blue)
-![Gradle](https://img.shields.io/badge/Gradle-9.7.0-blue)
+![AGP](https://img.shields.io/badge/AGP-9.3.2-blue)
+![Gradle](https://img.shields.io/badge/Gradle-9.7.1-blue)
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.08.00-blue)
 ![minSdk](https://img.shields.io/badge/minSdk-34-orange)
 ![targetSdk](https://img.shields.io/badge/targetSdk-37-orange)
@@ -26,9 +26,11 @@
 - **Floating music panel** — a full-featured playback panel rendered as a system overlay (SYSTEM_ALERT_WINDOW), usable above any app
 - **Mini player** — a compact floating bar shown while the app is in the background during playback, displaying the current lyric; tap it to expand back into the full panel. Can be toggled in settings
 - **Local library** — scans device storage via MediaStore, extracts embedded covers and lyrics, and imports audio through `VIEW`/`SEND` intents and the system file picker
-- **Multi-platform online search** — aggregated search across Netease (网易云), QQ Music and Kugou (酷狗), with search history and direct online playback
+- **Multi-platform online search** — aggregated search across Netease (网易云), QQ Music, Kugou (酷狗), Kuwo (酷我) and Migu (咪咕), with search history, quality selection (lossless / high / standard) and online caching (downloaded to the system Downloads directory, then auto-switched to local playback once cached)
+- **Proxy source (代理音源)** — import third-party aggregated music sources (via local file / link / text) to customize search, playback URL, lyric and cover resolution per platform, with enable / disable / remove and automatic fallback to the built-in parser on failure; see the [代理音源开发规范](docs/代理音源开发规范.md) for the JSON spec
 - **Playlist system** — smart playlists (Recently Played / Favorites / Albums / Artists) and custom playlists (create / rename / delete / batch add tracks / drag to reorder / quick switch), persisted as JSON
 - **Synced lyrics** — scrolling lyrics with word-level timing (toggleable), online lyric matching/refresh, local lyric file import and embedded lyrics, plus fine-grained lyric offset tuning
+- **Lyric typography** — per-scene font size and visible-line count for the music panel, home portrait and home landscape (with 3D intensity), adjustable in Typography settings
 - **Cover management** — embedded art, local image candidates and online cover search; the new cover can be written back into the audio file
 - **Metadata editing** — rename song title / artist, written back to the file tags, with one-tap copy
 - **USB audio exclusive output** — automatic detection of USB DACs / sound cards with exclusive-mode routing, plus a real-time audio signal path view (format, source/output sample rates, bit depth, channels, DSD mode, route, output strategy & device)
@@ -45,8 +47,8 @@
 
 | Screen | Contents |
 | --- | --- |
-| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics (fine-tunable), refreshable playlist, favorites, sleep timer, landscape mode, online search via right swipe and playlist panel via left swipe, vertical swipe to switch tracks (long-press the cover / title for cover & lyrics refresh and rename) |
-| Settings | Appearance (theme), Language, Playback (mini player / word-by-word rendering / swipe to change track), About (version, update check, GitHub link) |
+| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics (font size & line count adjustable), refreshable playlist, favorites, sleep timer, landscape mode, online search (5 platforms with quality selection) via right swipe and playlist panel via left swipe, vertical swipe to switch tracks (long-press the cover / title for cover & lyrics refresh and rename) |
+| Settings | Appearance (theme), Language, Playback (mini player / word-by-word rendering / swipe to change track), Typography (lyric font size & lines), Proxy Source (import / enable / remove third-party sources), About (version, update check, GitHub link) |
 
 ## Tech Stack
 
@@ -59,11 +61,11 @@
 | DI | Koin 4.2.2 |
 | Persistence | DataStore Preferences 1.2.1 |
 | Image loading | Coil 3.5.0 |
-| Network | OkHttp 5.4.0 |
+| Network | OkHttp 5.5.0 |
 | Serialization | kotlinx.serialization 1.11.0 |
 | Adaptive layout | androidx.window 1.5.1, material3-adaptive 1.3.0 |
 | Lifecycle | androidx.lifecycle 2.11.0, activity-compose 1.13.0 |
-| Build | AGP 9.3.1, Gradle 9.7.0, refreshVersions |
+| Build | AGP 9.3.2, Gradle 9.7.1, refreshVersions |
 
 ## Project Structure
 
@@ -76,18 +78,19 @@
 │       │   ├── di/                      # Koin modules
 │       │   ├── log/                     # CrashLogManager
 │       │   ├── musicpanel/              # Floating panel / mini player / playback core
-│       │   │   ├── api/                 #   Online music sources (Netease / QQ / Kugou)
+│       │   │   ├── api/                 #   Online music sources (Netease / QQ / Kugou / Kuwo / Migu)
 │       │   │   ├── cover/               #   Cover management & metadata read/write
 │       │   │   ├── hardware/            #   USB DAC / Bluetooth / audio signal path
 │       │   │   ├── lyrics/              #   Lyric parsing & rendering
 │       │   │   ├── model/               #   Music scanning & data models
 │       │   │   ├── player/              #   Playback service & playback state
+│       │   │   ├── proxy/               #   Proxy source (import / parse / engine / store)
 │       │   │   ├── ui/                  #   Floating panel UI
 │       │   │   └── view/                #   Overlay / mini player view managers
 │       │   ├── navigation/              # Navigation3 typed routes
 │       │   ├── screens/                 # Screens (home / settings)
 │       │   │   ├── home/                #   Home player + permission flow + playlists
-│       │   │   └── settings/            #   Appearance / language / playback / about
+│       │   │   └── settings/            #   Appearance / language / playback / typography / proxy source / about
 │       │   ├── theme/                   # Material 3 color & typography
 │       │   ├── ui/                      # Shared UI (adaptive layout / icons)
 │       │   ├── update/                  # Version check & in-app update
@@ -99,7 +102,7 @@
 ├── gradle/
 │   ├── libs.versions.toml               # Version catalog (dependencies)
 │   └── wrapper/
-├── docs/                                # Architecture notes
+├── docs/                                # Architecture notes & proxy source spec (代理音源开发规范.md)
 ├── LICENSE
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -116,7 +119,7 @@ Screens are organized with a **zone-based (assembly/area) pattern**:
 - `{Screen}Assembly.kt` — composes the areas of the screen
 - `{Name}Area.kt` — a self-contained UI zone with a single semantic responsibility
 
-Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The `musicpanel/` package is split into `api` / `cover` / `hardware` / `lyrics` / `model` / `player` / `ui` / `view` subpackages: the overlay UI (full panel + mini player) and the playback engine are driven by Media3 ExoPlayer + `MediaSessionService` and shared through a window-level state holder.
+Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The `musicpanel/` package is split into `api` / `cover` / `hardware` / `lyrics` / `model` / `player` / `proxy` / `ui` / `view` subpackages: the overlay UI (full panel + mini player) and the playback engine are driven by Media3 ExoPlayer + `MediaSessionService` and shared through a window-level state holder.
 
 ## Permissions
 
@@ -170,13 +173,13 @@ The keystore file is expected at `jh.keystore` in the project root (adjust `stor
 
 ## Disclaimer
 
-Online music search relies on third-party public web endpoints (Netease / QQ Music / Kugou), whose availability and playback policy may vary by region and song. The app is for personal study and communication only — please support the copyright holders.
+Online music search relies on third-party public web endpoints (Netease / QQ Music / Kugou / Kuwo / Migu), whose availability and playback policy may vary by region and song. The app is for personal study and communication only — please support the copyright holders.
 
 ## Acknowledgements
 
 - Lyric animations and NetEase cloud music parsing originally referenced from [Qplayer](https://github.com/TIMER-err/qplayer)
 - Drag-reorder of list items originally referenced from [Reorderable](https://github.com/Calvin-LL/Reorderable); now self-implemented in-app (algorithm-equivalent)
-- QQ Music and Kugou Kotlin-native audio source parsing is based on [musicdl](https://github.com/CharlesPikachu/musicdl)
+- QQ Music, Kugou, Kuwo and Migu Kotlin-native audio source parsing is based on [musicdl](https://github.com/CharlesPikachu/musicdl)
 
 ## License
 
