@@ -326,10 +326,13 @@ object PlaylistRefresher {
                     (tracks + externalTracks).distinctBy { trackIdentityKey(context, it) }
                 }
                 withContext(Dispatchers.Main) {
-                    val previous = state.playlist.associateBy { normalizedAudioUri(it.audioUri) }
+                    // 缓存复用索引以全量库为准而非当前列表：停留在歌单时当前列表只是全量库子集，
+                    // 仅按它建索引会丢掉库内其他歌曲的歌词/封面缓存引用，导致切歌单后缓存污染
+                    val cachedLibrary = state.libraryTracks
+                    val previous = cachedLibrary.associateBy { normalizedAudioUri(it.audioUri) }
                     // 缓存下载后 audioUri 由 downloads 集合切换为 audio/media 集合，归一化后仍不一致；
                     // 按“标题 - 艺术家”兜底匹配旧列表，复用在线播放期间已保存的歌词/封面缓存
-                    val previousByTitleArtist = state.playlist
+                    val previousByTitleArtist = cachedLibrary
                         .filter { it.lyricCachePath.isNotBlank() || it.coverCachePath.isNotBlank() }
                         .associateBy { titleArtistKey(it) }
                     val mergedTracks = mergedBase
