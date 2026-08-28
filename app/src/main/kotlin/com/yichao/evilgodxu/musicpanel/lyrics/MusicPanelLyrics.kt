@@ -235,12 +235,14 @@ private fun LyricColumnLayout(
         val totalHeight = placeables.sumOf { it.height }
         val currentTop = placeables.take(currentRow).sumOf { it.height }
         val currentCenter = currentTop + (placeables.getOrNull(currentRow)?.height ?: 0) / 2f
+        // 行间间距同样占据版面，需计入布局高度，否则末行底部越界被视窗裁剪
+        val contentHeight = totalHeight + spacingPx * (placeables.size - 1).coerceAtLeast(0)
         // 视口高度限在 N 行标准内，不随换行/译文叠层膨胀；超出部分滚动越界后由渐隐与裁剪处理
         val boundedMax = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
         val viewportLimit = minOf(maxViewportHeight, boundedMax)
-        val layoutHeight = totalHeight.coerceAtMost(viewportLimit).coerceAtLeast(1)
-        // 平移量 = 布局中线 - 当前行中心，使当前行保持居中
-        val shift = (layoutHeight / 2f - currentCenter).roundToInt()
+        val layoutHeight = contentHeight.coerceAtMost(viewportLimit).coerceAtLeast(1)
+        // 平移量 = 布局中线 - 当前行中心（含其上方行间距），使当前行保持居中
+        val shift = (layoutHeight / 2f - (currentCenter + spacingPx * currentRow)).roundToInt()
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
         else placeables.maxOfOrNull { it.width } ?: 0
         layout(width, layoutHeight) {
