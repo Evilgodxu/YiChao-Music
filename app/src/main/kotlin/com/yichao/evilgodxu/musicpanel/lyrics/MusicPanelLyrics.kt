@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
@@ -305,12 +306,17 @@ internal fun LyricText(
             )
         }
         line.translation?.takeIf { it.isNotBlank() }?.let { translation ->
-            // 翻译行以更小字号静置展示，主歌词高亮时翻译同步加深
+            // 翻译行以更小字号静置展示，主歌词高亮时翻译同步使用完整高亮色与发光
             Text(
                 text = wrapLyricText(translation),
                 fontSize = (fontSize.value * 0.68f).sp,
                 fontWeight = FontWeight.Normal,
-                color = if (isCurrent) activeColor.copy(alpha = 0.8f) else pendingColor.copy(alpha = 0.55f),
+                color = if (isCurrent) activeColor else pendingColor.copy(alpha = 0.55f),
+                style = if (isCurrent) {
+                    TextStyle(shadow = Shadow(activeColor.copy(alpha = 0.65f), blurRadius = 5f))
+                } else {
+                    TextStyle()
+                },
                 textAlign = TextAlign.Center,
                 softWrap = true,
                 modifier = Modifier.padding(top = 1.dp),
