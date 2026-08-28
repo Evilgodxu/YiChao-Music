@@ -80,6 +80,14 @@ object PlaylistStore {
         persist(context)
     }
 
+    // 歌曲被彻底删除后，从所有自定义歌单中清除残留引用
+    fun removeTrackFromAll(context: Context, trackId: Long) {
+        playlists = playlists.map { playlist ->
+            if (trackId in playlist.trackIds) playlist.copy(trackIds = playlist.trackIds.filterNot { it == trackId }) else playlist
+        }
+        persist(context)
+    }
+
     // 按新顺序重排歌单曲目并持久化
     fun setTrackOrder(context: Context, id: Long, orderedIds: List<Long>) {
         playlists = playlists.map { playlist ->

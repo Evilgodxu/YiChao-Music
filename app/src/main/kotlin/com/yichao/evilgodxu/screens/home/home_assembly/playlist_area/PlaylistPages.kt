@@ -219,13 +219,25 @@ internal fun PlaylistSmartTracksPage(
             else -> emptyList()
         }
     }
+    // 常听歌单长按歌曲：从常听中移除该曲目
+    var removeTrack by remember { mutableStateOf<MusicTrack?>(null) }
     TracksContent(
         tracks = tracks,
         source = PlaylistSource("smart:${type.name}", smartTypeLabel(type)),
         playbackState = playbackState,
         scope = scope,
         trailingAction = {},
-        onTrackLongClick = {},
+        onTrackLongClick = { track ->
+            if (type == SmartPlaylistType.RECENT) removeTrack = track
+        },
+    )
+    RemoveTrackDialog(
+        track = removeTrack,
+        onConfirm = { track ->
+            playbackState.removeFromRecentPlayed(track.id)
+            removeTrack = null
+        },
+        onDismiss = { removeTrack = null },
     )
 }
 
@@ -402,12 +414,15 @@ private fun playQueue(
     state.persistPlaylist()
 }
 
-// 从歌单移除曲目的确认弹窗
+// 从歌单移除/删除歌曲的确认弹窗：默认文案为「从歌单移除」，可按场景传入删除文案
 @Composable
 internal fun RemoveTrackDialog(
     track: MusicTrack?,
     onConfirm: (MusicTrack) -> Unit,
     onDismiss: () -> Unit,
+    titleRes: Int = R.string.playlist_remove_track_title,
+    messageRes: Int = R.string.playlist_remove_track_message,
+    confirmRes: Int = R.string.playlist_remove_track_confirm,
 ) {
     if (track == null) return
     MetadataDialogCard(onDismiss = onDismiss) {
@@ -418,14 +433,14 @@ internal fun RemoveTrackDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.playlist_remove_track_title),
+                text = stringResource(titleRes),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = stringResource(R.string.playlist_remove_track_message, track.title, track.artist),
+                text = stringResource(messageRes, track.title, track.artist),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
@@ -457,7 +472,7 @@ internal fun RemoveTrackDialog(
                     onClick = { onConfirm(track) },
                 ) {
                     Text(
-                        text = stringResource(R.string.playlist_remove_track_confirm),
+                        text = stringResource(confirmRes),
                         color = MaterialTheme.colorScheme.onError,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,

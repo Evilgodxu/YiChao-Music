@@ -11,11 +11,13 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import android.content.ContentResolver
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.net.Uri
 import androidx.core.content.edit
 import androidx.compose.runtime.setValue
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.media3.common.Player
@@ -32,11 +34,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.withLock
 import kotlin.jvm.JvmName
+import java.io.File
 
 // 音乐播放器状态持有者（悬浮窗级共享状态）
 class MusicPlaybackState {
 
-    // 常听收录窗口：仅统计 3 天内播放次数超过 3 次的歌曲
+    // 常听收录窗口：统计 3 天内完整播放次数不少于 3 次的歌曲
     private companion object {
         const val RECENT_WINDOW_DAYS = 3
         const val RECENT_MIN_PLAYS = 3
@@ -145,6 +148,8 @@ class MusicPlaybackState {
                 Player.STATE_ENDED -> {
                     isPlaying = false
                     currentPosition = duration
+                    // 曲目自然播完计入完整播放，作为常听收录依据
+                    currentTrack?.id?.let { recordPlayed(it) }
                     if (suppressAutoNext) {
                         suppressAutoNext = false
                         return
@@ -358,6 +363,41 @@ class MusicPlaybackState {
         persistPlaylist()
     }
 
+    // 彻底删除歌曲：移除音频源文件与仅该曲引用的歌词/封面缓存，并同步库、播放队列与歌单引用
+    suspend fun deleteSongPermanently(context: Context, track: MusicTrack) {
+        // 删除前基于全量库计算剩余曲目的缓存引用，作为封面/歌词清除依据
+        val remaining = (defaultPlaylistBackup ?: playlist).filterNot { it.id == track.id }
+        withContext(Dispatchers.IO) {
+            deleteAudioSource(context, track)
+            MusicMetadataCache.cleanupOrphanedMetadata(
+                context,
+                remaining.flatMap { listOfNotNull(it.coverCachePath, it.lyricCachePath) }.toSet(),
+            )
+        }
+        defaultPlaylistBackup = defaultPlaylistBackup?.filterNot { it.id == track.id }
+        removeTrack(track.id)
+        likedIds = likedIds - track.id
+        removeFromRecentPlayed(track.id)
+        PlaylistStore.ensureLoaded(context)
+        PlaylistStore.removeTrackFromAll(context, track.id)
+    }
+
+    // 删除音频源文件：先经 MediaStore 删除（同时清理媒体条目），失败则直接删本地路径并通知媒体库同步
+    private fun deleteAudioSource(context: Context, track: MusicTrack) {
+        val uri = track.audioUri.takeIf { it.isNotBlank() }?.let(Uri::parse)
+        // 纯在线流曲目无本地文件，无需文件级删除
+        if (uri?.scheme == "http" || uri?.scheme == "https") return
+        val deletedViaResolver = uri != null &&
+            runCatching { context.contentResolver.delete(uri, null, null) }.getOrDefault(0) > 0
+        if (!deletedViaResolver && track.path.isNotBlank()) {
+            val path = track.path
+            if (runCatching { File(path).delete() }.getOrDefault(false)) {
+                // 直删文件后触发媒体扫描，使 MediaStore 中该文件的条目失效，避免歌曲重新出现
+                MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+            }
+        }
+    }
+
     // USB 独占模式相关状态
     var isUsbDeviceConnected by mutableStateOf(false)
     var isUsbExclusiveMode by mutableStateOf(false)
@@ -379,7 +419,7 @@ class MusicPlaybackState {
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
 
-    // 常听：3 天内播放次数超过 3 次的歌曲，按最近一次播放时间倒序
+    // 常听：3 天内完整播放次数不少于 3 次的歌曲，按最近一次播放时间倒序
     private var recentPlayEvents by mutableStateOf<List<PlayEvent>>(emptyList())
     private val recentPlayedPreferences = "music_recent_played_preferences"
     private val recentPlayedKey = "music_recent_played_events"
@@ -391,7 +431,7 @@ class MusicPlaybackState {
             val cutoff = System.currentTimeMillis() - recentWindowMs
             val window = recentPlayEvents.filter { it.timestamp >= cutoff }
             return window.groupBy { it.trackId }
-                .filterValues { it.size > RECENT_MIN_PLAYS }
+                .filterValues { it.size >= RECENT_MIN_PLAYS }
                 .entries
                 .sortedByDescending { it.value.maxOf { e -> e.timestamp } }
                 .map { it.key }
@@ -405,11 +445,17 @@ class MusicPlaybackState {
     val libraryTracks: List<MusicTrack>
         get() = defaultPlaylistBackup ?: playlist
 
-    // 记录一次播放：追加带时间戳的播放记录，并清理超出 3 天窗口的旧记录
+    // 记录一次完整播放：追加带时间戳的播放记录，并清理超出 3 天窗口的旧记录
     fun recordPlayed(trackId: Long) {
         val now = System.currentTimeMillis()
         recentPlayEvents = listOf(PlayEvent(trackId, now)) +
             recentPlayEvents.filter { it.timestamp >= now - recentWindowMs }
+        persistRecentPlayed()
+    }
+
+    // 从常听手动移除：清除该曲目的播放记录，期间不再自动收录
+    fun removeFromRecentPlayed(trackId: Long) {
+        recentPlayEvents = recentPlayEvents.filterNot { it.trackId == trackId }
         persistRecentPlayed()
     }
 

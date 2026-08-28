@@ -371,7 +371,7 @@ fun MusicPanelOverlay(
                         track = deleteTargetTrack,
                         onConfirm = {
                             deleteTargetTrack?.let { track ->
-                                playbackState.removeTrack(track.id)
+                                scope.launch { playbackState.deleteSongPermanently(context, track) }
                             }
                             showDeleteConfirm = false
                             deleteTargetTrack = null

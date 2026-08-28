@@ -50,11 +50,13 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.HeaderIconButton
 import com.yichao.evilgodxu.musicpanel.MetadataEnricher
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
 import com.yichao.evilgodxu.musicpanel.PlaylistRow
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.togglePlayPause
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSwitcher
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.RemoveTrackDialog
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.launch
 
@@ -69,6 +71,8 @@ internal fun PlaylistSheet(
     val scope = rememberCoroutineScope()
     // 歌单副标题点击后的快捷切换弹层
     var showSwitcher by remember { mutableStateOf(false) }
+    // 长按删除目标：非空时显示确认弹窗
+    var deleteTrack by remember { mutableStateOf<MusicTrack?>(null) }
     Box(Modifier.fillMaxSize()) {
         // 遮罩，点击收起
         AnimatedVisibility(
@@ -205,7 +209,7 @@ internal fun PlaylistSheet(
                                     }
                                     onDismiss()
                                 },
-                                onLongClick = {},
+                                onLongClick = { deleteTrack = track },
                                 onFavoriteClick = { playbackState.toggleFavorite(track.id) },
                                 onPlayNextClick = { playbackState.togglePlayNext(track) },
                             )
@@ -225,6 +229,17 @@ internal fun PlaylistSheet(
             visible = showSwitcher,
             playbackState = playbackState,
             onDismiss = { showSwitcher = false },
+        )
+        RemoveTrackDialog(
+            track = deleteTrack,
+            titleRes = R.string.music_panel_delete_title,
+            messageRes = R.string.music_panel_delete_message,
+            confirmRes = R.string.music_panel_delete_confirm,
+            onConfirm = { track ->
+                scope.launch { playbackState.deleteSongPermanently(context, track) }
+                deleteTrack = null
+            },
+            onDismiss = { deleteTrack = null },
         )
     }
 }

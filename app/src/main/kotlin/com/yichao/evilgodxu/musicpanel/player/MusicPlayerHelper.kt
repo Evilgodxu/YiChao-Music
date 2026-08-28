@@ -78,8 +78,6 @@ suspend fun playTrackAt(
             state.currentTrack = track
             state.errorMsg = null
             state.mediaItemsDirty = false
-            // 记录常听：每次实际切入曲目都计入最近播放
-            state.recordPlayed(track.id)
             if (!sameQueue || needRefreshItems) {
                 controller.setMediaItems(items, index, resumePosition)
                 controller.prepare()

@@ -49,6 +49,7 @@
     <string name="music_panel_search_placeholder">搜索歌曲</string>
     <string name="music_panel_search_title">在线搜索</string>
     <string name="music_panel_delete_title">是否删除这首歌曲？</string>
+    <string name="music_panel_delete_message">将删除歌曲「%1$s · %2$s」</string>
     <string name="music_panel_delete_cancel">取消</string>
     <string name="music_panel_delete_confirm">删除</string>
     <string name="music_panel_no_lyrics">暂无歌词</string>
