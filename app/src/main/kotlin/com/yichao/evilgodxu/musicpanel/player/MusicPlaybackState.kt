@@ -73,12 +73,7 @@ class MusicPlaybackState {
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
             if (stopAfterCurrentTrack && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                 // 定时关闭：当前曲目自然结束 → 停止播放
-                stopAfterCurrentTrack = false
-                timerAutoStopped = true
-                release()
-                playbackScope.launch {
-                    appContext?.let { clearSavedPosition(it) }
-                }
+                completeSleepTimer()
                 return
             }
             // 插队队列：仅自然切换时消费队列；队列播完后接续原播放位置
@@ -155,12 +150,8 @@ class MusicPlaybackState {
                         return
                     }
                     if (stopAfterCurrentTrack) {
-                        stopAfterCurrentTrack = false
-                        timerAutoStopped = true
-                        release()
-                        playbackScope.launch {
-                            appContext?.let { clearSavedPosition(it) }
-                        }
+                        // 定时关闭：曲目播毕停止播放
+                        completeSleepTimer()
                         return
                     }
                     val next = autoNextIndex()
@@ -466,6 +457,8 @@ class MusicPlaybackState {
     var timerMinutes by mutableIntStateOf(10)
     var timerRemaining by mutableIntStateOf(0)
     var timerAutoStopped by mutableStateOf(false)
+    // 定时关闭到点后请求真正退出应用（一次性信号，退出编排由应用外壳执行）
+    var sleepTimerExpired by mutableStateOf(false)
     private val timerJob = SupervisorJob()
     private val timerScope = CoroutineScope(timerJob + Dispatchers.Main)
     private var countdownJob: Job? = null
@@ -753,6 +746,17 @@ class MusicPlaybackState {
         stopTimer()
     }
 
+    // 定时关闭到点收尾：停止播放并发出退出应用信号（退出编排由应用外壳执行）
+    private fun completeSleepTimer() {
+        stopAfterCurrentTrack = false
+        timerAutoStopped = true
+        sleepTimerExpired = true
+        release()
+        playbackScope.launch {
+            appContext?.let { clearSavedPosition(it) }
+        }
+    }
+
     // 启动定时关闭（分钟），计时结束后停止播放并释放资源
     fun startTimer(minutes: Int) {
         stopTimer()
@@ -773,10 +777,7 @@ class MusicPlaybackState {
                     }
                 }
             } else {
-                release()
-                playbackScope.launch {
-                    appContext?.let { clearSavedPosition(it) }
-                }
+                completeSleepTimer()
             }
         }
     }
@@ -965,6 +966,8 @@ class MusicPlaybackState {
     fun setTimerMinutes(minutes: Int) { timerMinutes = minutes }
     @JvmName("updateTimerAutoStopped")
     fun setTimerAutoStopped(stopped: Boolean) { timerAutoStopped = stopped }
+    @JvmName("updateSleepTimerExpired")
+    fun setSleepTimerExpired(expired: Boolean) { sleepTimerExpired = expired }
     @JvmName("updateCurrentPosition")
     fun setCurrentPosition(position: Long) { currentPosition = position }
     @JvmName("updateUsbExclusiveEnabled")

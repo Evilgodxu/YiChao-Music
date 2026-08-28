@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Environment
+import android.os.Process
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
@@ -14,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 // 向 Compose 层暴露音乐面板控制器的组合局部
@@ -29,6 +32,7 @@ class MusicPanelController(private val context: Context) {
     private var miniPlayerEnabled = true
     private var appInForeground = true
     private var prefsJob: Job? = null
+    private var exitJob: Job? = null
     private var pendingExternalPlayUri: android.net.Uri? = null
     private var externalBackgroundPlaying = false
 
@@ -39,6 +43,12 @@ class MusicPanelController(private val context: Context) {
                 miniPlayerEnabled = enabled
                 if (!enabled) dismissMiniPlayer()
             }
+        }
+        // 定时关闭到点且停止播放后，结束整个应用
+        exitJob = scope.launch {
+            snapshotFlow { MusicPanelStateHolder.state.sleepTimerExpired }
+                .filter { it }
+                .collect { exitApplication() }
         }
     }
 
@@ -145,10 +155,20 @@ class MusicPanelController(private val context: Context) {
 
     fun release() {
         prefsJob?.cancel()
+        exitJob?.cancel()
         scope.cancel()
         dismissMiniPlayer()
         panelManager?.dismiss()
         panelManager = null
+    }
+
+    // 结束整个应用：移除悬浮窗、停止播放前台服务并终止进程
+    private fun exitApplication() {
+        dismissMiniPlayer()
+        panelManager?.dismiss()
+        panelManager = null
+        context.stopService(Intent(context, MusicPlaybackService::class.java))
+        Process.killProcess(Process.myPid())
     }
 
     // 完整面板关闭后，后台播放时恢复迷你播放器

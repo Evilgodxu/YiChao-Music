@@ -198,8 +198,9 @@ class MusicPanelViewManager(
     fun show() {
         if (composeView != null) return
 
-        // 清除上一次定时关闭残留的过期信号，防止面板被误关
+        // 清除上一次定时关闭残留的过期信号，防止面板被误关或应用被误退
         playbackState.timerAutoStopped = false
+        playbackState.sleepTimerExpired = false
 
         val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
