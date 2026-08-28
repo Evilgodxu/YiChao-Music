@@ -1,7 +1,10 @@
 package com.yichao.evilgodxu.musicpanel
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -103,14 +107,25 @@ internal fun LyricChar(
     pendingColor: Color,
     shadowBlurRadius: Float,
 ) {
-    val emphasis by animateFloatAsState(
-        targetValue = if (filling) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = 0.5f,
-            stiffness = 500f,
-        ),
-        label = "lyric_char_jump",
-    )
+    // 跳起与落下均渐进过渡：新字柔和弹起的同时旧字缓缓回落，
+    // 两者在时间上重叠,形成连续流动感，避免瞬间落下/瞬间跳起的突兀
+    val emphasis = remember { Animatable(0f) }
+    LaunchedEffect(filling) {
+        emphasis.animateTo(
+            targetValue = if (filling) 1f else 0f,
+            animationSpec = if (filling) {
+                spring(
+                    dampingRatio = 0.55f,
+                    stiffness = 420f,
+                )
+            } else {
+                tween(
+                    durationMillis = LYRIC_JUMP_DOWN_MS,
+                    easing = LinearOutSlowInEasing,
+                )
+            },
+        )
+    }
     // 位置进度按采样周期跳跃推进，用线性 tween 平滑成连续亮起动画
     val highlightFraction by animateFloatAsState(
         targetValue = fillFraction,
@@ -138,9 +153,9 @@ internal fun LyricChar(
         modifier = Modifier
             .graphicsLayer {
                 // 跳起效果：弹簧放大带过冲 + 轻微上浮，参数与改前旧版一致
-                scaleX = 1f + 0.14f * emphasis
-                scaleY = 1f + 0.14f * emphasis
-                translationY = -floatPx * emphasis
+                scaleX = 1f + 0.14f * emphasis.value
+                scaleY = 1f + 0.14f * emphasis.value
+                translationY = -floatPx * emphasis.value
             }
             .size(
                 width = with(density) { layout.size.width.toDp() },
@@ -160,6 +175,9 @@ internal fun LyricChar(
 private const val LINE_CHAR_SHADOW_BLUR = 5f
 
 private const val LYRIC_FILL_SMOOTH_MS = 60
+
+// 演唱结束的字回落用时：与下一字跳起重叠渐变,形成渐落衔接，不宜过短
+private const val LYRIC_JUMP_DOWN_MS = 320
 
 // 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
 internal fun wrapLyricText(text: String): String {
