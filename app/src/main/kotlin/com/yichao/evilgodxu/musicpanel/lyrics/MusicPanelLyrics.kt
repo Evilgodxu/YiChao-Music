@@ -102,6 +102,15 @@ internal fun LyricsPanel(
     }
 
     val lines = playbackState.currentTrack?.lyricLines.orEmpty()
+    // 歌词缺失时按需补全（懒加载）：补全成功后回写 lyricLines 驱动重组显示
+    LaunchedEffect(
+        playbackState.currentTrack?.id,
+        playbackState.currentTrack?.lyricCachePath,
+        playbackState.currentTrack?.lyricLines?.size,
+        playbackState.currentTrack?.lyricFailed,
+    ) {
+        playbackState.requestMetadata(playbackState.currentTrack)
+    }
     val activeIndex = lines.indexOfLast { it.timeMs <= lyricPosition }.coerceAtLeast(0)
     // 当前行居中，上下各显示 (total-1)/2 行（total 为奇数）
     val offset = visibleLines / 2
@@ -130,7 +139,16 @@ internal fun LyricsPanel(
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
-            Text(stringResource(R.string.music_panel_no_lyrics), color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            // 关联歌词缓存存在时读取挂载极快，不闪"暂无歌词"占位；仅真正缺失时提示
+            val hasLyricCache = playbackState.currentTrack?.lyricCachePath
+                ?.let { MusicMetadataCache.isValid(it) } == true
+            if (!hasLyricCache) {
+                Text(
+                    stringResource(R.string.music_panel_no_lyrics),
+                    color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+            }
         } else {
             // 窗口容器固定，滚动与过渡都在其内部进行：行溢出与滑出内容经过边缘即被渐隐裁剪
             Box(

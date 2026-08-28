@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -101,6 +102,10 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
         coverModel(track)
     }
+    // 封面缺失时按需补全：幂等，补全成功后回写 coverCachePath 驱动重组重新加载
+    LaunchedEffect(track?.id, track?.coverCachePath, track?.neteaseCoverUrl, track?.coverFailed) {
+        track?.let { MusicPanelStateHolder.state.requestMetadata(it) }
+    }
     if (model != null) {
         AsyncImage(
             model = model,
@@ -132,6 +137,10 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     // 128px CDN 缩略图在高 DPI 下列表放大显示会模糊，故不再使用
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
         coverModel(track)
+    }
+    // 列表项封面缺失时按需补全（懒加载）：滚入视口的曲目才触发提取
+    LaunchedEffect(track?.id, track?.coverCachePath, track?.neteaseCoverUrl, track?.coverFailed) {
+        track?.let { MusicPanelStateHolder.state.requestMetadata(it) }
     }
     if (model != null) {
         AsyncImage(

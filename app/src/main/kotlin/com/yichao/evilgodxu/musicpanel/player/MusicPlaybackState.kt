@@ -662,12 +662,9 @@ class MusicPlaybackState {
                 val item = array.getJSONObject(index)
                 val savedLyricPath = item.optString("lyricCachePath", "")
                 val lyricOffset = item.optLong("lyricOffsetMs", 0L)
-                val lyricLines = if (MusicMetadataCache.isValid(savedLyricPath)) {
-                    val rawLines = MusicMetadataCache.loadLyrics(savedLyricPath)
-                    if (lyricOffset != 0L) shiftLyrics(rawLines, lyricOffset) else rawLines
-                } else {
-                    emptyList()
-                }
+                // 歌词内容延迟到显示时按需从缓存文件读取（含偏移），
+                // 冷启动不逐首解析歌词，避免大歌单的数百次文件读取拖慢所有界面首帧
+                val lyricCachePath = savedLyricPath.takeIf { MusicMetadataCache.isValid(it) }.orEmpty()
                 MusicTrack(
                     id = item.getLong("id"),
                     path = item.getString("path"),
@@ -682,8 +679,8 @@ class MusicPlaybackState {
                     coverCachePath = item.optString("coverCachePath", ""),
                     isFavorite = item.optBoolean("isFavorite", false),
                     isOnlinePlay = item.optBoolean("isOnlinePlay", false),
-                    lyricCachePath = savedLyricPath.takeIf { lyricLines.isNotEmpty() }.orEmpty(),
-                    lyricLines = lyricLines,
+                    lyricCachePath = lyricCachePath,
+                    lyricLines = emptyList(),
                     lyricOffsetMs = lyricOffset,
                     coverFailed = item.optBoolean("coverFailed", false),
                     lyricFailed = item.optBoolean("lyricFailed", false),
@@ -897,6 +894,16 @@ class MusicPlaybackState {
         persistPlaylist()
     }
 
+    // 按需补全单曲封面/歌词（懒加载）：幂等，由 UI 可见项触发，
+    // 已具备缓存、已标记失败或在全量补全排期中的曲目自动跳过
+    fun requestMetadata(track: MusicTrack?) {
+        if (track == null) return
+        val context = appContext ?: return
+        playbackScope.launch {
+            MetadataEnricher.ensureMetadata(context, this@MusicPlaybackState, track)
+        }
+    }
+
     fun renameTrackMetadata(renamed: MusicTrack) {
         updateTrack(renamed)
     }
@@ -905,18 +912,9 @@ class MusicPlaybackState {
     fun adjustLyricsOffset(stepMs: Long) {
         val track = currentTrack ?: return
         if (track.lyricLines.isEmpty()) return
-        val shifted = shiftLyrics(track.lyricLines, stepMs)
+        val shifted = MusicMetadataCache.shiftLyrics(track.lyricLines, stepMs)
         updateTrack(track.copy(lyricLines = shifted, lyricOffsetMs = track.lyricOffsetMs + stepMs))
     }
-
-    // 整体平移歌词时间轴
-    private fun shiftLyrics(lines: List<LyricLine>, deltaMs: Long): List<LyricLine> =
-        lines.map { line ->
-            line.copy(
-                timeMs = (line.timeMs + deltaMs).coerceAtLeast(0),
-                words = line.words.map { word -> word.copy(startMs = (word.startMs + deltaMs).coerceAtLeast(0)) },
-            )
-        }
 
     fun syncPlaybackState() {
         val controller = mediaController ?: return

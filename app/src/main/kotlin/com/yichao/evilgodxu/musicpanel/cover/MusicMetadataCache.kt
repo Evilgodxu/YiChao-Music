@@ -243,6 +243,15 @@ internal object MusicMetadataCache {
     fun parseLyricsText(text: String): List<LyricLine> =
         parseEnhancedLrc(text).ifEmpty { parseJsonLyrics(text) }
 
+    // 整体平移歌词时间轴（手动微调用）：应用幂等，缓存文件保存的始终是原始时间戳
+    fun shiftLyrics(lines: List<LyricLine>, deltaMs: Long): List<LyricLine> =
+        lines.map { line ->
+            line.copy(
+                timeMs = (line.timeMs + deltaMs).coerceAtLeast(0),
+                words = line.words.map { word -> word.copy(startMs = (word.startMs + deltaMs).coerceAtLeast(0)) },
+            )
+        }
+
     private fun lrcTimestamp(ms: Long): String {
         val minutes = ms / 60_000
         val seconds = ms % 60_000 / 1000

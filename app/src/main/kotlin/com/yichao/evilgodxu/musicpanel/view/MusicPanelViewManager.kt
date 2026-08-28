@@ -294,8 +294,12 @@ class MusicPanelViewManager(
                 withContext(Dispatchers.Main) {
                     restoreCurrentTrack()
                 }
-                // 封面后台加载，不阻塞初始化
-                managerScope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
+                // 封面/歌词由 UI 按需懒加载补齐首屏，全量补全延迟执行，
+                // 避免启动瞬间批量提取抢占按需任务的 IO，拖慢封面与歌词显示
+                managerScope.launch {
+                    delay(3_000)
+                    MetadataEnricher.enrichAndCleanup(context, playbackState)
+                }
             }
             withContext(Dispatchers.Main) {
                 playbackState.syncPlaybackState()
