@@ -35,7 +35,7 @@ internal fun WordSplitLyricText(
     modifier: Modifier = Modifier,
 ) {
     // 词起点时间戳分布往往不均匀（词间空隙大），直接按时戳点亮会长时间停在首词上，
-    // 故仿照单行歌词将整行时长按词均分，保证逐词连续高亮与跳动
+    // 故按整行时长对词均分时间片，保证逐词连续高亮与跳动
     val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
     val wordCount = line.words.size.coerceAtLeast(1)
     val perWordMs = duration / wordCount.toFloat()

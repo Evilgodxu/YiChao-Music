@@ -3,16 +3,8 @@ package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,21 +12,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -63,7 +48,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -77,21 +61,16 @@ import com.yichao.evilgodxu.musicpanel.CoverContextMenu
 import com.yichao.evilgodxu.musicpanel.CoverRefreshDialog
 import com.yichao.evilgodxu.musicpanel.CoverReplaceDialog
 import com.yichao.evilgodxu.musicpanel.DiscArt
-import com.yichao.evilgodxu.musicpanel.HeaderIconButton
 import com.yichao.evilgodxu.musicpanel.LocalCoverDialog
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.LyricsRefreshDialog
 import com.yichao.evilgodxu.musicpanel.MiniContextMenu
 import com.yichao.evilgodxu.musicpanel.MusicErrorBanner
 import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
-import com.yichao.evilgodxu.musicpanel.MetadataEnricher
 import com.yichao.evilgodxu.musicpanel.MusicMetadataWriter
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.NeteaseSongSearchResult
-import com.yichao.evilgodxu.musicpanel.PlayMode
-import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
-import com.yichao.evilgodxu.musicpanel.PlaylistRow
 import com.yichao.evilgodxu.musicpanel.ProgressSection
 import com.yichao.evilgodxu.musicpanel.RecentCover
 import com.yichao.evilgodxu.musicpanel.RenameDialog
@@ -99,14 +78,10 @@ import com.yichao.evilgodxu.musicpanel.applyCoverCandidate
 import com.yichao.evilgodxu.musicpanel.applyLocalCover
 import com.yichao.evilgodxu.musicpanel.applyLocalLyrics
 import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
-import com.yichao.evilgodxu.musicpanel.applyPlaybackMode
 import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
-import com.yichao.evilgodxu.musicpanel.playTrackAt
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
 import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
-import com.yichao.evilgodxu.musicpanel.togglePlayPause
-import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSwitcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -702,267 +677,6 @@ private fun LyricsContextMenu(
                 }
             }
         }
-    }
-}
-
-// 底部控制栏：与迷你播放器控件布局一致（播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表）
-@Composable
-internal fun PlayerControls(
-    playbackState: MusicPlaybackState,
-    onPlaylistClick: () -> Unit,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PlayerControlButton(
-            icon = when (playbackState.playMode) {
-                PlayMode.RepeatAll -> AppIcons.Repeat
-                PlayMode.RepeatOne -> AppIcons.RepeatOne
-                PlayMode.Shuffle -> AppIcons.Shuffle
-            },
-            contentDescription = stringResource(R.string.music_panel_play_mode),
-            onClick = {
-                playbackState.setPlayMode(
-                    when (playbackState.playMode) {
-                        PlayMode.RepeatAll -> PlayMode.RepeatOne
-                        PlayMode.RepeatOne -> PlayMode.Shuffle
-                        PlayMode.Shuffle -> PlayMode.RepeatAll
-                    }
-                )
-                playbackState.mediaController?.let { controller ->
-                    applyPlaybackMode(controller, playbackState.playMode)
-                }
-                playbackState.persistState()
-            },
-        )
-        PlayerControlButton(
-            icon = AppIcons.SkipPrevious,
-            contentDescription = stringResource(R.string.home_player_previous),
-            enabled = playbackState.playlist.isNotEmpty(),
-            onClick = {
-                val prev = playbackState.previousIndex()
-                if (prev >= 0) scope.launch { playTrackAt(context, playbackState, prev) }
-            },
-        )
-        PlayerControlButton(
-            icon = if (playbackState.isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
-            contentDescription = stringResource(
-                if (playbackState.isPlaying) R.string.home_player_pause else R.string.home_player_play
-            ),
-            enabled = playbackState.playlist.isNotEmpty(),
-            onClick = { togglePlayPause(playbackState) },
-        )
-        PlayerControlButton(
-            icon = AppIcons.SkipNext,
-            contentDescription = stringResource(R.string.home_player_next),
-            enabled = playbackState.playlist.isNotEmpty(),
-            onClick = {
-                val next = playbackState.nextIndex()
-                if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
-            },
-        )
-        PlayerControlButton(
-            icon = AppIcons.QueueMusic,
-            contentDescription = stringResource(R.string.music_panel_playlist),
-            onClick = onPlaylistClick,
-        )
-    }
-}
-
-@Composable
-private fun PlayerControlButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(48.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(32.dp),
-            tint = if (enabled) Color.White
-            else Color.White.copy(alpha = 0.3f),
-        )
-    }
-}
-
-// 播放列表面板：点击遮罩或关闭按钮收起
-@Composable
-internal fun PlaylistSheet(
-    visible: Boolean,
-    playbackState: MusicPlaybackState,
-    onDismiss: () -> Unit,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    // 歌单副标题点击后的快捷切换弹层
-    var showSwitcher by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize()) {
-        // 遮罩，点击收起
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDismiss,
-                    ),
-            )
-        }
-        // 从底部滑入的面板
-        AnimatedVisibility(
-            visible = visible,
-            enter = slideInVertically(animationSpec = tween(300)) { it } + fadeIn(),
-            exit = slideOutVertically(animationSpec = tween(300)) { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.7f)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.music_panel_playlist_title),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    // 歌单副标题：浅色小字常驻显示，点击快捷切换歌单；默认列表显示默认播放列表
-                    Text(
-                        text = playbackState.playlistSource?.name
-                            ?: stringResource(R.string.playlist_switch_default),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { showSwitcher = true }
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.music_panel_track_count, playbackState.playlist.size),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(end = 4.dp),
-                        )
-                        HeaderIconButton(
-                            icon = AppIcons.Refresh,
-                            onClick = {
-                                if (!playbackState.isScanning) {
-                                    scope.launch {
-                                        PlaylistRefresher.refresh(
-                                            context, playbackState, restoreCurrent = true
-                                        ) {
-                                            // 刷新后后台加载封面与歌词
-                                            scope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.size(28.dp),
-                            enabled = !playbackState.isScanning,
-                        )
-                        IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                            Icon(
-                                imageVector = AppIcons.Close,
-                                contentDescription = stringResource(R.string.home_player_close_playlist),
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                if (playbackState.isScanning) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    }
-                } else if (playbackState.playlist.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.home_player_empty),
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    val listState = rememberLazyListState()
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        itemsIndexed(
-                            items = playbackState.playlist,
-                            key = { _, track -> track.audioUri },
-                        ) { index, track ->
-                            val isActive = index == playbackState.currentIndex
-                            PlaylistRow(
-                                track = track,
-                                isActive = isActive,
-                                isPlaying = isActive && playbackState.isPlaying,
-                                isQueued = playbackState.isInPlayNext(track.id),
-                                onClick = {
-                                    if (isActive) {
-                                        togglePlayPause(playbackState)
-                                    } else {
-                                        scope.launch { playTrackAt(context, playbackState, index) }
-                                    }
-                                    onDismiss()
-                                },
-                                onLongClick = {},
-                                onFavoriteClick = { playbackState.toggleFavorite(track.id) },
-                                onPlayNextClick = { playbackState.togglePlayNext(track) },
-                            )
-                        }
-                    }
-                    LaunchedEffect(playbackState.currentTrack?.id) {
-                        if (playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
-                            listState.animateScrollToItem(
-                                playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        PlaylistSwitcher(
-            visible = showSwitcher,
-            playbackState = playbackState,
-            onDismiss = { showSwitcher = false },
-        )
     }
 }
 

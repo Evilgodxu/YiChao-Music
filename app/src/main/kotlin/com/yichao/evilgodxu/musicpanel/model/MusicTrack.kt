@@ -1,7 +1,7 @@
 package com.yichao.evilgodxu.musicpanel
 
 // 本地音乐轨道
- data class MusicTrack(
+data class MusicTrack(
     val id: Long,
     val path: String,
     val audioUri: String,
