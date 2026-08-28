@@ -1,24 +1,15 @@
 package com.yichao.evilgodxu.musicpanel
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
 
 // 逐字歌词：按词时序卡拉OK式点亮——已唱的词连续高亮，仅当前正在演唱的词
 // 叠加弹簧跳动（放大带过冲 + 轻微上浮）；与单行歌词一致，跳动改为词内逐字
@@ -53,7 +44,12 @@ internal fun WordSplitLyricText(
     } else {
         -1
     }
-    val floatPx = with(LocalDensity.current) { 0.05f * fontSize.toPx() }
+    // 当前词内已演唱的字符级进度：正在演唱的字按其与整数的差值从左到右逐渐亮起
+    val charProgressInWord = if (currentWordIdx >= 0) {
+        ((positionMs - line.timeMs) - currentWordIdx * perWordMs) / perWordMs * wordCharCount
+    } else {
+        -1f
+    }
 
     // 将整行词按字符上限手工分成多行：英文词保持完整，词不跨行截断
     Column(
@@ -68,39 +64,30 @@ internal fun WordSplitLyricText(
             ) {
                 rowWords.forEach { word ->
                     val index = globalIdx++
-                    // 已唱（含当前演唱词）为高亮色，未唱为待唱色；用纯色保证对比度可见
-                    val isSung = isCurrent && index <= currentWordIdx
-                    // 词保持整体排版，词内逐字渲染以支持单字跳动；词间间距由词文本自带空格保留
+                    // 已唱的词整体高亮，未唱为待唱色；当前词内逐字从左到右亮起
+                    val isWordSung = isCurrent && index < currentWordIdx
+                    val isWordCurrent = isCurrent && index == currentWordIdx
+                    // 词保持整体排版，词内逐字渲染以支持单字亮起与跳动；词间间距由词文本自带空格保留
                     Row(
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         word.text.forEachIndexed { charIdx, ch ->
                             // 仅当前演唱词中当前正在演唱的字触发跳动，其余字保持静态
                             val isFilling = isCurrent && index == currentWordIdx && charIdx == currentCharIdx
-                            val emphasis by animateFloatAsState(
-                                targetValue = if (isFilling) 1f else 0f,
-                                animationSpec = spring(
-                                    dampingRatio = 0.5f,
-                                    stiffness = 500f,
-                                ),
-                                label = "word_jump",
-                            )
-                            Text(
+                            LyricChar(
                                 text = ch.toString(),
-                                color = if (isSung) activeColor else pendingColor,
-                                style = TextStyle(
-                                    shadow = if (isSung) Shadow(activeColor.copy(alpha = 0.65f), blurRadius = 7f) else null
-                                ),
+                                fillFraction = when {
+                                    !isCurrent -> 0f
+                                    isWordSung -> 1f
+                                    !isWordCurrent -> 0f
+                                    else -> (charProgressInWord - charIdx).coerceIn(0f, 1f)
+                                },
+                                filling = isFilling,
                                 fontSize = fontSize,
                                 fontWeight = fontWeight,
-                                softWrap = true,
-                                modifier = Modifier.graphicsLayer {
-                                    // 带过冲的放大：emphasis 达峰时超过目标值再回落，形成弹簧跳动感
-                                    scaleX = 1f + 0.14f * emphasis
-                                    scaleY = 1f + 0.14f * emphasis
-                                    // 演唱时轻微上浮，模拟示例的浮起效果
-                                    translationY = -floatPx * emphasis
-                                }
+                                activeColor = activeColor,
+                                pendingColor = pendingColor,
+                                shadowBlurRadius = WORD_CHAR_SHADOW_BLUR,
                             )
                         }
                     }
@@ -109,6 +96,8 @@ internal fun WordSplitLyricText(
         }
     }
 }
+
+private const val WORD_CHAR_SHADOW_BLUR = 7f
 
 // 逐字歌词按字符上限分行的辅助函数：把整行词分成多行，且不把单个词截断到两行
 private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {

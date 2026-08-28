@@ -1,25 +1,37 @@
 package com.yichao.evilgodxu.musicpanel
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 
-// 普通歌词（无逐字时序）：按字均分时间整行顺序点亮，正在演唱的字叠加弹簧跳动
+// 普通歌词（无逐字时序）：按字均分时间整行顺序点亮，正在演唱的字高亮从左到右扫过并叠加弹簧跳动
 @Composable
 internal fun LineFillLyricText(
     line: LyricLine,
@@ -43,6 +55,12 @@ internal fun LineFillLyricText(
     } else {
         -1
     }
+    // 行内已播放时长折算成字符级进度：当前字的亮起比例由其与整数的差值决定
+    val charProgress = if (isCurrent && positionMs > line.timeMs) {
+        (positionMs - line.timeMs).toFloat() / perCharMs
+    } else {
+        -1f
+    }
 
     Column(
         modifier = modifier,
@@ -56,14 +74,15 @@ internal fun LineFillLyricText(
             ) {
                 row.forEach { ch ->
                     val idx = globalIdx++
-                    LineChar(
+                    LyricChar(
                         text = ch.toString(),
-                        active = currentCharIdx >= 0 && idx <= currentCharIdx,
-                        filling = currentCharIdx == idx,
+                        fillFraction = if (charProgress < 0f) 0f else (charProgress - idx).coerceIn(0f, 1f),
+                        filling = isCurrent && idx == currentCharIdx,
                         fontSize = fontSize,
                         fontWeight = fontWeight,
                         activeColor = activeColor,
                         pendingColor = pendingColor,
+                        shadowBlurRadius = LINE_CHAR_SHADOW_BLUR,
                     )
                 }
             }
@@ -71,16 +90,18 @@ internal fun LineFillLyricText(
     }
 }
 
-// 单行歌词单个字：已唱为高亮色、未唱为待唱色；正在演唱的字用弹簧放大带过冲 + 轻微上浮跳动
+// 单个歌词字：未唱为待唱色，已唱为高亮色；正在演唱的字高亮按 fillFraction 从左到右
+// 逐渐亮起。待唱层与高亮层共用同一文本布局绘制，逐像素对齐，避免缩放跳起时错位
 @Composable
-private fun LineChar(
+internal fun LyricChar(
     text: String,
-    active: Boolean,
+    fillFraction: Float,
     filling: Boolean,
     fontSize: TextUnit,
     fontWeight: FontWeight,
     activeColor: Color,
     pendingColor: Color,
+    shadowBlurRadius: Float,
 ) {
     val emphasis by animateFloatAsState(
         targetValue = if (filling) 1f else 0f,
@@ -88,26 +109,57 @@ private fun LineChar(
             dampingRatio = 0.5f,
             stiffness = 500f,
         ),
-        label = "line_char_jump",
+        label = "lyric_char_jump",
     )
-    val floatPx = with(LocalDensity.current) { 0.05f * fontSize.toPx() }
-    Text(
-        text = text,
-        fontSize = fontSize,
-        fontWeight = fontWeight,
-        color = if (active) activeColor else pendingColor,
-        style = if (active) {
-            TextStyle(shadow = Shadow(activeColor.copy(alpha = 0.65f), blurRadius = 5f))
-        } else {
-            TextStyle()
-        },
-        modifier = Modifier.graphicsLayer {
-            scaleX = 1f + 0.14f * emphasis
-            scaleY = 1f + 0.14f * emphasis
-            translationY = -floatPx * emphasis
-        }
+    // 位置进度按采样周期跳跃推进，用线性 tween 平滑成连续亮起动画
+    val highlightFraction by animateFloatAsState(
+        targetValue = fillFraction,
+        animationSpec = tween(
+            durationMillis = LYRIC_FILL_SMOOTH_MS,
+            easing = LinearEasing,
+        ),
+        label = "lyric_char_fill",
+    )
+    val density = LocalDensity.current
+    val floatPx = with(density) { 0.05f * fontSize.toPx() }
+    // 文本样式与 Text 组件默认行为一致（沿用 LocalTextStyle），保证布局高度与旧版逐字渲染相同
+    val textMeasurer = rememberTextMeasurer()
+    val currentTextStyle = LocalTextStyle.current
+    val layout = remember(text, fontSize, fontWeight, currentTextStyle) {
+        textMeasurer.measure(
+            AnnotatedString(text),
+            currentTextStyle.merge(
+                TextStyle(fontSize = fontSize, fontWeight = fontWeight)
+            ),
+        )
+    }
+    val glowShadow = Shadow(activeColor.copy(alpha = 0.65f), blurRadius = shadowBlurRadius)
+    Box(
+        modifier = Modifier
+            .graphicsLayer {
+                // 跳起效果：弹簧放大带过冲 + 轻微上浮，参数与改前旧版一致
+                scaleX = 1f + 0.14f * emphasis
+                scaleY = 1f + 0.14f * emphasis
+                translationY = -floatPx * emphasis
+            }
+            .size(
+                width = with(density) { layout.size.width.toDp() },
+                height = with(density) { layout.size.height.toDp() },
+            )
+            .drawWithContent {
+                // 待唱层：整字待唱色
+                drawText(layout, color = pendingColor, topLeft = Offset.Zero)
+                // 高亮层：按已亮起比例从左到右裁剪露出，发光随高亮区域显示
+                clipRect(right = size.width * highlightFraction.coerceIn(0f, 1f)) {
+                    drawText(layout, color = activeColor, shadow = glowShadow, topLeft = Offset.Zero)
+                }
+            }
     )
 }
+
+private const val LINE_CHAR_SHADOW_BLUR = 5f
+
+private const val LYRIC_FILL_SMOOTH_MS = 60
 
 // 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
 internal fun wrapLyricText(text: String): String {
