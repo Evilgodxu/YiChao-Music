@@ -89,7 +89,7 @@
     <string name="music_panel_lyrics_refresh_failed">歌词刷新失败，请重试</string>
     <string name="music_panel_local_lyrics">本地歌词</string>
     <string name="music_panel_local_lyrics_failed">歌词导入失败，请重试</string>
-    <string name="music_panel_edit">编辑</string>
+    <string name="music_panel_edit">编辑歌词</string>
     <string name="music_panel_edit_lyrics_title">编辑歌词原文</string>
     <string name="music_panel_edit_lyrics_invalid">格式无效，请保留 [时间戳] 前缀</string>
     <string name="music_panel_edit_lyrics_failed">歌词保存失败，请重试</string>
