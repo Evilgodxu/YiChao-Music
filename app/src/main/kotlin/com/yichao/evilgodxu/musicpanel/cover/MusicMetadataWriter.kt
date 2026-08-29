@@ -45,6 +45,21 @@ internal object MusicMetadataWriter {
             }
         }
 
+    // 一次性写入标题/艺术家/封面：本地文件走文件路径重建，在线缓存歌走 content URI 就地重写
+    suspend fun writeMetadataToSource(
+        context: Context,
+        track: MusicTrack,
+        title: String,
+        artist: String,
+        cover: ByteArray?,
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (track.path.isNotBlank()) {
+            write(context, track.path) { bytes -> writeMetadata(bytes, title, artist, null, cover) }
+        } else {
+            rewriteByUri(context, track.audioUri) { bytes -> writeMetadata(bytes, title, artist, null, cover) }
+        }
+    }
+
     private fun writeCoverByUri(context: Context, uriString: String, coverBytes: ByteArray): Boolean =
         rewriteByUri(context, uriString) { bytes -> writeMetadata(bytes, null, null, null, coverBytes) }
 

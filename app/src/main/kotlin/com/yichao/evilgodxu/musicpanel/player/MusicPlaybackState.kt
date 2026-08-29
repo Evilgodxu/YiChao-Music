@@ -318,7 +318,7 @@ class MusicPlaybackState {
         }
     }
 
-    // 缓存下载进行中的曲目 ID 集合：切歌清理时保留这些曲目，等待缓存完成后重定向至本地文件
+    // 缓存下载进行中的曲目 ID 集合：切歌清理时保留这些曲目，等待下载完成后将索引指向本地文件
     val cacheInProgressIds: MutableSet<Long> =
         java.util.Collections.synchronizedSet(mutableSetOf())
 

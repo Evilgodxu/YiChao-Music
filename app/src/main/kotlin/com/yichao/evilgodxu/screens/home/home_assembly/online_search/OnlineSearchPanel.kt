@@ -175,7 +175,7 @@ private fun SearchInput(
                 ) {
                     MusicSearchSource.entries.forEach { source ->
                         DropdownMenuItem(
-                            text = { Text(sourceName(source)) },
+                            text = { Text(sourceName(source), color = Color.White) },
                             onClick = {
                                 sourceMenuExpanded = false
                                 playbackState.setSearchSource(source)
@@ -189,6 +189,7 @@ private fun SearchInput(
                                     Icon(
                                         imageVector = AppIcons.Check,
                                         contentDescription = null,
+                                        tint = Color.White,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }

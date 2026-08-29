@@ -21,7 +21,7 @@ internal suspend fun cacheToDownloads(
     trackId: Long,
     playbackState: MusicPlaybackState,
 ) {
-    // 缓存进行中的曲目切歌后仍保留在播放列表，等待下载完成重定向至本地文件
+    // 缓存进行中的曲目切歌后仍保留在播放列表，等待下载完成将索引指向本地文件
     playbackState.cacheInProgressIds.add(trackId)
     try {
         // 按实际 URL 后缀推断格式，避免高音质文件误存为 mp3
@@ -34,10 +34,11 @@ internal suspend fun cacheToDownloads(
         val existingUri = findExistingDownload(context, fileName)
         if (existingUri != null) {
             withContext(Dispatchers.Main) {
+                // 复用已有缓存：仅把播放列表索引指向本地文件，当前播放仍保持在线流
                 updateTrackAudioUri(playbackState, trackId, existingUri)
-                // 复用已有缓存：把当前播放源重定向至本地文件，实现在线/离线无缝过渡
-                redirectCachedCurrentItem(context, playbackState)
             }
+            // 把在线播放时的标题/艺术家与封面原图写入缓存文件，供刷新后正确显示
+            embedCachedMetadata(context, playbackState, trackId)
             // 提取封面/歌词展示缓存并清理冗余封面文件
             MetadataEnricher.enrichAndCleanup(context, playbackState)
             return
@@ -80,13 +81,9 @@ internal suspend fun cacheToDownloads(
         withContext(Dispatchers.Main) {
             updateTrackAudioUri(playbackState, trackId, audioUri)
         }
-        // 先完成封面落盘（此时播放源仍是在线流，文件未被播放占用），再重定向播放源，
-        // 避免播放器切到本地文件后仍被同一文件的整文件重写打断
-        embedCachedCover(context, playbackState, trackId)
-        withContext(Dispatchers.Main) {
-            // 缓存完成：把当前播放源重定向至本地缓存文件，实现在线/离线无缝过渡
-            redirectCachedCurrentItem(context, playbackState)
-        }
+        // 缓存完成时播放源仍是在线流，文件未被播放占用，可安全整文件重写；
+        // 将标题/艺术家与封面原图一次写入本地文件，刷新后不再丢失元数据
+        embedCachedMetadata(context, playbackState, trackId)
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
         MetadataEnricher.enrichAndCleanup(context, playbackState)
     } catch (e: Exception) {
@@ -173,8 +170,8 @@ internal fun updateTrackAudioUri(
     playbackState.persistPlaylist()
 }
 
-// 将在线播放时已下载的封面原图内嵌写入已缓存文件；封面尚未就绪时跳过，交由兜底补全处理
-private suspend fun embedCachedCover(
+// 缓存完成后把在线播放时的标题/艺术家与封面原图写入本地文件；封面尚未就绪时跳过，交由兜底补全处理
+private suspend fun embedCachedMetadata(
     context: Context,
     playbackState: MusicPlaybackState,
     trackId: Long,
@@ -182,8 +179,8 @@ private suspend fun embedCachedCover(
     val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return
     val bytes = MusicMetadataCache.loadCoverBytes(track.coverCachePath) ?: return
     try {
-        MusicMetadataWriter.writeCoverToSource(context, track, bytes)
+        MusicMetadataWriter.writeMetadataToSource(context, track, track.title, track.artist, bytes)
     } catch (e: Exception) {
-        CrashLogManager.logException("MusicDownloader", "内嵌缓存封面失败: 歌曲=${track.title}", e)
+        CrashLogManager.logException("MusicDownloader", "内嵌缓存元数据失败: 歌曲=${track.title}", e)
     }
 }
