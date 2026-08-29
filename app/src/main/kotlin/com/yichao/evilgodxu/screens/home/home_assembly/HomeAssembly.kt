@@ -218,6 +218,7 @@ fun HomeAssembly(
                 PlaylistPanel(
                     visible = swipeController.showPlaylist,
                     playbackState = playbackState,
+                    menuBackgroundColor = homeBackgroundColor,
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {

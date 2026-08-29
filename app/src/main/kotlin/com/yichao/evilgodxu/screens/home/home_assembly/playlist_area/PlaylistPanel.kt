@@ -56,6 +56,7 @@ import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 internal fun PlaylistPanel(
     visible: Boolean,
     playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -83,6 +84,7 @@ internal fun PlaylistPanel(
             when (page) {
                 is PlaylistPage.Overview -> PlaylistOverview(
                     playbackState = playbackState,
+                    menuBackgroundColor = menuBackgroundColor,
                     onOpenSmart = { type ->
                         backStack = backStack + if (type == SmartPlaylistType.ALBUM || type == SmartPlaylistType.ARTIST) {
                             PlaylistPage.Groups(type)
@@ -183,6 +185,7 @@ private fun PanelHeader(
 @Composable
 private fun PlaylistOverview(
     playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
     onOpenSmart: (SmartPlaylistType) -> Unit,
     onOpenCustom: (Playlist) -> Unit,
     onCreatePlaylist: () -> Unit,
@@ -255,6 +258,7 @@ private fun PlaylistOverview(
                 playlist = playlist,
                 count = resolveTracks(allTracks, playlist.trackIds).size,
                 coverTrack = resolveTracks(allTracks, playlist.trackIds).firstOrNull(),
+                menuBackgroundColor = menuBackgroundColor,
                 onClick = { onOpenCustom(playlist) },
                 onRename = { onRename(playlist) },
                 onDelete = { onDelete(playlist) },
@@ -337,6 +341,7 @@ private fun PlaylistListRow(
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    menuBackgroundColor: Color,
     coverTrack: MusicTrack? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -389,16 +394,20 @@ private fun PlaylistListRow(
                     tint = Color.White,
                 )
             }
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                containerColor = menuBackgroundColor,
+            ) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.playlist_rename)) },
+                    text = { Text(stringResource(R.string.playlist_rename), color = Color.White) },
                     onClick = {
                         menuExpanded = false
                         onRename()
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.playlist_delete)) },
+                    text = { Text(stringResource(R.string.playlist_delete), color = Color.White) },
                     onClick = {
                         menuExpanded = false
                         onDelete()
