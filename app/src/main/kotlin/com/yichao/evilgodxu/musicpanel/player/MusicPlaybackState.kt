@@ -344,19 +344,46 @@ class MusicPlaybackState {
         return scheme == "http" || scheme == "https"
     }
 
-    fun removeTrack(trackId: Long) {
+    // advanceToNext：删除的是当前曲目时，自动递补原列表顺序中的下一首，避免播放器内容空白
+    fun removeTrack(trackId: Long, advanceToNext: Boolean = false) {
         if (playlist.none { it.id == trackId }) return
+        val removedCurrent = currentTrack?.id == trackId
+        // 记录删除前是否正在播放，决定递补后是继续播放还是仅切换显示
+        val wasPlaying = mediaController?.isPlaying == true || isPlaying
+        // 原列表顺序中删除曲目之后的下一首（环形取），列表仅剩自身时无递补
+        val nextTrack = if (removedCurrent) {
+            val oldIndex = playlist.indexOfFirst { it.id == trackId }
+            playlist.getOrNull((oldIndex + 1) % playlist.size)?.takeIf { it.id != trackId }
+        } else null
         playlist = playlist.filterNot { it.id == trackId }
         playNextQueue = playNextQueue.filterNot { it.id == trackId }
         if (queueResumeTrackId == trackId) queueResumeTrackId = null
-        if (currentTrack?.id == trackId) {
-            mediaController?.stop()
-            currentTrack = null
-            currentIndex = -1
-            isPlaying = false
-            isPrepared = false
-            currentPosition = 0L
-            duration = 0L
+        if (removedCurrent) {
+            val nextIndex = nextTrack?.let { playlist.indexOfFirst { t -> t.id == it.id } } ?: -1
+            if (advanceToNext && nextIndex >= 0) {
+                // 先停止旧播放，避免继续播已被删除的音频源
+                mediaController?.stop()
+                currentIndex = nextIndex
+                currentTrack = playlist[nextIndex]
+                isPlaying = false
+                isPrepared = false
+                currentPosition = 0L
+                duration = 0L
+                errorMsg = null
+                appContext?.let { context ->
+                    playbackScope.launch {
+                        playTrackAt(context, this@MusicPlaybackState, nextIndex, autoPlay = wasPlaying, clearQueue = false)
+                    }
+                }
+            } else {
+                mediaController?.stop()
+                currentTrack = null
+                currentIndex = -1
+                isPlaying = false
+                isPrepared = false
+                currentPosition = 0L
+                duration = 0L
+            }
         } else {
             currentIndex = playlist.indexOfFirst { it.id == currentTrack?.id }
         }
@@ -375,7 +402,7 @@ class MusicPlaybackState {
             )
         }
         defaultPlaylistBackup = defaultPlaylistBackup?.filterNot { it.id == track.id }
-        removeTrack(track.id)
+        removeTrack(track.id, advanceToNext = true)
         likedIds = likedIds - track.id
         removeFromRecentPlayed(track.id)
         PlaylistStore.ensureLoaded(context)
