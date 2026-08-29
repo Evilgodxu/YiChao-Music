@@ -89,6 +89,10 @@
     <string name="music_panel_lyrics_refresh_failed">Lyrics refresh failed, try again</string>
     <string name="music_panel_local_lyrics">Import local lyrics</string>
     <string name="music_panel_local_lyrics_failed">Lyrics import failed, try again</string>
+    <string name="music_panel_edit">Edit</string>
+    <string name="music_panel_edit_lyrics_title">Edit lyric text</string>
+    <string name="music_panel_edit_lyrics_invalid">Invalid format, keep the [timestamp] prefix</string>
+    <string name="music_panel_edit_lyrics_failed">Failed to save lyrics, try again</string>
     <string name="music_panel_cover_no_candidates">No cover available</string>
     <string name="music_panel_cover_replace_title">Replace with new cover?</string>
     <string name="music_panel_cover_save_failed">Cover save failed, try again</string>

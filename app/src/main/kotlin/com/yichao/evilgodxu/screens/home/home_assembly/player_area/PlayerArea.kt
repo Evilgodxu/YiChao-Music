@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,6 +63,7 @@ import com.yichao.evilgodxu.musicpanel.CoverRefreshDialog
 import com.yichao.evilgodxu.musicpanel.CoverReplaceDialog
 import com.yichao.evilgodxu.musicpanel.DiscArt
 import com.yichao.evilgodxu.musicpanel.LocalCoverDialog
+import com.yichao.evilgodxu.musicpanel.LyricsEditDialog
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.LyricsRefreshDialog
 import com.yichao.evilgodxu.musicpanel.MiniContextMenu
@@ -78,6 +80,7 @@ import com.yichao.evilgodxu.musicpanel.applyCoverCandidate
 import com.yichao.evilgodxu.musicpanel.applyLocalCover
 import com.yichao.evilgodxu.musicpanel.applyLocalLyrics
 import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
+import com.yichao.evilgodxu.musicpanel.applyLyricsLineEdit
 import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
@@ -89,6 +92,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerArea(
     modifier: Modifier = Modifier,
+    onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
     var playlistVisible by remember { mutableStateOf(false) }
@@ -134,6 +138,13 @@ fun PlayerArea(
     // 歌词长按菜单与本地歌词导入状态
     var showLyricsMenu by remember { mutableStateOf(false) }
     var lyricsImportFailed by remember { mutableStateOf(false) }
+    // 歌词原文编辑对话框状态：目标行为打开编辑时定位的当前演唱行
+    var showLyricsEdit by remember { mutableStateOf(false) }
+    var lyricsEditIndex by remember { mutableIntStateOf(0) }
+    var lyricsEditInitialText by remember { mutableStateOf("") }
+    var lyricsEditFailed by remember { mutableStateOf(false) }
+    // 长按歌词时定格的播放位置，编辑落点据此定位，避免菜单操作期间播放推进导致错行
+    var lyricsMenuPositionMs by remember { mutableLongStateOf(0L) }
     val lyricsImportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -249,7 +260,13 @@ fun PlayerArea(
                         LyricsPanel(
                             playbackState = playbackState,
                             onClick = { lyricTuneVisible = !lyricTuneVisible },
-                            onLongClick = { if (playbackState.currentTrack != null) showLyricsMenu = true },
+                            onLongClick = {
+                                if (playbackState.currentTrack != null) {
+                                    // 长按瞬间定格播放位置，作为歌词编辑的目标行依据
+                                    lyricsMenuPositionMs = playbackState.currentPosition
+                                    showLyricsMenu = true
+                                }
+                            },
                             fontSize = homePortraitLayout.fontSizeSp.sp,
                             visibleLines = homePortraitLayout.visibleLines,
                             contentColor = Color.White,
@@ -266,6 +283,21 @@ fun PlayerArea(
                 }
                 LyricsContextMenu(
                     visible = showLyricsMenu,
+                    editEnabled = playbackState.currentTrack?.lyricLines?.isNotEmpty() == true,
+                    onEdit = {
+                        showLyricsMenu = false
+                        val track = playbackState.currentTrack
+                        if (track?.lyricLines?.isNotEmpty() == true) {
+                            // 按长按定格位置定位歌词行，与长按瞬间屏幕显示的当前行一致
+                            val index = track.lyricLines
+                                .indexOfLast { it.timeMs <= lyricsMenuPositionMs }
+                                .coerceAtLeast(0)
+                            lyricsEditIndex = index
+                            // 预填该行存储的完整原文：时间戳 + 歌词(含逐字标签) + 翻译行
+                            lyricsEditInitialText = MusicMetadataCache.encodeLyrics(listOf(track.lyricLines[index]))
+                            showLyricsEdit = true
+                        }
+                    },
                     onOnlineSearch = {
                         showLyricsMenu = false
                         lyricsTargetId = playbackState.currentTrack?.id
@@ -399,6 +431,10 @@ fun PlayerArea(
                         renameTargetId = playbackState.currentTrack?.id
                         showRename = true
                     },
+                    onSearch = {
+                        showMetaMenu = false
+                        onOpenOnlineSearch(menuText)
+                    },
                     onDismiss = { showMetaMenu = false },
                 )
             }
@@ -446,6 +482,21 @@ fun PlayerArea(
                 }
             },
             onCancel = { showRename = false },
+        )
+
+        LyricsEditDialog(
+            visible = showLyricsEdit,
+            initialValue = lyricsEditInitialText,
+            onConfirm = { newText ->
+                showLyricsEdit = false
+                val track = playbackState.currentTrack
+                if (track != null) {
+                    scope.launch {
+                        lyricsEditFailed = !applyLyricsLineEdit(context, playbackState, track, lyricsEditIndex, newText)
+                    }
+                }
+            },
+            onCancel = { showLyricsEdit = false },
         )
 
         LocalCoverDialog(
@@ -615,13 +666,24 @@ fun PlayerArea(
                 onDismiss = { lyricsImportFailed = false },
             )
         }
+        if (lyricsEditFailed) {
+            MusicErrorBanner(
+                message = stringResource(R.string.music_panel_edit_lyrics_failed),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                onDismiss = { lyricsEditFailed = false },
+            )
+        }
     }
 }
 
-// 歌词长按菜单：提供在线搜索与本地歌词导入
+// 歌词长按菜单：提供在线搜索、本地歌词导入与原文编辑（有歌词行时才可编辑）
 @Composable
 private fun LyricsContextMenu(
     visible: Boolean,
+    editEnabled: Boolean,
+    onEdit: () -> Unit,
     onOnlineSearch: () -> Unit,
     onLocalImport: () -> Unit,
     onDismiss: () -> Unit,
@@ -673,6 +735,22 @@ private fun LyricsContextMenu(
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                         )
+                    }
+                    if (editEnabled) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Transparent,
+                            onClick = onEdit,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.music_panel_edit),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            )
+                        }
                     }
                 }
             }

@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
 import com.yichao.evilgodxu.musicpanel.SongGradientBackground
 import com.yichao.evilgodxu.musicpanel.TimerDialog
+import com.yichao.evilgodxu.musicpanel.performSearch
 import com.yichao.evilgodxu.musicpanel.swipeToChangeTrackFlow
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.screens.home.home_assembly.online_search.OnlineSearchPanel
@@ -44,6 +46,7 @@ import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistPanel
 import com.yichao.evilgodxu.theme.md_theme_dark_surface
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @Composable
@@ -60,6 +63,8 @@ fun HomeAssembly(
     // 播放偏好：滑动切歌开关
     val swipeToChangeTrack by context.swipeToChangeTrackFlow()
         .collectAsStateWithLifecycle(initialValue = true)
+    // 首页标题/艺术家在线搜索等协程作用域
+    val scope = rememberCoroutineScope()
     // 左右滑动切换面板与上下滑动切歌的手势状态
     val swipeController = rememberHomeSwipeController(playbackState, swipeToChangeTrack)
     swipeController.SettleEffect()
@@ -187,7 +192,16 @@ fun HomeAssembly(
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {
-                        PlayerArea(modifier = Modifier.fillMaxSize())
+                        // 长按标题/艺术家菜单“在线搜索”：切到在线搜索面板并自动按当前菜单文本搜索
+                        PlayerArea(
+                            modifier = Modifier.fillMaxSize(),
+                            onOpenOnlineSearch = { query ->
+                                playbackState.setSearchQuery(query)
+                                playbackState.setSearchResultsVisible(true)
+                                swipeController.showOnlineSearch = true
+                                scope.launch { performSearch(playbackState, context) }
+                            },
+                        )
                     }
                 }
                 // 在线搜索页：自左侧滑入顶替播放器位置

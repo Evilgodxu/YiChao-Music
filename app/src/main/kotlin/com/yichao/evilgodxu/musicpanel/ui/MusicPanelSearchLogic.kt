@@ -126,6 +126,38 @@ internal suspend fun applyLocalLyrics(
     }
 }
 
+// 编辑歌词行原文：整行按增强 LRC 文本(时间戳/逐字/翻译)重新解析后替换原行，写回缓存并刷新
+internal suspend fun applyLyricsLineEdit(
+    context: Context,
+    playbackState: MusicPlaybackState,
+    track: MusicTrack,
+    index: Int,
+    rawText: String,
+): Boolean {
+    return try {
+        val updated = withContext(Dispatchers.IO) {
+            val edited = MusicMetadataCache.parseLyricsText(rawText)
+            if (edited.isEmpty()) return@withContext null
+            val lines = track.lyricLines.toMutableList()
+            if (index !in lines.indices) return@withContext null
+            // 编辑结果可能拆分为多行，整体替换原位置并维持时间序
+            lines.removeAt(index)
+            lines.addAll(index, edited)
+            val sorted = lines.sortedBy { it.timeMs }
+            val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, sorted).orEmpty()
+            if (path.isBlank()) return@withContext null
+            track.copy(lyricCachePath = path, lyricLines = sorted)
+        } ?: return false
+        withContext(Dispatchers.Main) {
+            playbackState.updateTrack(updated)
+        }
+        true
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicPanelSearchLogic", "编辑歌词原文失败: 歌曲=${track.title}", e)
+        false
+    }
+}
+
 internal suspend fun searchCoverCandidates(
     playbackState: MusicPlaybackState,
     track: MusicTrack,

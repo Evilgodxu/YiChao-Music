@@ -208,6 +208,7 @@ internal fun MiniContextMenu(
     onCopy: () -> Unit,
     onRename: () -> Unit,
     onDismiss: () -> Unit,
+    onSearch: (() -> Unit)? = null,
 ) {
     if (visible) {
         Popup(
@@ -257,6 +258,23 @@ internal fun MiniContextMenu(
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                         )
+                    }
+                    if (onSearch != null) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Transparent,
+                            onClick = onSearch
+                        ) {
+                            Text(
+                                text = stringResource(R.string.music_panel_search_title),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                            )
+                        }
                     }
                 }
             }
