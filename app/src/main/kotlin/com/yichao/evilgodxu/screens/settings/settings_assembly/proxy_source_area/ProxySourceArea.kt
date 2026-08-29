@@ -14,6 +14,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickab
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import kotlinx.coroutines.delay
 
 // 代理音源分区：导入、管理第三方音源并展示导入结果
 @Composable
@@ -200,7 +202,7 @@ private fun ProxySourceRow(
 private val PROXY_SOURCE_LIST_ROW_HEIGHT = 56.dp
 private const val PROXY_SOURCE_LIST_VISIBLE_ROWS = 3
 
-// 最近一次导入结果提示：成功/失败着色不同，点击后关闭
+// 最近一次导入结果提示：成功/失败着色不同；点击关闭或超时自动消失
 @Composable
 private fun ImportMessage(
     message: String?,
@@ -208,6 +210,11 @@ private fun ImportMessage(
     onClick: () -> Unit,
 ) {
     if (message == null) return
+    // 与成功提示一样不常驻，展示一段时间后自动关闭
+    LaunchedEffect(message) {
+        delay(PROXY_IMPORT_MESSAGE_DISMISS_MS)
+        onClick()
+    }
     Text(
         text = message,
         fontSize = 13.sp,
@@ -219,5 +226,8 @@ private fun ImportMessage(
             .padding(horizontal = 16.dp, vertical = 10.dp),
     )
 }
+
+// 导入结果提示自动消失时长
+private const val PROXY_IMPORT_MESSAGE_DISMISS_MS = 3_000L
 
 private enum class ImportMode { LINK, TEXT }

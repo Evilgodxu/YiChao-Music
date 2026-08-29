@@ -15,7 +15,7 @@ data class SettingsUiState(
     val version: String = "",
     // 已导入的代理音源列表
     val proxySources: List<ProxySourceSpec> = emptyList(),
-    // 最近一次代理音源导入的提示信息（成功或失败原因），点击后清空
+    // 最近一次代理音源导入的提示信息（成功或失败原因），显示后自动清空
     val proxyImportMessage: String? = null,
     // 最近一次导入是否失败（决定提示文案颜色）
     val proxyImportFailed: Boolean = false,

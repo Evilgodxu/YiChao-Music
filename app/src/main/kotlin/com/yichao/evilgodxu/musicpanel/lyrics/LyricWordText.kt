@@ -4,11 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 
 // 逐字歌词：按词时序卡拉OK式点亮——已唱的词连续高亮，仅当前正在演唱的词
@@ -23,6 +29,7 @@ internal fun WordSplitLyricText(
     fontWeight: FontWeight,
     activeColor: Color,
     pendingColor: Color,
+    widthPx: Int,
     modifier: Modifier = Modifier,
 ) {
     // 词起点时间戳分布往往不均匀（词间空隙大），直接按时戳点亮会长时间停在首词上，
@@ -51,13 +58,18 @@ internal fun WordSplitLyricText(
         -1f
     }
 
-    // 将整行词按字符上限手工分成多行：英文词保持完整，词不跨行截断
+    // 词独立渲染无法借助 Text 软换行，按传入的可用宽度将整行词分成多行：英文词保持完整不截断
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        val textMeasurer = rememberTextMeasurer()
+        val style = LocalTextStyle.current.merge(TextStyle(fontSize = fontSize, fontWeight = fontWeight))
+        val rows = remember(line.words, widthPx, style) {
+            if (widthPx <= 0) listOf(line.words) else wrapLyricWords(line.words, widthPx, textMeasurer, style)
+        }
         var globalIdx = 0
-        wrapLyricWords(line.words).forEach { rowWords ->
+        rows.forEach { rowWords ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -99,21 +111,26 @@ internal fun WordSplitLyricText(
 
 private const val WORD_CHAR_SHADOW_BLUR = 7f
 
-// 逐字歌词按字符上限分行的辅助函数：把整行词分成多行，且不把单个词截断到两行
-private fun wrapLyricWords(words: List<LyricWord>): List<List<LyricWord>> {
-    val maxChars = lyricMaxChars(words.joinToString(separator = " ") { it.text })
+// 按可用宽度分配逐字歌词的词：累加词宽超过宽度上限时换行，单个词保持完整不截断
+private fun wrapLyricWords(
+    words: List<LyricWord>,
+    maxWidthPx: Int,
+    textMeasurer: TextMeasurer,
+    style: TextStyle,
+): List<List<LyricWord>> {
     val rows = mutableListOf<List<LyricWord>>()
     val row = mutableListOf<LyricWord>()
-    var count = 0
+    var rowWidth = 0
     words.forEach { word ->
-        // 当前行加上下一个词会超过上限时提前换行，单词保持完整不截断
-        if (row.isNotEmpty() && count + word.text.length > maxChars) {
+        val wordWidth = textMeasurer.measure(AnnotatedString(word.text), style).size.width
+        // 当前行加不下下一个词时提前换行；词本身超宽时强制独占一行
+        if (row.isNotEmpty() && rowWidth + wordWidth > maxWidthPx) {
             rows.add(row.toList())
             row.clear()
-            count = 0
+            rowWidth = 0
         }
         row.add(word)
-        count += word.text.length
+        rowWidth += wordWidth
     }
     if (row.isNotEmpty()) rows.add(row)
     return rows

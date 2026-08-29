@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -201,7 +203,7 @@ internal fun LyricsPanel(
                                 ),
                                 label = "lyric_emphasis"
                             )
-                            val scale = 0.98f + 0.16f * emphasis
+                            val scale = LYRIC_ROW_SCALE_BASE + LYRIC_ROW_SCALE_AMPLITUDE * emphasis
                             val nextTimeMs = lines.getOrNull(index + 1)?.timeMs ?: line.timeMs + 3000L
                             LyricText(
                                 line = line,
@@ -287,8 +289,20 @@ internal fun LyricText(
     pendingColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    var contentWidthPx by remember { mutableIntStateOf(0) }
+    // 当前行放大后需仍在容器内：分行宽度按预留上限计算（动画最大 1.14 < 上限 1.2，
+    // 差额覆盖逐字跳动的越界，无需再单独减余量）
+    val wrapWidthPx = when {
+        contentWidthPx <= 0 -> 0
+        isCurrent -> (contentWidthPx / LYRIC_ROW_SCALE_MAX).roundToInt()
+        else -> contentWidthPx
+    }
+    // 当前行两侧预留的放大余量（普通行不放大，无需预留）
+    val reserveWidthPx = if (isCurrent) {
+        (contentWidthPx * (LYRIC_ROW_SCALE_MAX - 1f) / (2f * LYRIC_ROW_SCALE_MAX)).roundToInt()
+    } else 0
     Column(
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { contentWidthPx = it.width },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (!wordByWordEnabled) {
@@ -299,6 +313,7 @@ internal fun LyricText(
                 fontWeight = fontWeight,
                 activeColor = activeColor,
                 pendingColor = pendingColor,
+                reserveWidthPx = reserveWidthPx,
             )
         } else if (line.words.isNotEmpty()) {
             WordSplitLyricText(
@@ -310,6 +325,7 @@ internal fun LyricText(
                 fontWeight = fontWeight,
                 activeColor = activeColor,
                 pendingColor = pendingColor,
+                widthPx = wrapWidthPx,
             )
         } else {
             LineFillLyricText(
@@ -321,12 +337,13 @@ internal fun LyricText(
                 fontWeight = fontWeight,
                 activeColor = activeColor,
                 pendingColor = pendingColor,
+                widthPx = wrapWidthPx,
             )
         }
         line.translation?.takeIf { it.isNotBlank() }?.let { translation ->
             // 翻译行以更小字号静置展示，主歌词高亮时翻译同步使用完整高亮色与发光
             Text(
-                text = wrapLyricText(translation),
+                text = translation,
                 fontSize = (fontSize.value * 0.68f).sp,
                 fontWeight = FontWeight.Normal,
                 color = if (isCurrent) activeColor else pendingColor.copy(alpha = 0.55f),
@@ -337,7 +354,10 @@ internal fun LyricText(
                 },
                 textAlign = TextAlign.Center,
                 softWrap = true,
-                modifier = Modifier.padding(top = 1.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = with(LocalDensity.current) { reserveWidthPx.toDp() })
+                    .padding(top = 1.dp),
             )
         }
     }
@@ -352,16 +372,19 @@ private fun WholeLineLyricText(
     fontWeight: FontWeight,
     activeColor: Color,
     pendingColor: Color,
+    reserveWidthPx: Int,
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text = wrapLyricText(line.text),
+        text = line.text,
         fontSize = fontSize,
         fontWeight = fontWeight,
         color = if (isCurrent) activeColor else pendingColor,
         textAlign = TextAlign.Center,
         softWrap = true,
-        modifier = modifier,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = with(LocalDensity.current) { reserveWidthPx.toDp() }),
     )
 }
 

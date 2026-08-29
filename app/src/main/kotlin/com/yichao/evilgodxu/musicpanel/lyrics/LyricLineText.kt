@@ -28,12 +28,18 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+
+// 歌词行动画缩放：普通行微缩，当前行高亮放大至 max；分行按预留上限 max 计算宽度
+internal const val LYRIC_ROW_SCALE_BASE = 0.98f
+internal const val LYRIC_ROW_SCALE_AMPLITUDE = 0.16f
+internal const val LYRIC_ROW_SCALE_MAX = 1.35f
 
 // 普通歌词（无逐字时序）：按字均分时间整行顺序点亮，正在演唱的字高亮从左到右扫过并叠加弹簧跳动
 @Composable
@@ -46,12 +52,12 @@ internal fun LineFillLyricText(
     fontWeight: FontWeight,
     activeColor: Color,
     pendingColor: Color,
+    widthPx: Int,
     modifier: Modifier = Modifier,
 ) {
     val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
     val totalLen = line.text.length.coerceAtLeast(1)
     val perCharMs = duration / totalLen.toFloat()
-    val rows = wrapLyricText(line.text).split('\n')
 
     // 当前正在演唱的字下标：仅当前行且已开唱才计算，唱完时停在末字
     val currentCharIdx = if (isCurrent && positionMs > line.timeMs) {
@@ -66,10 +72,16 @@ internal fun LineFillLyricText(
         -1f
     }
 
+    // 逐字独立渲染无法借助 Text 软换行，按传入的可用宽度手动分行
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        val textMeasurer = rememberTextMeasurer()
+        val style = LocalTextStyle.current.merge(TextStyle(fontSize = fontSize, fontWeight = fontWeight))
+        val rows = remember(line.text, widthPx, style) {
+            if (widthPx <= 0) listOf(line.text) else wrapLyricText(line.text, widthPx, textMeasurer, style)
+        }
         var globalIdx = 0
         rows.forEach { row ->
             Row(
@@ -179,42 +191,47 @@ private const val LYRIC_FILL_SMOOTH_MS = 60
 // 演唱结束的字回落用时：与下一字跳起重叠渐变,形成渐落衔接，不宜过短
 private const val LYRIC_JUMP_DOWN_MS = 320
 
-// 超过上限字符的歌词手动插入换行符强制断行，避免横屏宽幅下不触发软换行
-internal fun wrapLyricText(text: String): String {
-    val maxChars = lyricMaxChars(text)
-    if (text.length <= maxChars) return text
-    return buildString {
-        var i = 0
-        while (i < text.length) {
-            if (i > 0) append('\n')
-            val end = minOf(i + maxChars, text.length)
-            var breakAt = end
-            // 剩余内容整段可放入当前行时不再回退断行，避免提前换行
-            if (end < text.length) {
-                // 行尾截断单词时回退到最近空格，避免截断完整单词
-                var j = end
-                while (j > i) {
-                    if (text[j - 1].isWhitespace()) {
-                        breakAt = j
-                        break
-                    }
-                    j--
-                }
-            }
-            append(text, i, breakAt)
-            i = breakAt
-            // 跳过下一行行首空格
-            while (i < text.length && text[i].isWhitespace()) i++
+// 按可用宽度分行：行宽超过可用宽度即换行，行尾截断完整单词时回退到最近空格
+internal fun wrapLyricText(
+    text: String,
+    maxWidthPx: Int,
+    textMeasurer: TextMeasurer,
+    style: TextStyle,
+): List<String> {
+    if (text.isBlank() || maxWidthPx <= 0) return listOf(text)
+    // 整行放得下时免去分行测量
+    if (textMeasurer.measure(AnnotatedString(text), style).size.width <= maxWidthPx) return listOf(text)
+    val rows = mutableListOf<String>()
+    var lineStart = 0
+    while (lineStart < text.length) {
+        // 逐字扩展行前缀，找到首个超过可用宽度的位置
+        var end = lineStart
+        while (end < text.length && textMeasurer.measure(
+                AnnotatedString(text.substring(lineStart, end + 1)), style,
+            ).size.width <= maxWidthPx
+        ) {
+            end++
         }
+        if (end >= text.length) {
+            rows.add(text.substring(lineStart))
+            break
+        }
+        // 行尾落在单词中间时回退到最近的空格断行，避免截断完整单词
+        var breakAt = end
+        var j = end
+        while (j > lineStart) {
+            if (text[j - 1].isWhitespace()) {
+                breakAt = j
+                break
+            }
+            j--
+        }
+        // 窄屏下至少放入一个字符，避免出现空行
+        if (breakAt <= lineStart) breakAt = lineStart + 1
+        rows.add(text.substring(lineStart, breakAt))
+        lineStart = breakAt
+        // 跳过下一行行首空白
+        while (lineStart < text.length && text[lineStart].isWhitespace()) lineStart++
     }
+    return rows
 }
-
-// 英文按 40 字、非英文按 20 字断行：根据英文文字占比判断语言
-internal fun lyricMaxChars(text: String): Int {
-    var letters = 0
-    for (ch in text) if (ch.code in 'A'.code..'Z'.code || ch.code in 'a'.code..'z'.code) letters++
-    return if (letters * 2 >= text.length) MAX_LYRIC_CHARS_EN else MAX_LYRIC_CHARS_INTL
-}
-
-private const val MAX_LYRIC_CHARS_EN = 40
-private const val MAX_LYRIC_CHARS_INTL = 20

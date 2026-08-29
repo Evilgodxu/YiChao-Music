@@ -141,7 +141,7 @@ class SettingsViewModel(
         }
     }
 
-    // 导入代理音源：链接内容先拉取，文本内容直接解析；成功不常驻提示，列表出现新音源即为反馈
+    // 导入代理音源：链接内容先拉取，文本内容直接解析；成功不显示提示，失败提示自动消失
     fun importProxySource(content: String) {
         viewModelScope.launch {
             val (message, failed) = withContext(Dispatchers.IO) {
