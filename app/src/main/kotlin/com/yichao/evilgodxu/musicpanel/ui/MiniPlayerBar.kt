@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,8 @@ internal fun MiniPlayerBar(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // 逐字渲染开关：关闭后整行高亮，不再逐字点亮
+    val wordByWordEnabled by context.wordByWordRenderingFlow().collectAsState(initial = true)
     val current = playbackState.currentTrack
     val coverDesc = stringResource(R.string.mini_player_cover)
 
@@ -267,6 +270,7 @@ internal fun MiniPlayerBar(
                     MiniPlayerLyricText(
                         text = lyricLine.text,
                         progress = progress,
+                        wordByWordEnabled = wordByWordEnabled,
                         activeColor = MaterialTheme.colorScheme.primary,
                         pendingColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                         style = TextStyle(
@@ -284,11 +288,12 @@ internal fun MiniPlayerBar(
 }
 
 // 迷你条歌词行：整行歌词常显，演唱进度从左向右点亮高亮；文字超宽时跟随点亮边缘平移，
-// 溢出部分随亮起自然滚入视野
+// 溢出部分随亮起自然滚入视野。关闭逐字渲染时整行高亮，仅保留跟随进度的平移滚动
 @Composable
 private fun MiniPlayerLyricText(
     text: String,
     progress: Float,
+    wordByWordEnabled: Boolean,
     activeColor: Color,
     pendingColor: Color,
     style: TextStyle,
@@ -312,16 +317,25 @@ private fun MiniPlayerLyricText(
             .drawWithContent {
                 val textWidth = layout.size.width.toFloat()
                 if (textWidth <= 0f || size.width <= 0f) return@drawWithContent
-                // 点亮边缘随进度从左向右推进；文字宽于视口时向左平移，让唱到的字始终可见
-                val revealEdge = revealProgress.value.coerceIn(0f, 1f) * textWidth
-                val translateX = min(0f, size.width - revealEdge)
-                // 待唱层：整行以暗色常显
-                clipRect(left = 0f, right = size.width) {
-                    drawText(layout, color = pendingColor, topLeft = Offset(translateX, 0f))
-                }
-                // 点亮层：边缘左侧整字高亮，右侧保持待唱色
-                clipRect(left = 0f, right = translateX + revealEdge) {
-                    drawText(layout, color = activeColor, topLeft = Offset(translateX, 0f))
+                val progressValue = revealProgress.value.coerceIn(0f, 1f)
+                // 点亮边缘：逐字模式随进度推进，整行模式恒为全宽
+                val revealEdge = if (wordByWordEnabled) progressValue * textWidth else textWidth
+                // 文字宽于视口时向左平移，让唱到的字始终可见
+                val translateX = min(0f, size.width - progressValue * textWidth)
+                if (wordByWordEnabled) {
+                    // 待唱层：整行以暗色常显
+                    clipRect(left = 0f, right = size.width) {
+                        drawText(layout, color = pendingColor, topLeft = Offset(translateX, 0f))
+                    }
+                    // 点亮层：边缘左侧整字高亮，右侧保持待唱色
+                    clipRect(left = 0f, right = translateX + revealEdge) {
+                        drawText(layout, color = activeColor, topLeft = Offset(translateX, 0f))
+                    }
+                } else {
+                    // 整行统一高亮，仍在视口内随进度滚动平移
+                    clipRect(left = 0f, right = size.width) {
+                        drawText(layout, color = activeColor, topLeft = Offset(translateX, 0f))
+                    }
                 }
             }
     )
