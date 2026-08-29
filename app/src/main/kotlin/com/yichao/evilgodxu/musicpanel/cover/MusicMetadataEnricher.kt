@@ -78,9 +78,9 @@ object MetadataEnricher {
         track: MusicTrack?,
     ) {
         if (track == null) return
-        // 已具备完整缓存或已标记失败，无需补全
+        // 已具备完整缓存或已标记失败，无需补全；歌词缓存路径有效时不因失败标记跳过，须读回内容
         if (hasCompleteMetadata(track)) return
-        if (track.coverFailed && track.lyricFailed) return
+        if (track.coverFailed && track.lyricFailed && !MusicMetadataCache.isValid(track.lyricCachePath)) return
         // 全量补全已排期该曲目，由全量任务统一回写
         if (track.id in bulkInFlight) return
         // 同一曲目并发去重：列表快速滚动时滚入滚出只执行一次
@@ -113,9 +113,11 @@ object MetadataEnricher {
     private fun needsCover(track: MusicTrack): Boolean =
         !track.coverFailed && !coverOwned(track)
 
-    // 歌词内容未挂载即需处理：缓存路径存在时读文件，否则走网络匹配
+    // 歌词未挂载即需处理：有有效缓存路径时必须读回内容；
+    // 仅当既无缓存又已标记失败时才跳过，避免 lyricFailed 挡住缓存歌词的恢复
     private fun needsLyrics(track: MusicTrack): Boolean =
-        !track.lyricFailed && track.lyricLines.isEmpty()
+        track.lyricLines.isEmpty() &&
+            (MusicMetadataCache.isValid(track.lyricCachePath) || !track.lyricFailed)
 
     /** 单曲补全：本地封面 → 在线封面 → 歌词，任一补全即返回更新后的曲目 */
     private suspend fun enrichTrack(
@@ -262,7 +264,8 @@ object MetadataEnricher {
     private suspend fun enrichLyrics(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
         val needLyrics = tracks.filter { track ->
             // 歌词内容未挂载即处理：缓存路径存在由 enrichLyric 读文件挂载，否则网络匹配
-            !track.lyricFailed && track.lyricLines.isEmpty()
+            track.lyricLines.isEmpty() &&
+                (MusicMetadataCache.isValid(track.lyricCachePath) || !track.lyricFailed)
         }
         if (needLyrics.isEmpty()) return emptyList()
         return coroutineScope {
@@ -280,6 +283,7 @@ object MetadataEnricher {
                 return track.copy(
                     lyricCachePath = path,
                     lyricLines = applyLyricOffset(lines, track.lyricOffsetMs),
+                    lyricFailed = false,
                 )
             }
         }
@@ -290,6 +294,7 @@ object MetadataEnricher {
             return track.copy(
                 lyricCachePath = existingPath,
                 lyricLines = applyLyricOffset(existingLines, track.lyricOffsetMs),
+                lyricFailed = false,
             )
         }
         val match = NeteaseMusicApi.match(track.title, track.artist, track.duration)
@@ -301,6 +306,7 @@ object MetadataEnricher {
         track.copy(
             lyricCachePath = lyricPath,
             lyricLines = applyLyricOffset(lyric.lines, track.lyricOffsetMs),
+            lyricFailed = false,
         )
     } catch (e: Exception) {
         CrashLogManager.logException(

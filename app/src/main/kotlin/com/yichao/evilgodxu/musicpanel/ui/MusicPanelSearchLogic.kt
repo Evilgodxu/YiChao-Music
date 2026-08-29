@@ -81,7 +81,9 @@ internal suspend fun applyLyricsCandidate(
                 lyricCachePath = path,
                 lyricLines = lines,
                 neteaseId = candidate.id,
-                neteaseCoverUrl = candidate.coverUrl.orEmpty()
+                neteaseCoverUrl = candidate.coverUrl.orEmpty(),
+                // 已获取到歌词，清除此前的匹配失败标记，避免重启后缓存恢复被挡住
+                lyricFailed = false,
             )
         } ?: return false
         withContext(Dispatchers.Main) {
@@ -114,7 +116,7 @@ internal suspend fun applyLocalLyrics(
             if (lines.isEmpty()) return@withContext null
             val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lines).orEmpty()
             if (path.isBlank()) return@withContext null
-            track.copy(lyricCachePath = path, lyricLines = lines)
+            track.copy(lyricCachePath = path, lyricLines = lines, lyricFailed = false)
         } ?: return false
         withContext(Dispatchers.Main) {
             playbackState.updateTrack(updated)
@@ -146,7 +148,7 @@ internal suspend fun applyLyricsLineEdit(
             val sorted = lines.sortedBy { it.timeMs }
             val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, sorted).orEmpty()
             if (path.isBlank()) return@withContext null
-            track.copy(lyricCachePath = path, lyricLines = sorted)
+            track.copy(lyricCachePath = path, lyricLines = sorted, lyricFailed = false)
         } ?: return false
         withContext(Dispatchers.Main) {
             playbackState.updateTrack(updated)
