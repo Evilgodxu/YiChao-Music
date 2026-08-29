@@ -267,7 +267,8 @@ internal fun MiniPlayerBar(
                     MiniPlayerLyricText(
                         text = lyricLine.text,
                         progress = progress,
-                        color = MaterialTheme.colorScheme.primary,
+                        activeColor = MaterialTheme.colorScheme.primary,
+                        pendingColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                         style = TextStyle(
                             fontSize = 10.sp,
                             lineHeight = 12.sp,
@@ -282,13 +283,14 @@ internal fun MiniPlayerBar(
     }
 }
 
-// 迷你条歌词行：按行内演唱进度从左向右完整揭示，唱完此行时恰好露出最后一个字。
-// 文字超宽时跟随揭示边缘平移，替代省略号截断，保证整行歌词都能被看到
+// 迷你条歌词行：整行歌词常显，演唱进度从左向右点亮高亮；文字超宽时跟随点亮边缘平移，
+// 溢出部分随亮起自然滚入视野
 @Composable
 private fun MiniPlayerLyricText(
     text: String,
     progress: Float,
-    color: Color,
+    activeColor: Color,
+    pendingColor: Color,
     style: TextStyle,
     lineKey: Any,
     modifier: Modifier = Modifier,
@@ -296,7 +298,7 @@ private fun MiniPlayerLyricText(
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val layout = remember(text, style) { textMeasurer.measure(AnnotatedString(text), style) }
-    // 揭示进度按行小幅平滑推进；换行时重置归零，避免上一行进度回卷的闪烁
+    // 点亮进度按行小幅平滑推进；换行时重置归零，避免上一行进度回卷的闪烁
     val revealProgress = remember(lineKey) { Animatable(progress) }
     LaunchedEffect(lineKey, progress) {
         revealProgress.animateTo(
@@ -310,11 +312,16 @@ private fun MiniPlayerLyricText(
             .drawWithContent {
                 val textWidth = layout.size.width.toFloat()
                 if (textWidth <= 0f || size.width <= 0f) return@drawWithContent
-                // 揭示边缘随进度从左向右推进；文字宽于视口时向左平移，让唱到的字始终可见
+                // 点亮边缘随进度从左向右推进；文字宽于视口时向左平移，让唱到的字始终可见
                 val revealEdge = revealProgress.value.coerceIn(0f, 1f) * textWidth
                 val translateX = min(0f, size.width - revealEdge)
+                // 待唱层：整行以暗色常显
+                clipRect(left = 0f, right = size.width) {
+                    drawText(layout, color = pendingColor, topLeft = Offset(translateX, 0f))
+                }
+                // 点亮层：边缘左侧整字高亮，右侧保持待唱色
                 clipRect(left = 0f, right = translateX + revealEdge) {
-                    drawText(layout, color = color, topLeft = Offset(translateX, 0f))
+                    drawText(layout, color = activeColor, topLeft = Offset(translateX, 0f))
                 }
             }
     )
