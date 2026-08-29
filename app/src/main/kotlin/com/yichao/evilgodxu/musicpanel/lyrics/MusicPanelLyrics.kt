@@ -290,17 +290,10 @@ internal fun LyricText(
     modifier: Modifier = Modifier,
 ) {
     var contentWidthPx by remember { mutableIntStateOf(0) }
-    // 当前行放大后需仍在容器内：分行宽度按预留上限计算（动画最大 1.14 < 上限 1.2，
-    // 差额覆盖逐字跳动的越界，无需再单独减余量）
-    val wrapWidthPx = when {
-        contentWidthPx <= 0 -> 0
-        isCurrent -> (contentWidthPx / LYRIC_ROW_SCALE_MAX).roundToInt()
-        else -> contentWidthPx
-    }
-    // 当前行两侧预留的放大余量（普通行不放大，无需预留）
-    val reserveWidthPx = if (isCurrent) {
-        (contentWidthPx * (LYRIC_ROW_SCALE_MAX - 1f) / (2f * LYRIC_ROW_SCALE_MAX)).roundToInt()
-    } else 0
+    // 所有行统一按当前行的放大预留宽度分行：未唱/已唱和正在唱的行数一致，避免换行跳变
+    val wrapWidthPx = if (contentWidthPx <= 0) 0 else (contentWidthPx / LYRIC_ROW_SCALE_MAX).roundToInt()
+    // 各行的水平缩放余量同样全行统一，保证分行宽度与主歌词排版一致
+    val reserveWidthPx = (contentWidthPx * (LYRIC_ROW_SCALE_MAX - 1f) / (2f * LYRIC_ROW_SCALE_MAX)).roundToInt()
     Column(
         modifier = modifier.onSizeChanged { contentWidthPx = it.width },
         horizontalAlignment = Alignment.CenterHorizontally,
