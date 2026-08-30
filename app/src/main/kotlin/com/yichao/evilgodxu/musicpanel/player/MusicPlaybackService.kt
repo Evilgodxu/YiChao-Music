@@ -26,7 +26,10 @@ class MusicPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val usbAudioSink = DefaultAudioSink.Builder(this).build()
+        // 变速/变调交给 AudioTrack 原生处理，避免 Sonic 软件变速在低速时产生噪声
+        val usbAudioSink = DefaultAudioSink.Builder(this)
+            .setEnableAudioTrackPlaybackParams(true)
+            .build()
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: android.content.Context,
