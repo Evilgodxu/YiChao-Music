@@ -6,8 +6,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import android.content.ContentResolver
 import android.content.Context
@@ -40,11 +42,15 @@ import java.io.File
 class MusicPlaybackState {
 
     // 常听收录窗口：统计 3 天内完整播放次数不少于 3 次的歌曲
-    private companion object {
-        const val RECENT_WINDOW_DAYS = 3
-        const val RECENT_MIN_PLAYS = 3
+    companion object {
+        // 播放速度调节范围与默认值：步长 0.1
+        const val PLAYBACK_SPEED_MIN = 0.5f
+        const val PLAYBACK_SPEED_MAX = 2.0f
+        const val PLAYBACK_SPEED_DEFAULT = 1.0f
+        private const val RECENT_WINDOW_DAYS = 3
+        private const val RECENT_MIN_PLAYS = 3
         // 播放期间周期性持久化间隔：保证冷启动/异常退出也能恢复当前曲目与进度
-        const val STATE_PERSIST_INTERVAL_MS = 3000L
+        private const val STATE_PERSIST_INTERVAL_MS = 3000L
     }
 
     // 上次持久化播放状态的时刻，用于播放期间节流写入
@@ -53,6 +59,7 @@ class MusicPlaybackState {
     private val savedUriKey = stringPreferencesKey("music_saved_uri")
     private val savedPositionKey = longPreferencesKey("music_saved_position")
     private val savedModeKey = intPreferencesKey("music_saved_mode")
+    private val savedSpeedKey = floatPreferencesKey("music_saved_speed")
     private val playlistCacheKey = "music_playlist_cache"
     private val playlistCachePreferences = "music_playlist_cache_preferences"
     // 当前歌单来源与默认库备份持久化键，重启后恢复选中状态
@@ -212,6 +219,8 @@ class MusicPlaybackState {
     var currentIndex by mutableIntStateOf(-1)
     var currentTrack by mutableStateOf<MusicTrack?>(null)
     var playMode by mutableStateOf(PlayMode.RepeatAll)
+    // 播放速度：默认 1.0，调节范围 0.5~2.0
+    var playbackSpeed by mutableFloatStateOf(PLAYBACK_SPEED_DEFAULT)
     var errorMsg by mutableStateOf<String?>(null)
     var isScanning by mutableStateOf(false)
     var isLyricsVisible by mutableStateOf(false)
@@ -607,6 +616,7 @@ class MusicPlaybackState {
         val savedUri = preferences[savedUriKey]
         val savedPosition = preferences[savedPositionKey] ?: 0L
         val savedMode = preferences[savedModeKey] ?: PlayMode.RepeatAll.ordinal
+        val savedSpeed = preferences[savedSpeedKey] ?: PLAYBACK_SPEED_DEFAULT
         withContext(Dispatchers.Main) {
             // 恢复上次选中的歌单来源与默认库备份；无来源时处于全量播放列表
             playlistSource = savedSource
@@ -625,6 +635,17 @@ class MusicPlaybackState {
                 currentPosition = savedPosition
             }
             playMode = PlayMode.entries.getOrElse(savedMode) { PlayMode.RepeatAll }
+            playbackSpeed = savedSpeed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
+        }
+    }
+
+    // 持久化播放速度，供重启后恢复
+    private fun persistPlaybackSpeed() {
+        val context = appContext ?: return
+        playbackScope.launch(Dispatchers.IO) {
+            context.settingsDataStore.edit { preferences ->
+                preferences[savedSpeedKey] = playbackSpeed
+            }
         }
     }
 
@@ -1009,6 +1030,12 @@ class MusicPlaybackState {
     // 方法与属性 setter 同名会冲突，故用 @JvmName 指定不同 JVM 名
     @JvmName("updatePlayMode")
     fun setPlayMode(mode: PlayMode) { playMode = mode }
+    @JvmName("updatePlaybackSpeed")
+    fun setPlaybackSpeed(speed: Float) {
+        playbackSpeed = speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
+        mediaController?.setPlaybackSpeed(playbackSpeed)
+        persistPlaybackSpeed()
+    }
     @JvmName("updateSearchMode")
     fun setSearchMode(enabled: Boolean) { isSearchMode = enabled }
     @JvmName("updateSearchResultsVisible")

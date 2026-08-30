@@ -24,8 +24,13 @@ private suspend fun getController(context: Context, state: MusicPlaybackState): 
         state.player = controller
         controller.addListener(state.controllerListener)
         applyPlaybackMode(controller, state.playMode)
+        applyPlaybackSpeed(controller, state.playbackSpeed)
     }
     return controller
+}
+
+fun applyPlaybackSpeed(controller: MediaController, speed: Float) {
+    controller.setPlaybackSpeed(speed)
 }
 
 fun applyPlaybackMode(controller: MediaController, mode: PlayMode) {

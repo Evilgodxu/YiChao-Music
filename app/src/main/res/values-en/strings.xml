@@ -46,6 +46,10 @@
     <string name="music_panel_timer_minutes">minutes</string>
     <string name="music_panel_timer_confirm">OK</string>
     <string name="music_panel_timer_cancel">Cancel</string>
+    <string name="music_panel_speed_title">Playback speed</string>
+    <string name="music_panel_speed_value">%.1fx</string>
+    <string name="music_panel_speed_confirm">OK</string>
+    <string name="music_panel_speed_cancel">Cancel</string>
     <string name="music_panel_search_placeholder">Search songs</string>
     <string name="music_panel_search_title">Search online</string>
     <string name="music_panel_delete_title">Delete this song?</string>
