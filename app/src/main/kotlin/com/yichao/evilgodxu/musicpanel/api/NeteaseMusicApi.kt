@@ -147,12 +147,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
     // 获取歌曲播放 URL，返回 null 表示完全不可播；试听片段也如实返回
     suspend fun getSongUrlInfo(songId: Long, level: String = "standard"): SongUrlInfo? = withContext(Dispatchers.IO) {
         try {
-            val body = JSONObject().apply {
-                put("ids", "[$songId]")
-                put("level", level)
-                put("encodeType", "mp3")
-            }
-            val root = request("song/enhance/player/url/v1", body)
+            val root = requestEapi("song/enhance/player/url/v1", eapiSongUrlPayload(songId, level))
             val data = root.optJSONArray("data")?.optJSONObject(0) ?: return@withContext null
             val url = data.optString("url", "")
             if (url.isBlank()) return@withContext null
@@ -271,6 +266,33 @@ internal object NeteaseMusicApi : OnlineMusicSource {
             if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}: $response")
             JSONObject(response)
         }
+    }
+
+    // EAPI 加密请求（播放直链接口使用）：body 须为与加密摘要一致的 JSON 文本
+    private fun requestEapi(path: String, body: String): JSONObject {
+        val params = NeteaseCrypto.eapi("/api/$path", body)
+        val form = "params=${URLEncoder.encode(params, "UTF-8")}"
+        val request = Request.Builder()
+            .url("https://interface3.music.163.com/eapi/$path")
+            .post(form.toRequestBody("application/x-www-form-urlencoded".toMediaType()))
+            .header("User-Agent", MusicHttpClient.MUSIC_USER_AGENT)
+            .header("Referer", "https://music.163.com")
+            .header("Cookie", "os=pc; appver=; osver=; deviceId=pyncm!; channel=netease")
+            .header("X-Real-IP", randomChinaIp())
+            .header("X-Forwarded-For", randomChinaIp())
+            .build()
+        return MusicHttpClient.client.newCall(request).execute().use { resp ->
+            val response = resp.body.string().orEmpty()
+            if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}: $response")
+            JSONObject(response)
+        }
+    }
+
+    // 构造播放接口请求体（std 键序/分隔风格，需与 EAPI 摘要算法保持一致）；无损档返回 FLAC
+    private fun eapiSongUrlPayload(songId: Long, level: String): String {
+        val header = """{"os": "pc", "appver": "", "osver": "", "deviceId": "pyncm!", "requestId": "${(20000000..29999999).random()}"}"""
+        val escaped = header.replace("\\", "\\\\").replace("\"", "\\\"")
+        return """{"ids": [$songId], "level": "$level", "encodeType": "${if (level == "lossless") "flac" else "mp3"}", "header": "$escaped"}"""
     }
 
     private fun parseLrc(lrc: String, yrc: String, tlyric: String): NeteaseLyricData {
