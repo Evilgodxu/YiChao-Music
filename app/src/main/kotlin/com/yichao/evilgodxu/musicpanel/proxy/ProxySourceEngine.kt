@@ -57,12 +57,15 @@ internal object ProxySourceEngine {
     ): String? = withContext(Dispatchers.IO) {
         val action = ProxySourceStore.platformSpec(context, target.source.platformKey())?.url
             ?: return@withContext null
-        val qualityValue = action.qualities[quality] ?: return@withContext null
+        val qualityValue = action.qualities[quality]
+        // qualities 未声明时任意音质都执行动作（{quality} 渲染为空串），适配固定直链音源
+        if (qualityValue == null && action.qualities.isNotEmpty()) return@withContext null
         val body = executeAction(
             action,
-            placeholders(target) + ("quality" to qualityValue),
+            placeholders(target) + ("quality" to (qualityValue ?: "")),
         ) ?: return@withContext null
-        resolveString(body, action.result.url) ?: return@withContext null
+        // result.url 未配置时视为响应体本身即直链
+        resolveString(body, action.result.url ?: "$") ?: return@withContext null
     }
 
     suspend fun lyricLines(
@@ -86,7 +89,8 @@ internal object ProxySourceEngine {
             val action = ProxySourceStore.platformSpec(context, target.source.platformKey())?.pic
                 ?: return@withContext null
             val body = executeAction(action, placeholders(target)) ?: return@withContext null
-            resolveString(body, action.result.url) ?: return@withContext null
+            // 响应体即图片直链时 result.url 同样可省略
+            resolveString(body, action.result.url ?: "$") ?: return@withContext null
         }
 
     // 下载封面字节：供在线播放时落盘缓存封面
@@ -162,7 +166,14 @@ internal object ProxySourceEngine {
                 if (!resp.isSuccessful) {
                     null
                 } else {
-                    JSONTokener(resp.body.string()).nextValue()
+                    val raw = resp.body.string()
+                    when {
+                        raw.isBlank() -> null
+                        // 响应体即直链（纯文本 URL）：原样返回，避免 JSON 解析在 =、# 处截断查询参数
+                        raw.trimStart().startsWith("http://", ignoreCase = true) ||
+                            raw.trimStart().startsWith("https://", ignoreCase = true) -> raw.trim()
+                        else -> JSONTokener(raw).nextValue()
+                    }
                 }
             }
         } catch (e: Exception) {
