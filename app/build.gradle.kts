@@ -55,21 +55,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            isCrunchPngs = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            optimization {
+                // 同时开启代码优化与优化型资源缩减
+                // 默认 Android keep 规则自动包含（includeDefault 默认 true）
+                // 自定义保留规则由 src/<variant>/keepRules/*.keep 源集提供
+                enable = true
+            }
             signingConfig = signingConfigs.getByName("release")
         }
         debug {
             isDebuggable = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
         }
     }
 

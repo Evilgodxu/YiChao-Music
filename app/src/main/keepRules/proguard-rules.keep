@@ -6,7 +6,6 @@
 
 # ============================================================
 # Kotlin Serialization（官方推荐规则）
-# https://github.com/Kotlin/kotlinx.serialization/blob/master/rules/common.pro
 # ============================================================
 -keepattributes *Annotation*, InnerClasses, EnclosingMethod, Signature
 -keepclassmembers @kotlinx.serialization.Serializable class ** {
@@ -33,7 +32,6 @@
 
 # ============================================================
 # Koin 依赖注入（官方推荐规则）
-# https://github.com/InsertKoinIO/koin/blob/main/projects/android/koin-android/proguard-rules.pro
 # ============================================================
 -keep class * extends org.koin.core.module.Module { *; }
 -keepclassmembers class * {
