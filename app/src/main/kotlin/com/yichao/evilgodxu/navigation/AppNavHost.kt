@@ -35,8 +35,6 @@ fun AppNavHost(
     val goHomeHint = stringResource(R.string.back_again_go_home)
     val exitHint = stringResource(R.string.back_again_exit)
 
-    // 返回防抖：500ms 内连点只生效一次，防止回退栈被清空
-    var lastBackTime by remember { mutableStateOf(0L) }
     // 首页根节点 NavDisplay 不拦截返回，需自行拦截：双击返回桌面（播放中）或退出（未播放）
     var lastHomeBackTime by remember { mutableStateOf(0L) }
     BackHandler(enabled = backStack.size <= 1) {
@@ -57,10 +55,10 @@ fun AppNavHost(
         }
     }
     fun onBack() {
-        val now = System.currentTimeMillis()
-        if (now - lastBackTime < BACK_DEBOUNCE_MS) return
-        lastBackTime = now
-        backStack.removeLastOrNull()
+        // 保留根节点，防止 pop 动画期间重复返回把回退栈清空导致 NavDisplay 崩溃
+        if (backStack.size > 1) {
+            backStack.removeLastOrNull()
+        }
     }
 
     NavDisplay(
@@ -85,7 +83,5 @@ fun AppNavHost(
     )
 }
 
-// 返回按键防抖间隔
-private const val BACK_DEBOUNCE_MS = 500L
 // 首页双击返回间隔
 private const val DOUBLE_BACK_EXIT_MS = 2000L
