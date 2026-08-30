@@ -148,13 +148,10 @@
     <string name="signal_path_dash">-</string>
 
     <!-- Mini player -->
-    <string name="mini_player_expand_panel">Expand music panel</string>
     <string name="mini_player_cover">Album cover</string>
-    <string name="mini_player_track_info">Song title + artist, current lyrics</string>
     <string name="mini_player_previous">Previous</string>
     <string name="mini_player_next">Next</string>
     <string name="mini_player_playlist">Playlist</string>
-    <string name="mini_player_no_lyrics">No lyrics</string>
     <string name="mini_player_playlist_title">Playlist</string>
 
     <!-- Home player -->

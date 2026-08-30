@@ -479,8 +479,4 @@ class MusicPanelViewManager(
             ?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.signal_path_speaker)
     }
-
-    companion object {
-        private const val TAG = "MusicPanelViewManager"
-    }
 }

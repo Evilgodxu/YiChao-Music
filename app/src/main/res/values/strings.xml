@@ -148,13 +148,10 @@
     <string name="signal_path_dash">-</string>
 
     <!-- 迷你播放器 -->
-    <string name="mini_player_expand_panel">展开音乐面板</string>
     <string name="mini_player_cover">专辑封面</string>
-    <string name="mini_player_track_info">歌曲名称 + 艺术家，当前歌词</string>
     <string name="mini_player_previous">上一曲</string>
     <string name="mini_player_next">下一曲</string>
     <string name="mini_player_playlist">播放列表</string>
-    <string name="mini_player_no_lyrics">暂无歌词</string>
     <string name="mini_player_playlist_title">播放列表</string>
 
     <!-- 首页播放器 -->

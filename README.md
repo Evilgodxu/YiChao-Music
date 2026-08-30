@@ -96,7 +96,6 @@
 │       │   ├── update/                  # Version check & in-app update
 │       │   ├── utils/localization/      # In-app localization manager
 │       │   ├── YiChaoActivity.kt
-│       │   ├── YiChaoActivityViewModel.kt
 │       │   └── YiChaoApplication.kt
 │       └── res/                         # Resources (values / values-en)
 ├── gradle/

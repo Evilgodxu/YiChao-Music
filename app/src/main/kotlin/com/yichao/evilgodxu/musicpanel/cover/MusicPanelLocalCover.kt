@@ -1,6 +1,5 @@
 package com.yichao.evilgodxu.musicpanel
 
-import android.content.ContentResolver
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri

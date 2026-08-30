@@ -96,7 +96,6 @@
 │       │   ├── update/                  # 检查更新与应用内更新
 │       │   ├── utils/localization/      # 应用内多语言管理
 │       │   ├── YiChaoActivity.kt
-│       │   ├── YiChaoActivityViewModel.kt
 │       │   └── YiChaoApplication.kt
 │       └── res/                         # 资源(values / values-en)
 ├── gradle/

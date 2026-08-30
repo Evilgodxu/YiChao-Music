@@ -11,7 +11,6 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.yichao.evilgodxu.log.CrashLogManager
 import org.json.JSONArray
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer

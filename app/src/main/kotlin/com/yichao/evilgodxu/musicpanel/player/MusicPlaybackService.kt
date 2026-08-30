@@ -6,7 +6,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.Format
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -22,13 +21,12 @@ import kotlinx.coroutines.launch
 class MusicPlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private var mediaSession: MediaSession? = null
-    private var controllerCount = 0
 
     override fun onCreate() {
         super.onCreate()
         // 变速/变调交给 AudioTrack 原生处理，避免 Sonic 软件变速在低速时产生噪声
         val usbAudioSink = DefaultAudioSink.Builder(this)
-            .setEnableAudioTrackPlaybackParams(true)
+            .setEnableAudioOutputPlaybackParameters(true)
             .build()
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(

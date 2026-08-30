@@ -381,25 +381,6 @@ private fun WholeLineLyricText(
     )
 }
 
-internal fun splitLyricText(text: String): List<String> {
-    if (text.isBlank()) return listOf(text)
-    val result = mutableListOf<String>()
-    var index = 0
-    while (index < text.length) {
-        val start = index
-        val isSpace = text[index].isWhitespace()
-        if (isSpace) {
-            while (index < text.length && text[index].isWhitespace()) index++
-        } else if (text[index].isLetterOrDigit() && text[index].code < 128) {
-            while (index < text.length && text[index].isLetterOrDigit() && text[index].code < 128) index++
-        } else {
-            index++
-        }
-        result += text.substring(start, index)
-    }
-    return result
-}
-
 // 播放中位置回退容差：小于该值视为控制器位置抖动，大于视为手动拖动进度条
 private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
