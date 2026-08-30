@@ -7,53 +7,54 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 
-// 播放调速对话框：布局与定时关闭对话框一致
+// 播放调速对话框：调节实时生效，点击外部或返回键关闭
 @Composable
 internal fun SpeedDialog(
     visible: Boolean,
     speed: Float,
     onSpeedChange: (Float) -> Unit,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
     if (visible) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        MetadataDialogCard(onDismiss = onDismiss) {
             SpeedPanelContent(
                 speed = speed,
                 onSpeedChange = onSpeedChange,
-                onConfirm = onConfirm,
-                onCancel = onCancel,
                 modifier = Modifier.padding(16.dp),
             )
         }
     }
 }
 
-// 调速面板主体：标题 + 加减 0.1 + 中间数值(点击重置 1.0) + 确认/取消
+// 调速面板主体：标题 + 加减 0.1 + 中间数值(点击重置 1.0)
 @Composable
 private fun SpeedPanelContent(
     speed: Float,
     onSpeedChange: (Float) -> Unit,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 记录标题高度，底部留白与之等高，保证上下视觉对称
+    var titleHeightPx by remember { mutableIntStateOf(0) }
+    val titleBottomSpacer = with(LocalDensity.current) { titleHeightPx.toDp() }
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -63,6 +64,7 @@ private fun SpeedPanelContent(
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.onSizeChanged { titleHeightPx = it.height },
         )
         Spacer(modifier = Modifier.height(16.dp))
         Row(
@@ -85,41 +87,6 @@ private fun SpeedPanelContent(
             }
             TimerAdjustButton(text = "+", onClick = { onSpeedChange(speed + 0.1f) })
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.widthIn(max = 200.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                onClick = onCancel,
-            ) {
-                Text(
-                    text = stringResource(R.string.music_panel_speed_cancel),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 10.dp),
-                )
-            }
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primary,
-                onClick = onConfirm,
-            ) {
-                Text(
-                    text = stringResource(R.string.music_panel_speed_confirm),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 10.dp),
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(titleBottomSpacer))
     }
 }

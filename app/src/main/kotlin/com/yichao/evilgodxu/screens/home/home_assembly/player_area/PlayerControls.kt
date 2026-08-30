@@ -105,8 +105,7 @@ internal fun PlayerControls(
         visible = showSpeedDialog,
         speed = playbackState.playbackSpeed,
         onSpeedChange = { playbackState.setPlaybackSpeed(it) },
-        onConfirm = { showSpeedDialog = false },
-        onCancel = { showSpeedDialog = false },
+        onDismiss = { showSpeedDialog = false },
     )
 }
 
