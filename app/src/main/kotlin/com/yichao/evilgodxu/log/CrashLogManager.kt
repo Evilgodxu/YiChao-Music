@@ -16,7 +16,7 @@ import kotlin.system.exitProcess
 
 /**
  * 捕获并记录未捕获异常与 catch 到的异常，链式调用系统默认处理器。
- * 日志按天写入应用专属外部目录，自动清理超期文件。
+ * 日志按天写入应用专属外部目录，仅保留今日日志供设置页分享。
  */
 object CrashLogManager : Thread.UncaughtExceptionHandler {
 
@@ -27,9 +27,6 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
 
     /** 日志文件名前缀 */
     private const val LOG_FILE_PREFIX = "YiChaoMusic_"
-
-    /** 日志保留天数 */
-    private const val KEEP_DAYS = 3L
 
     private val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val timeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
@@ -134,12 +131,12 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
         writer.appendLine()
     }
 
-    /** 清理超过保留天数的旧日志文件 */
+    /** 清理非今日的旧日志文件，仅保留今日日志 */
     private fun cleanOldLogs() {
         val dir = logDir ?: return
-        val deadline = System.currentTimeMillis() - KEEP_DAYS * 24 * 60 * 60 * 1000L
+        val today = LocalDate.now()
         dir.listFiles { f -> f.isFile && f.name.startsWith(LOG_FILE_PREFIX) }
-            ?.filter { it.lastModified() < deadline }
+            ?.filter { !it.name.startsWith("$LOG_FILE_PREFIX${today.format(dateFormat)}") }
             ?.forEach { it.delete() }
     }
 }
