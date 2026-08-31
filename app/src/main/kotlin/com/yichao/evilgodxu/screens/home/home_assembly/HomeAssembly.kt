@@ -83,6 +83,8 @@ fun HomeAssembly(
         if (hasSearchContent) {
             playbackState.setSearchQuery("")
             playbackState.searchResults = emptyList()
+            playbackState.searchPending = emptyList()
+            playbackState.searchPendingFull = false
             playbackState.setSearchResultsVisible(false)
             playbackState.setErrorMsg(null)
         } else {

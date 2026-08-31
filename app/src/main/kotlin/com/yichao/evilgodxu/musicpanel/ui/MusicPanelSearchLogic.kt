@@ -14,6 +14,9 @@ import kotlinx.coroutines.withContext
 // 搜索结果每页条数：首页 20 条，列表滑到底部后再加载下一页
 private const val SEARCH_PAGE_SIZE = 20
 
+// 代理音源一次拉取的条数上限：多数代理不支持分页，一次拿全量后本地按页切分
+private const val PROXY_FETCH_COUNT = 60
+
 // 单来源单次查询候选：每来源对每条查询各取前 10 条，单源失败不影响其它查询
 private suspend fun searchSourceCandidates(source: OnlineMusicSource, query: String): List<NeteaseSongSearchResult> =
     runCatching { source.search(query, page = 1, pageSize = 10).take(10) }.getOrDefault(emptyList())
@@ -226,6 +229,8 @@ internal suspend fun performSearch(
     playbackState.searchJob = currentCoroutineContext()[Job] ?: return
     playbackState.isSearching = true
     playbackState.searchResults = emptyList()
+    playbackState.searchPending = emptyList()
+    playbackState.searchPendingFull = false
     playbackState.errorMsg = null
     // 重置分页状态，从第一页开始
     playbackState.searchPage = 0
@@ -234,15 +239,32 @@ internal suspend fun performSearch(
     // 立即切到结果视图，使加载指示器在搜索期间可见
     playbackState.showSearchResults = true
     try {
-        val results = fetchSearchPage(playbackState, context, query, page = 1)
-        playbackState.searchResults = results
+        // 代理音源一次拉取全量（多数代理不支持分页），本地按页切分展示
+        val proxyResults = ProxySourceEngine.search(
+            context,
+            playbackState.searchSource,
+            query,
+            page = 1,
+            pageSize = PROXY_FETCH_COUNT,
+        )
+        if (proxyResults != null) {
+            playbackState.searchResults = proxyResults.take(SEARCH_PAGE_SIZE)
+            playbackState.searchPending = proxyResults.drop(SEARCH_PAGE_SIZE)
+            playbackState.searchPendingFull = proxyResults.size >= PROXY_FETCH_COUNT
+            playbackState.hasMoreSearchResults =
+                playbackState.searchPending.isNotEmpty() || playbackState.searchPendingFull
+        } else {
+            // 内置平台按页请求，首屏一页
+            val results = runCatching { sourceOf(playbackState.searchSource).search(query, 1, SEARCH_PAGE_SIZE) }
+                .getOrDefault(emptyList())
+            playbackState.searchResults = results
+            playbackState.hasMoreSearchResults = results.size >= SEARCH_PAGE_SIZE
+        }
         playbackState.searchPage = 1
-        // 返回数量不足一页视为没有更多结果
-        playbackState.hasMoreSearchResults = results.size >= SEARCH_PAGE_SIZE
-        if (results.isNotEmpty()) playbackState.addSearchHistory(query)
+        if (playbackState.searchResults.isNotEmpty()) playbackState.addSearchHistory(query)
         playbackState.showSearchResults = true
         // 代理搜索结果的封面为逐条经 pic 动作换取，后台渐进补齐
-        if (results.isNotEmpty()) fillProxySearchCovers(playbackState, context)
+        if (playbackState.searchResults.isNotEmpty()) fillProxySearchCovers(playbackState, context)
     } catch (e: kotlinx.coroutines.CancellationException) {
         // 搜索界面退出导致的协程取消，不是失败，向上传递取消
         throw e
@@ -279,13 +301,24 @@ private suspend fun fetchSearchPage(
     }.distinctBy { it.id }
 }
 
-// 列表滑到底部时加载下一页：追加并去重，返回数量不足一页视为没有更多结果
+// 上拉加载下一页：优先消费代理全量缓冲，缓冲耗尽或内置平台再请求下一页
 internal suspend fun loadMoreSearchResults(
     playbackState: MusicPlaybackState,
     context: Context,
 ) {
     if (playbackState.isLoadingMore || playbackState.isSearching || !playbackState.hasMoreSearchResults) return
     if (playbackState.searchResults.isEmpty()) return
+    // 代理音源全量缓冲：本地切分追加，无需重复请求（不支持分页的代理每次返回相同结果）
+    if (playbackState.searchPending.isNotEmpty()) {
+        val batch = playbackState.searchPending.take(SEARCH_PAGE_SIZE)
+        playbackState.searchResults = playbackState.searchResults + batch
+        playbackState.searchPending = playbackState.searchPending.drop(SEARCH_PAGE_SIZE)
+        playbackState.searchPage++
+        playbackState.hasMoreSearchResults =
+            playbackState.searchPending.isNotEmpty() || playbackState.searchPendingFull
+        if (batch.isNotEmpty()) fillProxySearchCovers(playbackState, context)
+        return
+    }
     val query = playbackState.searchQuery.trim()
     if (query.isBlank()) return
     playbackState.searchLoadJob = currentCoroutineContext()[Job] ?: return
@@ -513,6 +546,8 @@ internal suspend fun tryPlayLocalMatch(
     playbackState.showSearchResults = false
     playbackState.searchQuery = ""
     playbackState.searchResults = emptyList()
+    playbackState.searchPending = emptyList()
+    playbackState.searchPendingFull = false
     playTrackAt(context, playbackState, idx)
     return true
 }

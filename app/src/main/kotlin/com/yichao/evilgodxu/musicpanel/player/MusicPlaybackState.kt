@@ -141,6 +141,8 @@ class MusicPlaybackState {
                         showSearchResults = false
                         searchQuery = ""
                         searchResults = emptyList()
+                        searchPending = emptyList()
+                        searchPendingFull = false
                         pendingSearchResults = emptyList()
                     }
                     // 音质试播就绪即播放成功：关闭音质对话框并清除待确认标记
@@ -239,6 +241,10 @@ class MusicPlaybackState {
     var searchPage by mutableIntStateOf(0)
     var isLoadingMore by mutableStateOf(false)
     var hasMoreSearchResults by mutableStateOf(true)
+    // 代理音源一次拉取的全量结果缓冲：本地按页切分展示，避免不支持分页的代理重复请求
+    var searchPending by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
+    // 代理音源首次请求是否拉满（可能支持分页，缓冲耗尽后继续请求下一页）
+    var searchPendingFull by mutableStateOf(false)
     // 加载更多分页的协程句柄：新搜索发起时取消，避免过期分页混入新结果
     var searchLoadJob: Job? = null
     var showSearchResults by mutableStateOf(false)
