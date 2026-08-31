@@ -32,13 +32,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.R
@@ -175,7 +181,29 @@ internal fun CoverContextMenu(
     onDismiss: () -> Unit,
 ) {
     if (visible) {
-        Popup(alignment = Alignment.BottomCenter, properties = PopupProperties(focusable = true), onDismissRequest = onDismiss) {
+        val density = LocalDensity.current
+        // 菜单锚定封面：水平居中于封面，垂直紧贴封面底部
+        val positionProvider = remember(density) {
+            object : PopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowSize: IntSize,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize,
+                ): IntOffset {
+                    val bottomGap = with(density) { 2.dp.roundToPx() }
+                    return IntOffset(
+                        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
+                        y = anchorBounds.bottom + bottomGap,
+                    )
+                }
+            }
+        }
+        Popup(
+            onDismissRequest = onDismiss,
+            properties = PopupProperties(focusable = true),
+            popupPositionProvider = positionProvider,
+        ) {
             Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant, tonalElevation = 4.dp) {
                 Row(horizontalArrangement = Arrangement.Center) {
                     Surface(shape = RoundedCornerShape(6.dp), color = Color.Transparent, onClick = onOnlineCover) {

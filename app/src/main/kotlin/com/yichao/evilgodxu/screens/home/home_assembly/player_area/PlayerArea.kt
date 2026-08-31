@@ -209,6 +209,26 @@ fun PlayerArea(
                 topFraction = (topBarInset + TopFadeExtra) / coverHeight,
                 modifier = Modifier.fillMaxSize(),
             )
+            // 长按菜单锚定封面，显示在封面底部
+            CoverContextMenu(
+                visible = showCoverMenu,
+                onOnlineCover = {
+                    showCoverMenu = false
+                    coverTargetId = playbackState.currentTrack?.id
+                    showCoverRefresh = true
+                    playbackState.currentTrack?.let { track ->
+                        scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
+                    }
+                },
+                onLocalCover = {
+                    showCoverMenu = false
+                    coverTargetId = playbackState.currentTrack?.id
+                    selectedLocalCover = null
+                    showLocalCover = true
+                    scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
+                },
+                onDismiss = { showCoverMenu = false },
+            )
         }
         // 其余模块：歌词/标题/进度/控制栏在封面下方剩余空间垂直居中，内容超出可用高度时整体等比缩小
         Box(
@@ -444,26 +464,6 @@ fun PlayerArea(
                 Spacer(Modifier.height(16.dp))
             }
         }
-
-        CoverContextMenu(
-            visible = showCoverMenu,
-            onOnlineCover = {
-                showCoverMenu = false
-                coverTargetId = playbackState.currentTrack?.id
-                showCoverRefresh = true
-                playbackState.currentTrack?.let { track ->
-                    scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
-                }
-            },
-            onLocalCover = {
-                showCoverMenu = false
-                coverTargetId = playbackState.currentTrack?.id
-                selectedLocalCover = null
-                showLocalCover = true
-                scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
-            },
-            onDismiss = { showCoverMenu = false },
-        )
 
         PlaylistSheet(
             visible = playlistVisible,
