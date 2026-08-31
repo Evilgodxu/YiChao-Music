@@ -83,6 +83,7 @@ import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
 import com.yichao.evilgodxu.musicpanel.applyLyricsLineEdit
 import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
+import com.yichao.evilgodxu.musicpanel.menuEdgePositionProvider
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
 import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
 import kotlinx.coroutines.delay
@@ -697,13 +698,13 @@ private fun LyricsContextMenu(
 ) {
     if (visible) {
         Popup(
-            alignment = Alignment.BottomCenter,
             properties = PopupProperties(
                 focusable = true,
                 dismissOnBackPress = true,
                 dismissOnClickOutside = true,
             ),
             onDismissRequest = onDismiss,
+            popupPositionProvider = menuEdgePositionProvider(atTop = false),
         ) {
             Surface(
                 shape = RoundedCornerShape(8.dp),

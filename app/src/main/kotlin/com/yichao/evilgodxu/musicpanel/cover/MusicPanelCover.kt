@@ -173,6 +173,33 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     }
 }
 
+// 长按菜单定位：水平居中于父布局，纵向紧贴父布局顶部或底部
+@Composable
+internal fun menuEdgePositionProvider(atTop: Boolean): PopupPositionProvider {
+    val density = LocalDensity.current
+    return remember(density, atTop) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+            ): IntOffset {
+                val gapPx = with(density) { 2.dp.roundToPx() }
+                val y = if (atTop) {
+                    anchorBounds.top - popupContentSize.height - gapPx
+                } else {
+                    anchorBounds.bottom + gapPx
+                }
+                return IntOffset(
+                    x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
+                    y = y,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 internal fun CoverContextMenu(
     visible: Boolean,
@@ -181,28 +208,10 @@ internal fun CoverContextMenu(
     onDismiss: () -> Unit,
 ) {
     if (visible) {
-        val density = LocalDensity.current
-        // 菜单锚定封面：水平居中于封面，垂直紧贴封面底部
-        val positionProvider = remember(density) {
-            object : PopupPositionProvider {
-                override fun calculatePosition(
-                    anchorBounds: IntRect,
-                    windowSize: IntSize,
-                    layoutDirection: LayoutDirection,
-                    popupContentSize: IntSize,
-                ): IntOffset {
-                    val bottomGap = with(density) { 2.dp.roundToPx() }
-                    return IntOffset(
-                        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
-                        y = anchorBounds.bottom + bottomGap,
-                    )
-                }
-            }
-        }
         Popup(
             onDismissRequest = onDismiss,
             properties = PopupProperties(focusable = true),
-            popupPositionProvider = positionProvider,
+            popupPositionProvider = menuEdgePositionProvider(atTop = false),
         ) {
             Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant, tonalElevation = 4.dp) {
                 Row(horizontalArrangement = Arrangement.Center) {
@@ -240,13 +249,13 @@ internal fun MiniContextMenu(
 ) {
     if (visible) {
         Popup(
-            alignment = Alignment.BottomCenter,
             properties = PopupProperties(
                 focusable = true,
                 dismissOnBackPress = true,
                 dismissOnClickOutside = true
             ),
-            onDismissRequest = onDismiss
+            onDismissRequest = onDismiss,
+            popupPositionProvider = menuEdgePositionProvider(atTop = true),
         ) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -367,18 +376,6 @@ internal fun TrackInfo(
                         onLongClick = onLongClickTitle
                     )
             )
-            MiniContextMenu(
-                visible = showMenu && menuIsTitle,
-                onCopy = {
-                    showMenu = false
-                    copyToClipboard(context, menuText)
-                },
-                onRename = {
-                    showMenu = false
-                    onRenameRequest?.invoke(menuIsTitle, menuText)
-                },
-                onDismiss = { showMenu = false }
-            )
         }
         Box {
             Text(
@@ -392,18 +389,31 @@ internal fun TrackInfo(
                     onLongClick = onLongClickArtist
                 )
             )
-            MiniContextMenu(
-                visible = showMenu && !menuIsTitle,
-                onCopy = {
-                    showMenu = false
-                    copyToClipboard(context, menuText)
-                },
-                onRename = {
-                    showMenu = false
-                    onRenameRequest?.invoke(menuIsTitle, menuText)
-                },
-                onDismiss = { showMenu = false }
-            )
         }
+        // 长按菜单锚定本列：显示在父布局顶部
+        MiniContextMenu(
+            visible = showMenu && menuIsTitle,
+            onCopy = {
+                showMenu = false
+                copyToClipboard(context, menuText)
+            },
+            onRename = {
+                showMenu = false
+                onRenameRequest?.invoke(menuIsTitle, menuText)
+            },
+            onDismiss = { showMenu = false }
+        )
+        MiniContextMenu(
+            visible = showMenu && !menuIsTitle,
+            onCopy = {
+                showMenu = false
+                copyToClipboard(context, menuText)
+            },
+            onRename = {
+                showMenu = false
+                onRenameRequest?.invoke(menuIsTitle, menuText)
+            },
+            onDismiss = { showMenu = false }
+        )
     }
 }
