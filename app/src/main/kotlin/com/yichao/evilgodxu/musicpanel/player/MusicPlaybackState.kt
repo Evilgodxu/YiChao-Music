@@ -235,6 +235,12 @@ class MusicPlaybackState {
     var isSearching by mutableStateOf(false)
     // 当前搜索协程句柄：新搜索发起时取消上一次，避免过期响应覆盖新查询结果
     var searchJob: Job? = null
+    // 搜索结果分页：已加载页数、是否正在加载更多、是否还有更多
+    var searchPage by mutableIntStateOf(0)
+    var isLoadingMore by mutableStateOf(false)
+    var hasMoreSearchResults by mutableStateOf(true)
+    // 加载更多分页的协程句柄：新搜索发起时取消，避免过期分页混入新结果
+    var searchLoadJob: Job? = null
     var showSearchResults by mutableStateOf(false)
     var pendingSearchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var closeSearchResultsOnReady by mutableStateOf(false)

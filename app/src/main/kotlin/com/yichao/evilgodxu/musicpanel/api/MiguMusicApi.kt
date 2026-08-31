@@ -31,13 +31,13 @@ internal object MiguMusicApi : OnlineMusicSource {
         "subchannel" to "014021I",
     )
 
-    override suspend fun search(keyword: String): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         try {
             val searchSwitch = JSONObject().apply {
                 put("song", 1); put("album", 0); put("singer", 0)
                 put("tagSong", 1); put("mvSong", 0); put("bestShow", 1)
             }
-            val query = "text=${URLEncoder.encode(keyword, "UTF-8")}&pageNo=1&pageSize=50" +
+            val query = "text=${URLEncoder.encode(keyword, "UTF-8")}&pageNo=$page&pageSize=$pageSize" +
                     "&isCopyright=1&sort=1&searchSwitch=${URLEncoder.encode(searchSwitch.toString(), "UTF-8")}"
             val root = getJson("$SEARCH_ENDPOINT?$query")
             val songData = root.optJSONObject("songResultData")

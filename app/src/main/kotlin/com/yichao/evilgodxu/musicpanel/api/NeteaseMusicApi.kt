@@ -59,12 +59,12 @@ internal object NeteaseMusicApi : OnlineMusicSource {
     }
 
     // 在线音乐源统一接口实现，返回完整的搜索结果显示
-    override suspend fun search(keyword: String): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("s", keyword)
             put("type", 1)
-            put("limit", 50)
-            put("offset", 0)
+            put("limit", pageSize)
+            put("offset", (page - 1) * pageSize)
         }
         val root = request("search/get", body)
         val songs = root.optJSONObject("result")?.optJSONArray("songs") ?: JSONArray()

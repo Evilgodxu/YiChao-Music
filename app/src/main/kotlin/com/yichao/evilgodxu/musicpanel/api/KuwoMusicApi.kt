@@ -29,11 +29,11 @@ internal object KuwoMusicApi : OnlineMusicSource {
     private val LRC_SEPARATOR = "\r\n\r\n".toByteArray()
     private val GBK: Charset = runCatching { Charset.forName("GBK") }.getOrDefault(Charsets.UTF_8)
 
-    override suspend fun search(keyword: String): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         try {
             val query = "vipver=1&client=kt&ft=music&cluster=0&strategy=2012&encoding=utf8" +
                     "&rformat=json&mobi=1&issubtitle=1&show_copyright_off=1" +
-                    "&pn=0&rn=50&all=" + URLEncoder.encode(keyword, "UTF-8")
+                    "&pn=${page - 1}&rn=$pageSize&all=" + URLEncoder.encode(keyword, "UTF-8")
             val lists = JSONObject(get("$SEARCH_ENDPOINT?$query")).optJSONArray("abslist") ?: JSONArray()
             List(lists.length()) { index ->
                 val item = lists.getJSONObject(index)

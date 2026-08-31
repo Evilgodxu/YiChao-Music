@@ -24,18 +24,20 @@ import java.net.URLEncoder
 // 所有入口在对应的平台/动作未配置或请求失败时返回 null，由调用方回退内置音源。
 internal object ProxySourceEngine {
 
-    private const val SEARCH_COUNT = 50
+    private const val SEARCH_COUNT = 20
 
     suspend fun search(
         context: Context,
         source: MusicSearchSource,
         keyword: String,
+        page: Int = 1,
+        pageSize: Int = SEARCH_COUNT,
     ): List<NeteaseSongSearchResult>? = withContext(Dispatchers.IO) {
         val action = ProxySourceStore.platformSpec(context, source.platformKey())?.search
             ?: return@withContext null
         val body = executeAction(
             action,
-            mapOf("keyword" to keyword, "page" to "1", "count" to SEARCH_COUNT.toString()),
+            mapOf("keyword" to keyword, "page" to page.toString(), "count" to pageSize.toString()),
         ) ?: return@withContext null
         val listPath = action.result.list
         val array = if (listPath == null) {

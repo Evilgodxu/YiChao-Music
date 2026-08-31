@@ -44,13 +44,13 @@ internal object QQMusicApi : OnlineMusicSource {
         MusicQuality.STANDARD -> STANDARD_QUALITIES
     }
 
-    override suspend fun search(keyword: String): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         try {
-            var results = doSearch(keyword)
+            var results = doSearch(keyword, page, pageSize)
             // QQ 搜索对陌生 IP 偶发返回空列表（风控软封），重试一次再判空
             if (results.isEmpty()) {
                 delay(300)
-                results = doSearch(keyword)
+                results = doSearch(keyword, page, pageSize)
             }
             results
         } catch (e: Exception) {
@@ -59,7 +59,7 @@ internal object QQMusicApi : OnlineMusicSource {
         }
     }
 
-    private fun doSearch(keyword: String): List<NeteaseSongSearchResult> {
+    private fun doSearch(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> {
         val body = JSONObject()
         body.put("comm", commonParams())
         val search = JSONObject()
@@ -69,8 +69,8 @@ internal object QQMusicApi : OnlineMusicSource {
         param.put("searchid", randomSearchId())
         param.put("query", keyword)
         param.put("search_type", 0)
-        param.put("num_per_page", 50)
-        param.put("page_num", 1)
+        param.put("num_per_page", pageSize)
+        param.put("page_num", page)
         param.put("highlight", 1)
         param.put("grp", 1)
         search.put("param", param)

@@ -16,10 +16,10 @@ import java.util.Base64
  */
 internal object KugouMusicApi : OnlineMusicSource {
 
-    override suspend fun search(keyword: String): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         try {
             val url = "https://songsearch.kugou.com/song_search_v2?keyword=${URLEncoder.encode(keyword, "UTF-8")}" +
-                    "&page=1&pagesize=50&platform=WebFilter&format=json"
+                    "&page=$page&pagesize=$pageSize&platform=WebFilter&format=json"
             val root = JSONObject(get(url))
             val lists = root.optJSONObject("data")?.optJSONArray("lists") ?: JSONArray()
             List(lists.length()) { index ->

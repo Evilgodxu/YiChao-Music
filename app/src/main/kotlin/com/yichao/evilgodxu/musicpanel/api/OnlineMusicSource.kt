@@ -4,7 +4,7 @@ import com.yichao.evilgodxu.R
 
 // 在线音乐源统一搜索接口，新增平台时实现该接口并加入 sourceOf 映射
 interface OnlineMusicSource {
-    suspend fun search(keyword: String): List<NeteaseSongSearchResult>
+    suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult>
 }
 
 // 按平台枚举映射到对应实现，供单平台搜索使用

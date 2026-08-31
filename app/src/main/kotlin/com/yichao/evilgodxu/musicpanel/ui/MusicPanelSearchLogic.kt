@@ -11,9 +11,12 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// 搜索结果每页条数：首页 20 条，列表滑到底部后再加载下一页
+private const val SEARCH_PAGE_SIZE = 20
+
 // 单来源单次查询候选：每来源对每条查询各取前 10 条，单源失败不影响其它查询
 private suspend fun searchSourceCandidates(source: OnlineMusicSource, query: String): List<NeteaseSongSearchResult> =
-    runCatching { source.search(query).take(10) }.getOrDefault(emptyList())
+    runCatching { source.search(query, page = 1, pageSize = 10).take(10) }.getOrDefault(emptyList())
 
 // 单来源候选：先以“歌名+歌手”查询、再以纯歌名查询，各取前 10 后合并去重（10+10）
 private suspend fun searchSingleSourceCandidates(
@@ -217,28 +220,29 @@ internal suspend fun performSearch(
 ) {
     val query = playbackState.searchQuery.trim()
     if (query.isBlank()) return
-    // 取消上一次未完成的搜索，避免过期响应覆盖新查询结果
+    // 取消上一次未完成的搜索与分页加载，避免过期响应覆盖新查询结果
     playbackState.searchJob?.cancel()
+    playbackState.searchLoadJob?.cancel()
     playbackState.searchJob = currentCoroutineContext()[Job] ?: return
     playbackState.isSearching = true
     playbackState.searchResults = emptyList()
     playbackState.errorMsg = null
+    // 重置分页状态，从第一页开始
+    playbackState.searchPage = 0
+    playbackState.hasMoreSearchResults = true
+    playbackState.isLoadingMore = false
     // 立即切到结果视图，使加载指示器在搜索期间可见
     playbackState.showSearchResults = true
     try {
-        // 代理音源优先搜索，失败或未配置时回退内置平台
-        val proxyResults = ProxySourceEngine.search(context, playbackState.searchSource, query)
-        val results = if (proxyResults != null) {
-            proxyResults
-        } else {
-            runCatching { sourceOf(playbackState.searchSource).search(query) }
-                .getOrDefault(emptyList())
-        }.distinctBy { it.id }
+        val results = fetchSearchPage(playbackState, context, query, page = 1)
         playbackState.searchResults = results
+        playbackState.searchPage = 1
+        // 返回数量不足一页视为没有更多结果
+        playbackState.hasMoreSearchResults = results.size >= SEARCH_PAGE_SIZE
         if (results.isNotEmpty()) playbackState.addSearchHistory(query)
         playbackState.showSearchResults = true
         // 代理搜索结果的封面为逐条经 pic 动作换取，后台渐进补齐
-        if (proxyResults != null) fillProxySearchCovers(playbackState, context)
+        if (results.isNotEmpty()) fillProxySearchCovers(playbackState, context)
     } catch (e: kotlinx.coroutines.CancellationException) {
         // 搜索界面退出导致的协程取消，不是失败，向上传递取消
         throw e
@@ -250,6 +254,67 @@ internal suspend fun performSearch(
         if (playbackState.searchJob == currentCoroutineContext()[Job]) {
             playbackState.isSearching = false
         }
+    }
+}
+
+// 分页获取搜索结果：代理音源优先，失败或未配置时回退内置平台
+private suspend fun fetchSearchPage(
+    playbackState: MusicPlaybackState,
+    context: Context,
+    query: String,
+    page: Int,
+): List<NeteaseSongSearchResult> {
+    val proxyResults = ProxySourceEngine.search(
+        context,
+        playbackState.searchSource,
+        query,
+        page = page,
+        pageSize = SEARCH_PAGE_SIZE,
+    )
+    return if (proxyResults != null) {
+        proxyResults
+    } else {
+        runCatching { sourceOf(playbackState.searchSource).search(query, page, SEARCH_PAGE_SIZE) }
+            .getOrDefault(emptyList())
+    }.distinctBy { it.id }
+}
+
+// 列表滑到底部时加载下一页：追加并去重，返回数量不足一页视为没有更多结果
+internal suspend fun loadMoreSearchResults(
+    playbackState: MusicPlaybackState,
+    context: Context,
+) {
+    if (playbackState.isLoadingMore || playbackState.isSearching || !playbackState.hasMoreSearchResults) return
+    if (playbackState.searchResults.isEmpty()) return
+    val query = playbackState.searchQuery.trim()
+    if (query.isBlank()) return
+    playbackState.searchLoadJob = currentCoroutineContext()[Job] ?: return
+    playbackState.isLoadingMore = true
+    try {
+        val nextPage = playbackState.searchPage + 1
+        val pageResults = fetchSearchPage(playbackState, context, query, page = nextPage)
+        // 新搜索已取代本次加载时丢弃过期分页
+        if (playbackState.searchLoadJob != currentCoroutineContext()[Job]) return
+        val existingIds = playbackState.searchResults.map { it.id }.toSet()
+        val newItems = pageResults.filter { it.id !in existingIds }
+        if (newItems.isEmpty()) {
+            // 本页无新增条目（全部与已加载重复）时视为已加载完全部结果，避免重复请求
+            playbackState.hasMoreSearchResults = false
+            return
+        }
+        playbackState.searchResults = playbackState.searchResults + newItems
+        playbackState.searchPage = nextPage
+        playbackState.hasMoreSearchResults = pageResults.size >= SEARCH_PAGE_SIZE
+        // 代理搜索结果的封面为逐条经 pic 动作换取，后台渐进补齐
+        if (newItems.isNotEmpty()) fillProxySearchCovers(playbackState, context)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        // 新搜索发起导致的分页协程取消，不是失败，向上传递取消
+        throw e
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicPanelSearchLogic", "加载更多搜索结果失败", e)
+    } finally {
+        playbackState.isLoadingMore = false
+        playbackState.searchLoadJob = null
     }
 }
 

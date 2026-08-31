@@ -39,8 +39,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +63,8 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.yichao.evilgodxu.R
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -317,6 +323,21 @@ internal fun SearchResultsOverlay(
                     }
                 } else {
                     val listState = rememberLazyListState()
+                    // 滚动接近列表末尾时加载下一页；仅在滚动位置或列表长度变化时求值，避免持续自动加载
+                    LaunchedEffect(listState) {
+                        snapshotFlow {
+                            val info = listState.layoutInfo
+                            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                            lastVisible to info.totalItemsCount
+                        }
+                            .distinctUntilChanged()
+                            .collect { (lastVisible, total) ->
+                                val nearEnd = total > 0 && lastVisible >= total - 3
+                                if (nearEnd && !playbackState.isSearching && playbackState.hasMoreSearchResults) {
+                                    loadMoreSearchResults(playbackState, context)
+                                }
+                            }
+                    }
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -331,6 +352,12 @@ internal fun SearchResultsOverlay(
                                 result = result,
                                 onClick = { onTrackSelected(result) }
                             )
+                        }
+                        // 底部脚注：加载中或全部加载完成后展示
+                        if (playbackState.isLoadingMore || !playbackState.hasMoreSearchResults) {
+                            item(key = "load-more-footer") {
+                                SearchLoadMoreFooter(playbackState)
+                            }
                         }
                     }
                 }
@@ -425,6 +452,44 @@ internal fun SearchResultRow(
                     RoundedCornerShape(4.dp)
                 )
                 .padding(horizontal = 5.dp, vertical = 2.dp)
+        )
+    }
+}
+
+// 搜索结果列表底部脚注：加载更多时显示进度，全部加载完成时显示提示
+@Composable
+internal fun SearchLoadMoreFooter(
+    playbackState: MusicPlaybackState,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    when {
+        playbackState.isLoadingMore -> Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 2.dp,
+                color = tint
+            )
+            Spacer(modifier = Modifier.size(8.dp))
+            Text(
+                text = stringResource(R.string.music_panel_search_loading_more),
+                color = tint,
+                fontSize = 11.sp
+            )
+        }
+        !playbackState.hasMoreSearchResults && playbackState.searchResults.isNotEmpty() -> Text(
+            text = stringResource(R.string.music_panel_search_load_all),
+            color = tint.copy(alpha = 0.7f),
+            fontSize = 11.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            textAlign = TextAlign.Center
         )
     }
 }
