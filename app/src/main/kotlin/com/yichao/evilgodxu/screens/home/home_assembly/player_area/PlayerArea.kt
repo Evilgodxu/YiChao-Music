@@ -241,7 +241,11 @@ fun PlayerArea(
                 .padding(top = coverHeight),
             contentAlignment = Alignment.Center,
         ) {
-            var contentHeightPx by remember { mutableIntStateOf(0) }
+            // 记录已见最大内容高度：切歌时格式行隐现会改变实测高度，取最大值避免整体缩放抖动
+            var contentHeightPx by remember(
+                homePortraitLayout.fontSizeSp,
+                homePortraitLayout.visibleLines,
+            ) { mutableIntStateOf(0) }
             val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
             val scale = if (contentHeightDp > 0.dp) {
                 (contentMaxHeight / contentHeightDp).coerceIn(0.55f, 1f)
@@ -250,7 +254,7 @@ fun PlayerArea(
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentHeight(unbounded = true)
-                    .onSizeChanged { contentHeightPx = it.height }
+                    .onSizeChanged { if (it.height > contentHeightPx) contentHeightPx = it.height }
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
