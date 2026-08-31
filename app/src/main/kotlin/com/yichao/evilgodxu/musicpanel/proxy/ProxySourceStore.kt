@@ -62,15 +62,27 @@ internal object ProxySourceStore {
         }
     }
 
-    // 指定平台的生效音源：仅启用音源中同一平台多音源时，最近导入者生效
-    fun activeSpec(context: Context, platform: String): ProxySourceSpec? {
-        return all(context)
-            .filter { it.enabled }
-            .lastOrNull { it.platforms.containsKey(platform) }
-    }
-
+    // 指定平台的生效音源：同一平台多音源时各动作独立取最近配置该动作的音源，
+    // 不同音源可分别覆盖搜索/播放/歌词/封面/歌单等动作而不互相顶替
     fun platformSpec(context: Context, platform: String): ProxyPlatformSpec? {
-        return activeSpec(context, platform)?.platforms?.get(platform)
+        val covering = all(context)
+            .filter { it.enabled && it.platforms.containsKey(platform) }
+        if (covering.isEmpty()) return null
+        fun latest(selector: (ProxyPlatformSpec) -> ProxyActionSpec?): ProxyActionSpec? {
+            // 正序遍历保留最近一个非空动作：后导入且配置了该动作的音源生效
+            var found: ProxyActionSpec? = null
+            covering.forEach { spec ->
+                selector(spec.platforms.getValue(platform))?.let { found = it }
+            }
+            return found
+        }
+        return ProxyPlatformSpec(
+            search = latest { it.search },
+            url = latest { it.url },
+            lyric = latest { it.lyric },
+            pic = latest { it.pic },
+            playlist = latest { it.playlist },
+        ).takeIf { it.hasAnyAction }
     }
 
     private fun saveRawList(context: Context, list: List<String>) {

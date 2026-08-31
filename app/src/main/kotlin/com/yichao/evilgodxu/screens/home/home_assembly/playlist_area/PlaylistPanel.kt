@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,10 +47,17 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.PlaylistArt
+import com.yichao.evilgodxu.musicpanel.proxy.PlaylistSyncResult
+import com.yichao.evilgodxu.musicpanel.proxy.PlaylistSyncer
+import com.yichao.evilgodxu.musicpanel.proxy.RemotePlaylistLink
+import com.yichao.evilgodxu.musicpanel.proxy.SyncFailure
 import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // 首页左滑呼出的歌单面板：系统歌单 + 自定义歌单，支持页面栈导航
 @Composable
@@ -72,12 +80,55 @@ internal fun PlaylistPanel(
     var showCreate by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Playlist?>(null) }
     var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
+    var showImport by remember { mutableStateOf(false) }
+    // 歌单同步后台状态：进度显示在总览标题区，完成提示短暂展示后自动清理
+    var syncState by remember { mutableStateOf<SyncUiState?>(null) }
+    var syncJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun startSync(link: RemotePlaylistLink, name: String) {
+        syncJob?.cancel()
+        syncState = SyncUiState.Running(0, 0, "")
+        syncJob = scope.launch {
+            val result = PlaylistSyncer.syncToLibrary(context, playbackState, link) { done, total, title ->
+                syncState = SyncUiState.Running(total, done, title)
+            }
+            syncState = when (result) {
+                is PlaylistSyncResult.Success -> {
+                    val created = PlaylistStore.create(context, name)
+                    if (created != null) {
+                        PlaylistStore.addTracks(context, created.id, result.trackIds)
+                        SyncUiState.Finished(
+                            result.stats.downloadedCount,
+                            result.stats.existingCount,
+                            result.stats.failedCount,
+                        )
+                    } else {
+                        SyncUiState.Failed(context.getString(R.string.playlist_import_failed))
+                    }
+                }
+                is PlaylistSyncResult.Failure -> SyncUiState.Failed(
+                    context.getString(
+                        when (result.reason) {
+                            SyncFailure.NO_SOURCE -> R.string.playlist_import_no_source
+                            SyncFailure.FETCH_FAILED -> R.string.playlist_import_fetch_failed
+                            SyncFailure.NO_DOWNLOAD -> R.string.playlist_import_empty
+                            SyncFailure.LIBRARY_MATCH_FAILED -> R.string.playlist_import_failed
+                        }
+                    )
+                )
+            }
+            delay(SYNC_DONE_DISMISS_MS)
+            syncState = null
+            syncJob = null
+        }
+    }
 
     Box(modifier = modifier) {
         // 透明全屏布局，与在线搜索面板一致，透出首页沉浸渐变背景
         Column(modifier = Modifier.fillMaxSize()) {
             PanelHeader(
-                title = page.title(),
+                title = if (page is PlaylistPage.Overview) syncTitle(syncState) else page.title(),
                 showBack = backStack.size > 1,
                 onBack = { backStack = backStack.dropLast(1) },
             )
@@ -94,6 +145,7 @@ internal fun PlaylistPanel(
                     },
                     onOpenCustom = { playlist -> backStack = backStack + PlaylistPage.Tracks(playlist) },
                     onCreatePlaylist = { showCreate = true },
+                    onImportPlaylist = { showImport = true },
                     onRename = { renameTarget = it },
                     onDelete = { deleteTarget = it },
                 )
@@ -123,6 +175,15 @@ internal fun PlaylistPanel(
             backStack = backStack + PlaylistPage.Tracks(playlist)
         },
         onDismiss = { showCreate = false },
+    )
+    PlaylistImportDialog(
+        visible = showImport,
+        onSyncStart = { link, name ->
+            showImport = false
+            // 同步在后台进行，进度显示在歌单面板标题区
+            startSync(link, name)
+        },
+        onDismiss = { showImport = false },
     )
     RenamePlaylistDialog(playlist = renameTarget, onDismiss = { renameTarget = null })
     DeletePlaylistDialog(playlist = deleteTarget, onDismiss = { deleteTarget = null })
@@ -189,6 +250,7 @@ private fun PlaylistOverview(
     onOpenSmart: (SmartPlaylistType) -> Unit,
     onOpenCustom: (Playlist) -> Unit,
     onCreatePlaylist: () -> Unit,
+    onImportPlaylist: () -> Unit,
     onRename: (Playlist) -> Unit,
     onDelete: (Playlist) -> Unit,
 ) {
@@ -251,6 +313,8 @@ private fun PlaylistOverview(
             Spacer(modifier = Modifier.height(8.dp))
             // 新建歌单入口固定置于“我的歌单”列表顶部，不随列表变动移动
             CreatePlaylistRow(onClick = onCreatePlaylist)
+            Spacer(modifier = Modifier.height(8.dp))
+            ImportPlaylistRow(onClick = onImportPlaylist)
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(PlaylistStore.playlists, key = { it.id }) { playlist ->
@@ -451,6 +515,39 @@ private fun CreatePlaylistRow(onClick: () -> Unit) {
     }
 }
 
+// 从平台分享链接导入歌单入口：样式与新建歌单卡片一致
+@Composable
+private fun ImportPlaylistRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(24.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = AppIcons.CloudDownload,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.playlist_import),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
 // 系统歌单名称文案
 @Composable
 internal fun smartTypeLabel(type: SmartPlaylistType): String = when (type) {
@@ -466,3 +563,28 @@ private fun smartTypeIcon(type: SmartPlaylistType): ImageVector = when (type) {
     SmartPlaylistType.ALBUM -> AppIcons.Album
     SmartPlaylistType.ARTIST -> AppIcons.Person
 }
+
+// 歌单同步状态：运行中实时进度 / 已完成统计 / 失败原因
+private sealed interface SyncUiState {
+    data class Running(val total: Int, val done: Int, val currentTitle: String) : SyncUiState
+    data class Finished(val success: Int, val existing: Int, val failed: Int) : SyncUiState
+    data class Failed(val message: String) : SyncUiState
+}
+
+// 总览页标题区文案：同步进行中显示进度，完成后显示统计
+@Composable
+private fun syncTitle(syncState: SyncUiState?): String = when (syncState) {
+    is SyncUiState.Running ->
+        if (syncState.total > 0) {
+            stringResource(R.string.playlist_import_progress, syncState.done, syncState.total, syncState.currentTitle)
+        } else {
+            stringResource(R.string.playlist_import_preparing)
+        }
+    is SyncUiState.Finished ->
+        stringResource(R.string.playlist_import_done, syncState.success, syncState.existing, syncState.failed)
+    is SyncUiState.Failed -> syncState.message
+    null -> ""
+}
+
+// 同步完成提示的展示时长
+private const val SYNC_DONE_DISMISS_MS = 3_000L

@@ -1,0 +1,183 @@
+package com.yichao.evilgodxu.musicpanel.proxy
+
+import android.content.Context
+import android.net.Uri
+import com.yichao.evilgodxu.musicpanel.MusicHttpClient
+import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
+import com.yichao.evilgodxu.musicpanel.MusicQuality
+import com.yichao.evilgodxu.musicpanel.MusicSearchSource
+import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
+import com.yichao.evilgodxu.musicpanel.downloadTrackToLibrary
+import com.yichao.evilgodxu.musicpanel.normalizeTitle
+import com.yichao.evilgodxu.musicpanel.resolvePlayUrlByQuality
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.Request
+
+// 分享链接解析出的歌单引用：平台 + 歌单 ID
+internal data class RemotePlaylistLink(
+    val source: MusicSearchSource,
+    val playlistId: String,
+)
+
+// 歌单同步失败原因
+internal enum class SyncFailure { NO_SOURCE, FETCH_FAILED, NO_DOWNLOAD, LIBRARY_MATCH_FAILED }
+
+// 同步统计：已存在跳过 / 新下载 / 下载失败
+internal data class SyncStats(
+    val existingCount: Int,
+    val downloadedCount: Int,
+    val failedCount: Int,
+)
+
+// 歌单同步结果：Success 携带歌单名称、入库曲目 ID（含本地已存在与新下载）与统计
+internal sealed interface PlaylistSyncResult {
+    data class Success(
+        val playlistName: String,
+        val trackIds: List<Long>,
+        val stats: SyncStats,
+    ) : PlaylistSyncResult
+
+    data class Failure(val reason: SyncFailure) : PlaylistSyncResult
+}
+
+// 歌单同步：解析分享链接 → 经代理音源拉取歌单 → 本地同名跳过 → 高音质优先下载入库
+internal object PlaylistSyncer {
+
+    // 解析分享链接为平台 + 歌单 ID；直接解析失败时尝试跟随重定向
+    suspend fun parseLink(context: Context, raw: String): RemotePlaylistLink? {
+        parseLinkDirect(raw)?.let { return it }
+        val resolved = resolveRedirect(context, raw) ?: return null
+        return parseLinkDirect(resolved)
+    }
+
+    private fun parseLinkDirect(raw: String): RemotePlaylistLink? {
+        val uri = runCatching { Uri.parse(raw.trim()) }.getOrNull() ?: return null
+        val host = uri.host?.lowercase().orEmpty()
+        return when {
+            host.contains("163") -> RemotePlaylistLink(MusicSearchSource.NETEASE, idParam(uri) ?: return null)
+            host.contains("qq.com") -> RemotePlaylistLink(
+                MusicSearchSource.QQ,
+                (idParam(uri) ?: pathId(uri.path, "playlist")) ?: return null,
+            )
+            host.contains("kuwo.cn") -> RemotePlaylistLink(
+                MusicSearchSource.KUWO,
+                (pathId(uri.path, "playlist_detail") ?: idParam(uri)) ?: return null,
+            )
+            else -> null
+        }
+    }
+
+    // 读取 id 查询参数；hash 片段中的参数（music.163.com/#/playlist?id=）一并兼容
+    private fun idParam(uri: Uri): String? {
+        uri.getQueryParameter("id")
+            ?.takeIf { it.isNotBlank() && it.all(Char::isDigit) }
+            ?.let { return it }
+        val fragment = uri.fragment ?: return null
+        return runCatching {
+            Uri.parse("https://x/?$fragment").getQueryParameter("id")
+                ?.takeIf { it.isNotBlank() && it.all(Char::isDigit) }
+        }.getOrNull()
+    }
+
+    // 提取路径中的数字 ID，如 /playlist/123、/playlist_detail/123
+    private fun pathId(path: String?, segment: String): String? {
+        if (path.isNullOrBlank()) return null
+        return Regex("$segment/(\\d+)").find(path)?.groupValues?.get(1)
+    }
+
+    // 跟随短链重定向，返回最终 URL
+    private suspend fun resolveRedirect(context: Context, url: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", MusicHttpClient.MUSIC_USER_AGENT)
+                .build()
+            MusicHttpClient.client.newCall(request).execute().use { resp ->
+                resp.request.url.toString()
+            }
+        }.getOrNull()
+    }
+
+    // 经代理音源拉取歌单（仅走代理，未配置或失败返回 null）
+    suspend fun fetchRemote(context: Context, link: RemotePlaylistLink): ProxyPlaylistResult? =
+        ProxySourceEngine.fetchPlaylist(context, link.source, link.playlistId)
+
+    // 同步：拉取歌单 → 本地同名跳过 → 逐首解析直链（高音质优先）并下载 → 刷新曲库 → 返回入库曲目 ID
+    suspend fun syncToLibrary(
+        context: Context,
+        state: MusicPlaybackState,
+        link: RemotePlaylistLink,
+        onProgress: (done: Int, total: Int, title: String) -> Unit,
+    ): PlaylistSyncResult {
+        if (ProxySourceStore.platformSpec(context, link.source.platformKey())?.playlist == null) {
+            return PlaylistSyncResult.Failure(SyncFailure.NO_SOURCE)
+        }
+        val fetched = fetchRemote(context, link)
+            ?: return PlaylistSyncResult.Failure(SyncFailure.FETCH_FAILED)
+        val total = fetched.songs.size
+        if (total == 0) return PlaylistSyncResult.Failure(SyncFailure.NO_DOWNLOAD)
+        // 先刷新本地库，保证同名查重基于最新曲库
+        PlaylistRefresher.refresh(context, state, restoreCurrent = true)
+        // 本地曲目按归一化标题建索引：仅本地音频参与查重
+        val localByTitle = state.libraryTracks
+            .filter { it.isLocalAudioSource }
+            .groupBy { normalizeTitle(it.title) }
+        var existing = 0
+        var failed = 0
+        val trackIds = mutableListOf<Long>()
+        val downloadedFiles = mutableListOf<String>()
+        fetched.songs.forEachIndexed { index, song ->
+            onProgress(index + 1, total, song.title)
+            // 本地已有同名歌曲：跳过下载，直接复用其 ID
+            val existingTrack = localByTitle[normalizeTitle(song.title)]?.firstOrNull()
+            if (existingTrack != null) {
+                existing++
+                trackIds += existingTrack.id
+                return@forEachIndexed
+            }
+            val url = resolveBestUrl(context, song)
+            if (url == null) {
+                failed++
+                return@forEachIndexed
+            }
+            // 封面按代理音源 pic 动作换取，失败不影响下载
+            val coverBytes = runCatching { ProxySourceEngine.coverBytes(context, song) }.getOrNull()
+            val fileName = downloadTrackToLibrary(context, song, url, coverBytes)
+            if (fileName != null) downloadedFiles += fileName else failed++
+        }
+        if (existing == 0 && downloadedFiles.isEmpty()) {
+            return PlaylistSyncResult.Failure(SyncFailure.NO_DOWNLOAD)
+        }
+        // 刷新曲库使下载文件成为本地曲目，再按文件名匹配入库 ID
+        PlaylistRefresher.refresh(context, state, restoreCurrent = true)
+        downloadedFiles.mapNotNull { fileName ->
+            state.libraryTracks.firstOrNull { it.path.endsWith(fileName) }?.id
+        }.let { downloadedIds ->
+            trackIds += downloadedIds
+            if (existing == 0 && downloadedIds.isEmpty()) {
+                return PlaylistSyncResult.Failure(SyncFailure.LIBRARY_MATCH_FAILED)
+            }
+            return PlaylistSyncResult.Success(
+                playlistName = fetched.name,
+                trackIds = trackIds.distinct(),
+                stats = SyncStats(existing, downloadedIds.size, failed),
+            )
+        }
+    }
+
+    // 音质从最高到最低逐档尝试，返回第一个可用的直链；非法地址视为该档失败继续降级
+    private suspend fun resolveBestUrl(context: Context, song: com.yichao.evilgodxu.musicpanel.NeteaseSongSearchResult): String? {
+        val qualities = listOf(
+            MusicQuality.LOSSLESS,
+            MusicQuality.HIGH,
+            MusicQuality.STANDARD,
+        )
+        for (quality in qualities) {
+            resolvePlayUrlByQuality(context, song, quality)
+                ?.takeIf { it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true) }
+                ?.let { return it }
+        }
+        return null
+    }
+}

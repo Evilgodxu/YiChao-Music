@@ -3,7 +3,9 @@ package com.yichao.evilgodxu.log
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import java.io.BufferedReader
 import java.io.File
+import java.io.FileReader
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -87,32 +89,74 @@ object CrashLogManager : Thread.UncaughtExceptionHandler {
         }
         val logFile = File(dir, "$LOG_FILE_PREFIX${today.format(dateFormat)}.log")
         try {
-            // 当日首个文件（每日轮换后的新文件）固定写入日志头
-            val isNewFile = !logFile.exists()
+            ensureHeader(logFile)
             FileWriter(logFile, true).use { writer ->
-                if (isNewFile) {
-                    writeHeader(writer)
-                }
-                writer.appendLine("================ $title ================")
-                writer.appendLine("时间: ${LocalDateTime.now().format(timeFormat)}")
-                if (thread != null) {
-                    writer.appendLine("线程: ${thread.name}")
-                    writer.appendLine("进程: ${android.os.Process.myPid()}")
-                }
-                if (throwable != null) {
-                    writer.appendLine("异常: ${throwable.javaClass.name}: ${throwable.message}")
-                    writer.appendLine("堆栈:")
-                    StringWriter().use { sw ->
-                        throwable.printStackTrace(PrintWriter(sw))
-                        writer.append(sw.toString())
-                    }
-                }
-                writer.appendLine()
+                appendEntry(writer, title, thread, throwable)
             }
         } catch (e: Exception) {
             // 写日志本身失败时降级到系统日志，避免递归崩溃
             Log.e(TAG, "写入日志失败", e)
         }
+    }
+
+    /** 确保日志头部为当前版本：新文件写入头部，版本变化时重写头部 */
+    private fun ensureHeader(logFile: File) {
+        when {
+            !logFile.exists() -> FileWriter(logFile).use { writeHeader(it) }
+            headerVersionOutdated(logFile) -> rewriteHeader(logFile)
+        }
+    }
+
+    /** 检测文件头部的版本行是否与当前版本一致 */
+    private fun headerVersionOutdated(logFile: File): Boolean {
+        val expected = "版本: $appVersion"
+        runCatching {
+            BufferedReader(FileReader(logFile)).use { reader ->
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line.startsWith("版本: ")) return line != expected
+                    if (line.isBlank()) break // 读到正文仍未发现版本行
+                }
+            }
+        }
+        return false
+    }
+
+    /** 用当前头部重写日志文件，保留旧头部之后的正文 */
+    private fun rewriteHeader(logFile: File) {
+        val body = runCatching {
+            val text = logFile.readText()
+            val headerEnd = text.indexOf("\n\n")
+            if (headerEnd >= 0) text.substring(headerEnd + 2) else ""
+        }.getOrDefault("")
+        FileWriter(logFile, false).use { writer ->
+            writeHeader(writer)
+            writer.append(body)
+        }
+    }
+
+    /** 追加一条日志条目 */
+    private fun appendEntry(
+        writer: FileWriter,
+        title: String,
+        thread: Thread?,
+        throwable: Throwable?,
+    ) {
+        writer.appendLine("================ $title ================")
+        writer.appendLine("时间: ${LocalDateTime.now().format(timeFormat)}")
+        if (thread != null) {
+            writer.appendLine("线程: ${thread.name}")
+            writer.appendLine("进程: ${android.os.Process.myPid()}")
+        }
+        if (throwable != null) {
+            writer.appendLine("异常: ${throwable.javaClass.name}: ${throwable.message}")
+            writer.appendLine("堆栈:")
+            StringWriter().use { sw ->
+                throwable.printStackTrace(PrintWriter(sw))
+                writer.append(sw.toString())
+            }
+        }
+        writer.appendLine()
     }
 
     /** 返回今日日志文件，不存在时返回 null */

@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.musicpanel
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
@@ -98,6 +99,82 @@ internal fun sanitizeFileName(name: String): String {
         .take(80)
         .trim()
 }
+
+// 歌单同步批量下载：把在线曲目下载到公共下载目录并写入标题/艺术家/封面，
+// 返回库内文件名（含扩展名）供刷新后按路径匹配入库；已存在或试听片段返回 null
+internal suspend fun downloadTrackToLibrary(
+    context: Context,
+    result: NeteaseSongSearchResult,
+    url: String,
+    coverBytes: ByteArray? = null,
+): String? = withContext(Dispatchers.IO) {
+    try {
+        val extension = url.substringBefore('?')
+            .substringAfterLast('.', "")
+            .lowercase()
+            .takeIf { it in AUDIO_EXTENSIONS } ?: "mp3"
+        val fileName = "${sanitizeFileName(result.title)} - ${sanitizeFileName(result.artist)}.$extension"
+        if (findExistingDownload(context, fileName) != null) return@withContext fileName
+        val tempFile = File.createTempFile("download", ".$extension", context.cacheDir)
+        try {
+            val request = Request.Builder().url(url).build()
+            MusicHttpClient.client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) return@withContext null
+                resp.body.byteStream().use { input ->
+                    tempFile.outputStream().use { output -> input.copyTo(output, STREAM_BUFFER_SIZE) }
+                }
+            }
+            // 试听片段(≤30秒)不缓存入库，与播放缓存规则一致
+            if (isTrialAudioFile(tempFile)) return@withContext null
+            val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, audioMimeType(extension))
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
+            }
+            val uri = context.contentResolver.insert(collection, contentValues)
+            if (uri == null) return@withContext null
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                tempFile.inputStream().use { input -> input.copyTo(os, STREAM_BUFFER_SIZE) }
+            }
+            // 只写本次同步下载的文件：写入标题/艺术家/封面并触发媒体库扫描
+            val path = queryMediaPath(context, uri)
+            if (path != null) {
+                runCatching {
+                    MusicMetadataWriter.writeMetadataToSource(
+                        context,
+                        MusicTrack(
+                            id = 0L,
+                            path = path,
+                            audioUri = uri.toString(),
+                            title = result.title,
+                            artist = result.artist,
+                            duration = 0L,
+                            albumId = 0L,
+                        ),
+                        result.title,
+                        result.artist,
+                        coverBytes,
+                    )
+                }
+                MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+            }
+            fileName
+        } finally {
+            tempFile.delete()
+        }
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicDownloader", "歌单同步下载失败: 歌曲=${result.title}", e)
+        null
+    }
+}
+
+// 查询已写入媒体库条目的真实文件路径
+private fun queryMediaPath(context: Context, uri: Uri): String? = runCatching {
+    context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) cursor.getString(0).takeIf { it.isNotBlank() } else null
+    }
+}.getOrNull()
 
 // 支持的音频扩展名，用于按实际 URL 推断缓存格式
 private val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "m4a", "wav", "aac", "opus")

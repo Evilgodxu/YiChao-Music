@@ -243,6 +243,27 @@
     <string name="playlist_switch_default">Default playlist</string>
     <string name="playlist_sort_handle">Reorder</string>
     <string name="playlist_edit_album_title">Edit album metadata</string>
+    <string name="playlist_import">Import from link</string>
+    <string name="playlist_import_title">Import playlist from link</string>
+    <string name="playlist_import_link_hint">Paste a Netease/QQ/Kuwo playlist share link</string>
+    <string name="playlist_import_tip">Requires a proxy source with playlist support imported in Settings</string>
+    <string name="playlist_import_parse">Parse</string>
+    <string name="playlist_import_parsing">Parsing…</string>
+    <string name="playlist_import_name_hint">Playlist name</string>
+    <string name="playlist_import_preview_songs">%1$d songs, all will be downloaded locally</string>
+    <string name="playlist_import_start">Start sync</string>
+    <string name="playlist_import_syncing">Downloading %1$d/%2$d · %3$s</string>
+    <string name="playlist_import_result">Sync done: %1$d succeeded, %2$d failed</string>
+    <string name="playlist_import_finish">Done</string>
+    <string name="playlist_import_invalid_link">Cannot recognize this share link</string>
+    <string name="playlist_import_no_source">No proxy source with playlist support for this platform</string>
+    <string name="playlist_import_fetch_failed">Failed to parse playlist, check network or proxy source</string>
+    <string name="playlist_import_empty">No downloadable songs</string>
+    <string name="playlist_import_failed">Playlist sync failed</string>
+    <string name="playlist_import_default_name">Imported playlist</string>
+    <string name="playlist_import_progress">Syncing %1$d/%2$d · %3$s</string>
+    <string name="playlist_import_preparing">Syncing…</string>
+    <string name="playlist_import_done">Sync done · %1$d added · %2$d existing · %3$d failed</string>
 
     <!-- Update -->
     <string name="update_dialog_title">New version %s</string>
