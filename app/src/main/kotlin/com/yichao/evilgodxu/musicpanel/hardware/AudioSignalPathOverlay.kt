@@ -88,7 +88,9 @@ fun AudioSignalPathOverlay(
 
 @Composable
 private fun AudioSignalPathRows(playbackState: MusicPlaybackState) {
+    // 仅展示当前曲目对应的格式，后台切歌后不残留上一曲数据
     val format = playbackState.audioSignalPathFormat
+        .takeIf { playbackState.audioSignalPathTrackId == playbackState.currentTrack?.id }
     val dash = stringResource(R.string.signal_path_dash)
 
     val rows = buildList {

@@ -453,6 +453,8 @@ class MusicPlaybackState {
     var usbDeviceName by mutableStateOf("")
     var usbError by mutableStateOf<String?>(null)     // USB 错误信息（显示在面板底部）
     var audioSignalPathFormat by mutableStateOf<AudioSignalPathFormat?>(null)
+    // 音频信息所属曲目：保证格式信息始终与当前曲目对应，后台切歌后再回前台不会错配
+    var audioSignalPathTrackId by mutableStateOf<Long?>(null)
     var audioSignalPathStrategy by mutableStateOf("Mixer")
     var audioSignalPathOutputDevice by mutableStateOf("-")
     var audioSignalPathRoute by mutableStateOf("-")
@@ -653,14 +655,27 @@ class MusicPlaybackState {
 
     // 冷启动未播放时预读当前曲目格式信息，供音频信息条展示；开始播放后由解码头覆盖
     fun refreshIdleTrackFormatInfo(context: Context) {
-        if (audioSignalPathFormat != null || currentTrack == null) return
+        val track = currentTrack ?: return
+        if (audioSignalPathTrackId == track.id) return
         playbackScope.launch(Dispatchers.IO) {
-            val track = currentTrack ?: return@launch
             val info = TrackAudioInfoReader.readIdleFormat(context, track) ?: return@launch
-            if (currentTrack?.id == track.id && audioSignalPathFormat == null) {
+            if (currentTrack?.id == track.id) {
                 audioSignalPathFormat = info
+                audioSignalPathTrackId = track.id
             }
         }
+    }
+
+    // 回到前台时校正音频信息：与当前曲目错配时若在播放则清掉等解码回填，否则重读当前曲目
+    fun reconcileTrackFormatInfo(context: Context) {
+        val track = currentTrack ?: return
+        if (audioSignalPathTrackId == track.id) return
+        if (mediaController?.isPlaying == true) {
+            audioSignalPathFormat = null
+            audioSignalPathTrackId = null
+            return
+        }
+        refreshIdleTrackFormatInfo(context)
     }
 
     // 持久化播放速度，供重启后恢复

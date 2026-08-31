@@ -151,6 +151,8 @@ class MusicPanelController(private val context: Context) {
         } else {
             dismissMiniPlayer()
         }
+        // 后台切歌后回到前台，校正音频信息使其与当前曲目一致
+        MusicPanelStateHolder.state.reconcileTrackFormatInfo(context)
     }
 
     fun release() {

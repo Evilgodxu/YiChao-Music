@@ -191,7 +191,9 @@ internal fun TrackFormatInfoSection(
     modifier: Modifier = Modifier,
     contentColor: Color? = null,
 ) {
+    // 仅展示属于当前曲目的格式信息，避免后台切歌后错配残留
     val format = playbackState.audioSignalPathFormat
+        .takeIf { playbackState.audioSignalPathTrackId == playbackState.currentTrack?.id }
     val text = if (format != null && (format.sampleRate > 0 || format.bitrate > 0)) {
         val formatName = format.format.removePrefix("audio/")
         val bitRate = if (format.sampleRate > 0) {

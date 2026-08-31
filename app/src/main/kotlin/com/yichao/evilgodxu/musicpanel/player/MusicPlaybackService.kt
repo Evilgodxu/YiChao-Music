@@ -51,10 +51,10 @@ class MusicPlaybackService : MediaSessionService() {
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 val format = tracks.groups.firstOrNull { it.isSelected }?.getTrackFormat(0)
                 val state = MusicPanelStateHolder.state
+                val currentTrack = state.currentTrack
                 // 无论 format 是否为空，每次轨道切换都更新信号路径状态
                 val fileFormat = format?.let { f ->
-                    val track = state.currentTrack
-                    track?.path
+                    currentTrack?.path
                         ?.substringAfterLast('.', "")
                         ?.takeIf { it.isNotBlank() }
                         ?.uppercase()
@@ -86,12 +86,13 @@ class MusicPlaybackService : MediaSessionService() {
                             .takeIf { it > 0 }
                             ?.let { it / 1000 } ?: 0,
                     )
+                    state.audioSignalPathTrackId = currentTrack?.id
                 }
                 // 解码头未给出比特率时（FLAC/VBR 常见），异步读取真实比特率并回填
                 if (state.audioSignalPathFormat?.bitrate == 0) {
-                    val track = state.currentTrack
+                    val track = currentTrack
                     state.playbackScope.launch(Dispatchers.IO) {
-                        if (track != null && state.currentTrack?.id == track.id) {
+                        if (track != null && state.audioSignalPathTrackId == track.id) {
                             TrackAudioInfoReader.readBitrateKbps(applicationContext, track)?.let { bitrate ->
                                 if (state.audioSignalPathFormat?.bitrate == 0) {
                                     state.audioSignalPathFormat = state.audioSignalPathFormat?.copy(bitrate = bitrate)
