@@ -1,6 +1,9 @@
 package com.yichao.evilgodxu.musicpanel
 
+import android.content.Context
 import android.content.Intent
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.view.KeyEvent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -15,7 +18,10 @@ import androidx.media3.common.ForwardingPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.log.CrashLogManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
 
 @OptIn(UnstableApi::class)
 class MusicPlaybackService : MediaSessionService() {
@@ -87,9 +93,24 @@ class MusicPlaybackService : MediaSessionService() {
                             else -> 16
                         },
                         channels = channels,
-                        // 恒比特率曲目取 bitrate，VBR 曲目 bitrate 未知时回退 averageBitrate
-                        bitrate = maxOf(format.bitrate, format.averageBitrate).takeIf { it > 0 } ?: 0,
+                        // Format.bitrate 单位为 bps，统一换算为 kbps；VBR 曲目 bitrate 未知时回退 averageBitrate
+                        bitrate = maxOf(format.bitrate, format.averageBitrate)
+                            .takeIf { it > 0 }
+                            ?.let { it / 1000 } ?: 0,
                     )
+                }
+                // 解码头未给出比特率时（FLAC/VBR 常见），异步读取真实比特率并回填
+                if (state.audioSignalPathFormat?.bitrate == 0) {
+                    val track = state.currentTrack
+                    state.playbackScope.launch(Dispatchers.IO) {
+                        if (track != null && state.currentTrack?.id == track.id) {
+                            resolveTrackBitrate(applicationContext, track)?.let { bitrate ->
+                                if (state.audioSignalPathFormat?.bitrate == 0) {
+                                    state.audioSignalPathFormat = state.audioSignalPathFormat?.copy(bitrate = bitrate)
+                                }
+                            }
+                        }
+                    }
                 }
                 // 每次轨道切换都刷新状态，确保信号路径始终有值
                 updateSignalPathState(state)
@@ -232,5 +253,38 @@ class MusicPlaybackService : MediaSessionService() {
         state.audioSignalPathStrategy = if (state.isUsbExclusiveMode) "Direct" else "Mixer"
         state.audioSignalPathOutputDevice = resolveOutputDeviceName(state)
         state.audioSignalPathRoute = if (state.isUsbDeviceConnected) "USB" else if (state.isBluetoothHeadsetConnected) "Bluetooth" else "System"
+    }
+
+    // 解码头未提供比特率时读取真实比特率：优先媒体元数据，其次按文件大小/时长估算平均比特率
+    private fun resolveTrackBitrate(context: Context, track: MusicTrack): Int? {
+        val retriever = MediaMetadataRetriever()
+        try {
+            if (track.path.isNotBlank()) {
+                retriever.setDataSource(track.path)
+            } else {
+                val uri = Uri.parse(track.audioUri)
+                if (uri.scheme != "content" && uri.scheme != "file") return null
+                retriever.setDataSource(context, uri)
+            }
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                ?.toLongOrNull()
+                ?.takeIf { it > 0 }
+                ?.let { return (it / 1000).toInt().coerceAtLeast(1) }
+        } catch (e: Exception) {
+            CrashLogManager.logException("MusicPlaybackService", "读取曲目比特率失败", e)
+        } finally {
+            runCatching { retriever.release() }
+        }
+        // 元数据无比特率（常见于 FLAC/WAV）时，按文件大小与时长估算平均比特率
+        val sizeBytes = if (track.path.isNotBlank()) {
+            File(track.path).takeIf { it.isFile }?.length()
+        } else {
+            runCatching {
+                Uri.parse(track.audioUri).let { context.contentResolver.openFileDescriptor(it, "r")?.use { fd -> fd.statSize } }
+            }.getOrNull()
+        } ?: return null
+        val durationSec = track.duration / 1000
+        if (sizeBytes <= 0 || durationSec <= 0) return null
+        return (sizeBytes * 8 / durationSec / 1000).toInt().takeIf { it > 0 }
     }
 }
