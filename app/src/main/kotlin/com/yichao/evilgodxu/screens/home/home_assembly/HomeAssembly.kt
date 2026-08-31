@@ -174,10 +174,9 @@ fun HomeAssembly(
                 modifier = Modifier
                     .fillMaxSize()
                     .consumeWindowInsets(innerPadding)
-                    .padding(innerPadding)
                     .clipToBounds(),
             ) {
-                // 播放器页：展开搜索时向右平移、展开歌单时向左平移，露出对应面板
+                // 播放器页：铺满全屏（含标题栏区域），竖屏沉浸封面嵌入标题栏后方
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -197,6 +196,8 @@ fun HomeAssembly(
                         // 长按标题/艺术家菜单“在线搜索”：切到在线搜索面板并自动按当前菜单文本搜索
                         PlayerArea(
                             modifier = Modifier.fillMaxSize(),
+                            backgroundColor = homeBackgroundColor,
+                            topBarInset = innerPadding.calculateTopPadding(),
                             onOpenOnlineSearch = { query ->
                                 playbackState.setSearchQuery(query)
                                 playbackState.setSearchResultsVisible(true)
@@ -206,23 +207,25 @@ fun HomeAssembly(
                         )
                     }
                 }
-                // 在线搜索页：自左侧滑入顶替播放器位置
+                // 在线搜索页：自左侧滑入顶替播放器位置；面板内容仍从标题栏下方开始
                 OnlineSearchPanel(
                     playbackState = playbackState,
                     menuBackgroundColor = homeBackgroundColor,
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(top = innerPadding.calculateTopPadding())
                         .graphicsLayer {
                             translationX = -contentWidth.toPx() * (1f - swipeController.searchProgress)
                         },
                 )
-                // 歌单面板：自右侧滑入顶替播放器位置
+                // 歌单面板：自右侧滑入顶替播放器位置；面板内容仍从标题栏下方开始
                 PlaylistPanel(
                     visible = swipeController.showPlaylist,
                     playbackState = playbackState,
                     menuBackgroundColor = homeBackgroundColor,
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(top = innerPadding.calculateTopPadding())
                         .graphicsLayer {
                             translationX = contentWidth.toPx() * (1f - swipeController.playlistProgress)
                         },

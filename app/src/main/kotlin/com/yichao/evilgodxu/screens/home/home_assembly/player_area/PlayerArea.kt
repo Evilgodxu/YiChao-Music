@@ -49,6 +49,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -61,7 +62,6 @@ import com.yichao.evilgodxu.data.settings.homePortraitLyricLayoutFlow
 import com.yichao.evilgodxu.musicpanel.CoverContextMenu
 import com.yichao.evilgodxu.musicpanel.CoverRefreshDialog
 import com.yichao.evilgodxu.musicpanel.CoverReplaceDialog
-import com.yichao.evilgodxu.musicpanel.DiscArt
 import com.yichao.evilgodxu.musicpanel.LocalCoverDialog
 import com.yichao.evilgodxu.musicpanel.LyricsEditDialog
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
@@ -85,13 +85,18 @@ import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
 import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
+import com.yichao.evilgodxu.theme.md_theme_dark_surface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// 首页播放器主体：旋转封面 + 歌词 + 标题与艺术家 + 底部控制栏
+// 首页播放器主体：沉浸封面 + 歌词 + 标题与艺术家 + 底部控制栏
 @Composable
 fun PlayerArea(
     modifier: Modifier = Modifier,
+    // 渲染背景色：封面上下边缘渐隐目标色
+    backgroundColor: Color = md_theme_dark_surface,
+    // 标题栏区域高度：封面顶部渐隐区与错误横幅避让基准
+    topBarInset: Dp = 0.dp,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
@@ -186,221 +191,184 @@ fun PlayerArea(
         }
     }
 
-    // 外层容器垂直居中：内容自然高度超出可用高度时整体等比缩小，保证五个模块完整显示
-    BoxWithConstraints(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        var contentHeightPx by remember { mutableIntStateOf(0) }
-        val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
-        val scale = if (contentHeightDp > 0.dp) {
-            (maxHeight / contentHeightDp).coerceIn(0.55f, 1f)
-        } else 1f
-
-        Column(
+    // 外层容器：沉浸封面置顶占满屏幕宽度，其余模块在封面下方剩余空间居中并按需等比缩小
+    BoxWithConstraints(modifier = modifier) {
+        // 封面为全宽正方形，占位高度即屏幕宽度
+        val coverHeight = maxWidth
+        val contentMaxHeight = (maxHeight - coverHeight).coerceAtLeast(0.dp)
+        // 沉浸式专辑封面：全宽置顶并嵌入标题栏区域，上下边缘以渲染背景色渐隐融入背景
+        Box(
             modifier = Modifier
+                .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .wrapContentHeight(unbounded = true)
-                .onSizeChanged { contentHeightPx = it.height }
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                },
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .aspectRatio(1f)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = { if (playbackState.currentTrack != null) showCoverMenu = true },
+                ),
         ) {
-            Spacer(Modifier.height(16.dp))
-            // 旋转专辑封面：长按复用音乐面板封面菜单
-            Box(
+            HomeImmersiveCover(
+                track = playbackState.currentTrack,
+                backgroundColor = backgroundColor,
+                topFadeHeight = topBarInset + TopFadeExtra,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        // 其余模块：歌词/标题/进度/控制栏在封面下方剩余空间垂直居中，内容超出可用高度时整体等比缩小
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = coverHeight),
+            contentAlignment = Alignment.Center,
+        ) {
+            var contentHeightPx by remember { mutableIntStateOf(0) }
+            val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
+            val scale = if (contentHeightDp > 0.dp) {
+                (contentMaxHeight / contentHeightDp).coerceIn(0.55f, 1f)
+            } else 1f
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = { if (playbackState.currentTrack != null) showCoverMenu = true },
-                    ),
-                contentAlignment = Alignment.Center,
+                    .wrapContentHeight(unbounded = true)
+                    .onSizeChanged { contentHeightPx = it.height }
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                DiscArt(
-                    track = playbackState.currentTrack,
-                    isPlaying = playbackState.isPlaying,
+                Spacer(Modifier.height(16.dp))
+                // 歌词：固定为 5 行歌词高度，点击歌词区切换微调按钮显隐
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.58f)
-                        .aspectRatio(1f),
-                    coverArt = { track -> HomeAlbumArt(track, Modifier.fillMaxSize()) },
-                )
-                CoverContextMenu(
-                    visible = showCoverMenu,
-                    onOnlineCover = {
-                        showCoverMenu = false
-                        coverTargetId = playbackState.currentTrack?.id
-                        showCoverRefresh = true
-                        playbackState.currentTrack?.let { track ->
-                            scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
-                        }
-                    },
-                    onLocalCover = {
-                        showCoverMenu = false
-                        coverTargetId = playbackState.currentTrack?.id
-                        selectedLocalCover = null
-                        showLocalCover = true
-                        scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
-                    },
-                    onDismiss = { showCoverMenu = false },
-                )
-            }
-            Spacer(Modifier.height(20.dp))
-            // 歌词：固定为 5 行歌词高度，点击歌词区切换微调按钮显隐
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(lyricsAreaHeight),
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (playbackState.currentTrack != null) {
-                        LyricsPanel(
-                            playbackState = playbackState,
-                            onClick = { lyricTuneVisible = !lyricTuneVisible },
-                            onLongClick = {
-                                if (playbackState.currentTrack != null) {
-                                    // 长按瞬间定格播放位置，作为歌词编辑的目标行依据
-                                    lyricsMenuPositionMs = playbackState.currentPosition
-                                    showLyricsMenu = true
-                                }
-                            },
-                            fontSize = homePortraitLayout.fontSizeSp.sp,
-                            visibleLines = homePortraitLayout.visibleLines,
-                            contentColor = Color.White,
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.home_player_empty),
-                            fontSize = 14.sp,
-                            color = Color.White,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 32.dp),
-                        )
-                    }
-                }
-                LyricsContextMenu(
-                    visible = showLyricsMenu,
-                    editEnabled = playbackState.currentTrack?.lyricLines?.isNotEmpty() == true,
-                    onEdit = {
-                        showLyricsMenu = false
-                        val track = playbackState.currentTrack
-                        if (track?.lyricLines?.isNotEmpty() == true) {
-                            // 按长按定格位置定位歌词行，与长按瞬间屏幕显示的当前行一致
-                            val index = track.lyricLines
-                                .indexOfLast { it.timeMs <= lyricsMenuPositionMs }
-                                .coerceAtLeast(0)
-                            lyricsEditIndex = index
-                            // 预填该行存储的完整原文：时间戳 + 歌词(含逐字标签) + 翻译行
-                            lyricsEditInitialText = MusicMetadataCache.encodeLyrics(listOf(track.lyricLines[index]))
-                            showLyricsEdit = true
-                        }
-                    },
-                    onOnlineSearch = {
-                        showLyricsMenu = false
-                        lyricsTargetId = playbackState.currentTrack?.id
-                        showLyricsRefresh = true
-                        playbackState.currentTrack?.let { track ->
-                            scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) }
-                        }
-                    },
-                    onLocalImport = {
-                        showLyricsMenu = false
-                        lyricsImportLauncher.launch("*/*")
-                    },
-                    onDismiss = { showLyricsMenu = false },
-                )
-                // 歌词微调：左-延后歌词，右+提前歌词，每次微调一个步长
-                if (lyricTuneVisible && playbackState.currentTrack?.lyricLines?.isNotEmpty() == true) {
-                    IconButton(
-                        onClick = {
-                            playbackState.adjustLyricsOffset(LyricFineTuneStepMs)
-                            tuneVersion++
-                            tuneHintText = "+${LyricFineTuneStepMs}ms"
-                            tuneHintVersion++
-                        },
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = 16.dp)
-                            .size(34.dp)
-                            .background(Color.White.copy(alpha = 0.18f), CircleShape),
-                    ) {
-                        Icon(
-                            imageVector = AppIcons.Remove,
-                            contentDescription = stringResource(R.string.home_player_lyric_delay),
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            playbackState.adjustLyricsOffset(-LyricFineTuneStepMs)
-                            tuneVersion++
-                            tuneHintText = "-${LyricFineTuneStepMs}ms"
-                            tuneHintVersion++
-                        },
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 16.dp)
-                            .size(34.dp)
-                            .background(Color.White.copy(alpha = 0.18f), CircleShape),
-                    ) {
-                        Icon(
-                            imageVector = AppIcons.Add,
-                            contentDescription = stringResource(R.string.home_player_lyric_advance),
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-                // 浮动提示：居中显示微调的毫秒数
-                if (tuneHintText.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text(
-                            text = tuneHintText,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(20.dp))
-            // 标题与艺术家：过长时跑马灯滚动并带边缘渐隐，与横屏一致
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                MarqueeInfoLine(
-                    text = playbackState.currentTrack?.title.orEmpty(),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .padding(horizontal = 32.dp)
                         .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = {
-                                val track = playbackState.currentTrack
-                                if (track != null) {
-                                    menuText = track.title
-                                    menuIsTitle = true
-                                    showMetaMenu = true
-                                }
+                        .height(lyricsAreaHeight),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        if (playbackState.currentTrack != null) {
+                            LyricsPanel(
+                                playbackState = playbackState,
+                                onClick = { lyricTuneVisible = !lyricTuneVisible },
+                                onLongClick = {
+                                    if (playbackState.currentTrack != null) {
+                                        // 长按瞬间定格播放位置，作为歌词编辑的目标行依据
+                                        lyricsMenuPositionMs = playbackState.currentPosition
+                                        showLyricsMenu = true
+                                    }
+                                },
+                                fontSize = homePortraitLayout.fontSizeSp.sp,
+                                visibleLines = homePortraitLayout.visibleLines,
+                                contentColor = Color.White,
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.home_player_empty),
+                                fontSize = 14.sp,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 32.dp),
+                            )
+                        }
+                    }
+                    LyricsContextMenu(
+                        visible = showLyricsMenu,
+                        editEnabled = playbackState.currentTrack?.lyricLines?.isNotEmpty() == true,
+                        onEdit = {
+                            showLyricsMenu = false
+                            val track = playbackState.currentTrack
+                            if (track?.lyricLines?.isNotEmpty() == true) {
+                                // 按长按定格位置定位歌词行，与长按瞬间屏幕显示的当前行一致
+                                val index = track.lyricLines
+                                    .indexOfLast { it.timeMs <= lyricsMenuPositionMs }
+                                    .coerceAtLeast(0)
+                                lyricsEditIndex = index
+                                // 预填该行存储的完整原文：时间戳 + 歌词(含逐字标签) + 翻译行
+                                lyricsEditInitialText = MusicMetadataCache.encodeLyrics(listOf(track.lyricLines[index]))
+                                showLyricsEdit = true
+                            }
+                        },
+                        onOnlineSearch = {
+                            showLyricsMenu = false
+                            lyricsTargetId = playbackState.currentTrack?.id
+                            showLyricsRefresh = true
+                            playbackState.currentTrack?.let { track ->
+                                scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) }
+                            }
+                        },
+                        onLocalImport = {
+                            showLyricsMenu = false
+                            lyricsImportLauncher.launch("*/*")
+                        },
+                        onDismiss = { showLyricsMenu = false },
+                    )
+                    // 歌词微调：左-延后歌词，右+提前歌词，每次微调一个步长
+                    if (lyricTuneVisible && playbackState.currentTrack?.lyricLines?.isNotEmpty() == true) {
+                        IconButton(
+                            onClick = {
+                                playbackState.adjustLyricsOffset(LyricFineTuneStepMs)
+                                tuneVersion++
+                                tuneHintText = "+${LyricFineTuneStepMs}ms"
+                                tuneHintVersion++
                             },
-                        ),
-                )
-                if (playbackState.currentTrack != null) {
-                    Spacer(Modifier.height(4.dp))
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = 16.dp)
+                                .size(34.dp)
+                                .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                        ) {
+                            Icon(
+                                imageVector = AppIcons.Remove,
+                                contentDescription = stringResource(R.string.home_player_lyric_delay),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                playbackState.adjustLyricsOffset(-LyricFineTuneStepMs)
+                                tuneVersion++
+                                tuneHintText = "-${LyricFineTuneStepMs}ms"
+                                tuneHintVersion++
+                            },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 16.dp)
+                                .size(34.dp)
+                                .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                        ) {
+                            Icon(
+                                imageVector = AppIcons.Add,
+                                contentDescription = stringResource(R.string.home_player_lyric_advance),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    // 浮动提示：居中显示微调的毫秒数
+                    if (tuneHintText.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        ) {
+                            Text(
+                                text = tuneHintText,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                // 标题与艺术家：过长时跑马灯滚动并带边缘渐隐，与横屏一致
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     MarqueeInfoLine(
-                        text = playbackState.currentTrack?.artist.orEmpty(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
+                        text = playbackState.currentTrack?.title.orEmpty(),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White,
                         modifier = Modifier
                             .padding(horizontal = 32.dp)
@@ -408,55 +376,98 @@ fun PlayerArea(
                             .combinedClickable(
                                 onClick = {},
                                 onLongClick = {
-                                    val artist = playbackState.currentTrack?.artist
-                                    if (!artist.isNullOrBlank()) {
-                                        menuText = artist
-                                        menuIsTitle = false
+                                    val track = playbackState.currentTrack
+                                    if (track != null) {
+                                        menuText = track.title
+                                        menuIsTitle = true
                                         showMetaMenu = true
                                     }
                                 },
                             ),
                     )
+                    if (playbackState.currentTrack != null) {
+                        Spacer(Modifier.height(4.dp))
+                        MarqueeInfoLine(
+                            text = playbackState.currentTrack?.artist.orEmpty(),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White,
+                            modifier = Modifier
+                                .padding(horizontal = 32.dp)
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = {},
+                                    onLongClick = {
+                                        val artist = playbackState.currentTrack?.artist
+                                        if (!artist.isNullOrBlank()) {
+                                            menuText = artist
+                                            menuIsTitle = false
+                                            showMetaMenu = true
+                                        }
+                                    },
+                                ),
+                        )
+                    }
+                    MiniContextMenu(
+                        visible = showMetaMenu,
+                        onCopy = {
+                            showMetaMenu = false
+                            copyToClipboard(context, menuText)
+                        },
+                        onRename = {
+                            showMetaMenu = false
+                            renameIsTitle = menuIsTitle
+                            renameInitValue = menuText
+                            renameTargetId = playbackState.currentTrack?.id
+                            showRename = true
+                        },
+                        onSearch = {
+                            showMetaMenu = false
+                            onOpenOnlineSearch(menuText)
+                        },
+                        onDismiss = { showMetaMenu = false },
+                    )
                 }
-                MiniContextMenu(
-                    visible = showMetaMenu,
-                    onCopy = {
-                        showMetaMenu = false
-                        copyToClipboard(context, menuText)
-                    },
-                    onRename = {
-                        showMetaMenu = false
-                        renameIsTitle = menuIsTitle
-                        renameInitValue = menuText
-                        renameTargetId = playbackState.currentTrack?.id
-                        showRename = true
-                    },
-                    onSearch = {
-                        showMetaMenu = false
-                        onOpenOnlineSearch(menuText)
-                    },
-                    onDismiss = { showMetaMenu = false },
-                )
-            }
-            Spacer(Modifier.height(20.dp))
-            // 律动与进度条（与音乐面板一致，宽度收窄 15%）
-            Box(
-                modifier = Modifier.fillMaxWidth(0.85f),
-            ) {
-                ProgressSection(
+                Spacer(Modifier.height(20.dp))
+                // 律动与进度条（与音乐面板一致，宽度收窄 15%）
+                Box(
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                ) {
+                    ProgressSection(
+                        playbackState = playbackState,
+                        contentColor = Color.White,
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+                PlayerControls(
                     playbackState = playbackState,
-                    contentColor = Color.White,
+                    onPlaylistClick = { playlistVisible = !playlistVisible },
                 )
+                // 自由窗口底部留白：避免控制按钮贴近窗口边缘
+                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
             }
-            Spacer(Modifier.height(20.dp))
-            PlayerControls(
-            playbackState = playbackState,
-            onPlaylistClick = { playlistVisible = !playlistVisible },
-        )
-        // 自由窗口底部留白：避免控制按钮贴近窗口边缘
-        Spacer(Modifier.height(20.dp))
-        Spacer(Modifier.height(16.dp))
         }
+
+        CoverContextMenu(
+            visible = showCoverMenu,
+            onOnlineCover = {
+                showCoverMenu = false
+                coverTargetId = playbackState.currentTrack?.id
+                showCoverRefresh = true
+                playbackState.currentTrack?.let { track ->
+                    scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
+                }
+            },
+            onLocalCover = {
+                showCoverMenu = false
+                coverTargetId = playbackState.currentTrack?.id
+                selectedLocalCover = null
+                showLocalCover = true
+                scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
+            },
+            onDismiss = { showCoverMenu = false },
+        )
 
         PlaylistSheet(
             visible = playlistVisible,
@@ -653,7 +664,7 @@ fun PlayerArea(
                 message = stringResource(R.string.music_panel_cover_save_failed),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(start = 16.dp, top = topBarInset + 10.dp, end = 16.dp),
                 onDismiss = { coverSaveFailed = false },
             )
         }
@@ -662,7 +673,7 @@ fun PlayerArea(
                 message = stringResource(R.string.music_panel_local_lyrics_failed),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(start = 16.dp, top = topBarInset + 10.dp, end = 16.dp),
                 onDismiss = { lyricsImportFailed = false },
             )
         }
@@ -671,7 +682,7 @@ fun PlayerArea(
                 message = stringResource(R.string.music_panel_edit_lyrics_failed),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(start = 16.dp, top = topBarInset + 10.dp, end = 16.dp),
                 onDismiss = { lyricsEditFailed = false },
             )
         }
@@ -760,3 +771,6 @@ private fun LyricsContextMenu(
 
 // 歌词微调单次步长（毫秒）
 private const val LyricFineTuneStepMs = 100L
+
+// 封面顶部渐隐区在标题栏高度之外的延伸距离
+private val TopFadeExtra = 20.dp

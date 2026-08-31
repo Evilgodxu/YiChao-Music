@@ -4,6 +4,10 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
@@ -13,11 +17,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
@@ -100,5 +106,34 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
                 modifier = Modifier.size(24.dp),
             )
         }
+    }
+}
+
+// 封面底部渐隐区占封面高度的比例
+private const val BOTTOM_FADE_FRACTION = 0.2f
+
+// 首页沉浸式封面：全宽置顶，上下边缘以渲染背景色渐隐融入页面背景
+@Composable
+internal fun HomeImmersiveCover(
+    track: MusicTrack?,
+    backgroundColor: Color,
+    topFadeHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        HomeAlbumArt(track, Modifier.fillMaxSize())
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(topFadeHeight)
+                .background(Brush.verticalGradient(listOf(backgroundColor, Color.Transparent))),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(BOTTOM_FADE_FRACTION)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, backgroundColor))),
+        )
     }
 }
