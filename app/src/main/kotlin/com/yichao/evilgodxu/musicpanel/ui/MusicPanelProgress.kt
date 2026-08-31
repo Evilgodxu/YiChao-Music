@@ -1,7 +1,5 @@
 package com.yichao.evilgodxu.musicpanel
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -32,8 +29,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 @Composable
 internal fun ProgressSection(
@@ -49,13 +44,12 @@ internal fun ProgressSection(
             .padding(top = 2.dp, bottom = 2.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        VisualizerSection(
-            isPlaying = playbackState.isPlaying,
+        TrackFormatInfoSection(
+            playbackState = playbackState,
             contentColor = contentColor,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(14.dp)
-                .alpha(0.45f)
+                .alpha(0.6f),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -190,45 +184,36 @@ internal fun VerticalProgressBar(
     }
 }
 
+// 律动条：展示当前曲目音频格式信息（格式 · 位深/采样率 · 比特率），信息未就绪时留空
 @Composable
-internal fun VisualizerSection(
-    isPlaying: Boolean,
+internal fun TrackFormatInfoSection(
+    playbackState: MusicPlaybackState,
     modifier: Modifier = Modifier,
     contentColor: Color? = null,
 ) {
-    val barCount = 28
-    val primary = contentColor ?: MaterialTheme.colorScheme.primary
-    val inactiveColor = (contentColor ?: MaterialTheme.colorScheme.onSurface).copy(alpha = 0.06f)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(20.dp)
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        repeat(barCount) { index ->
-            val target = remember { mutableFloatStateOf(0.1f) }
-            val animatedHeight by animateFloatAsState(
-                targetValue = if (isPlaying) target.value else 0.04f,
-                animationSpec = tween(120),
-                label = "visualizer_$index"
-            )
-            LaunchedEffect(isPlaying, index) {
-                while (isActive && isPlaying) {
-                    target.value = 0.1f + kotlin.random.Random.nextFloat() * 0.55f
-                    delay(80 + (index * 15).toLong())
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .fillMaxHeight(animatedHeight)
-                    .background(
-                        if (isPlaying) primary.copy(alpha = 0.7f) else inactiveColor,
-                        RoundedCornerShape(0.dp)
-                    )
-            )
-        }
+    val format = playbackState.audioSignalPathFormat
+    val text = if (format != null && (format.sampleRate > 0 || format.bitrate > 0)) {
+        val formatName = format.format.removePrefix("audio/")
+        val bitRate = if (format.sampleRate > 0) {
+            "${format.bitDepth}bit/${formatKhz(format.sampleRate)}kHz"
+        } else "${format.bitDepth}bit"
+        val bitrate = format.bitrate.takeIf { it > 0 }?.let { "${it}kbps" }
+        listOfNotNull(formatName, bitRate, bitrate).joinToString(" · ")
+    } else null
+    if (text != null) {
+        Text(
+            text = text,
+            color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = modifier,
+        )
     }
+}
+
+// 采样率转 kHz 文本：整数值不带小数点，非整数值保留一位小数
+private fun formatKhz(rate: Int): String {
+    val khz = rate / 1000.0
+    return String.format(java.util.Locale.US, "%.1f", khz).trimEnd('0').trimEnd('.')
 }

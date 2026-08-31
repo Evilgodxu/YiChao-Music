@@ -7,6 +7,7 @@ data class AudioSignalPathFormat(
     val outputRate: Int,
     val bitDepth: Int,
     val channels: Int,
+    val bitrate: Int,
 )
 
 // 播放列表来源歌单：key 标识来源，name 为副标题显示名

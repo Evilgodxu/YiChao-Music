@@ -87,6 +87,8 @@ class MusicPlaybackService : MediaSessionService() {
                             else -> 16
                         },
                         channels = channels,
+                        // 恒比特率曲目取 bitrate，VBR 曲目 bitrate 未知时回退 averageBitrate
+                        bitrate = maxOf(format.bitrate, format.averageBitrate).takeIf { it > 0 } ?: 0,
                     )
                 }
                 // 每次轨道切换都刷新状态，确保信号路径始终有值

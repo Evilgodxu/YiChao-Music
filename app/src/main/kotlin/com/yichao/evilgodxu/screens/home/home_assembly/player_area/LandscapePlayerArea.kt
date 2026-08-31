@@ -65,6 +65,7 @@ import com.yichao.evilgodxu.musicpanel.CoverCarouselOverlay
 import com.yichao.evilgodxu.musicpanel.LyricsPanel
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
+import com.yichao.evilgodxu.musicpanel.TrackFormatInfoSection
 import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import kotlinx.coroutines.launch
@@ -166,6 +167,13 @@ fun LandscapePlayerArea(
                     .fillMaxWidth()
                     .background(Color.Transparent),
             ) {
+                TrackFormatInfoSection(
+                    playbackState = playbackState,
+                    contentColor = Color.White,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                )
                 PlayerControls(
                     playbackState = playbackState,
                     onPlaylistClick = { playlistVisible = true },
