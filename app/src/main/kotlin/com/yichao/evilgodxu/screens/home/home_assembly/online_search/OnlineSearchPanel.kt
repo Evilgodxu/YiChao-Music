@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -36,13 +34,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,15 +57,11 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicQuality
 import com.yichao.evilgodxu.musicpanel.MusicSearchSource
-import com.yichao.evilgodxu.musicpanel.SearchLoadMoreFooter
-import com.yichao.evilgodxu.musicpanel.SearchResultRow
-import com.yichao.evilgodxu.musicpanel.loadMoreSearchResults
+import com.yichao.evilgodxu.musicpanel.SearchResultsLazyList
 import com.yichao.evilgodxu.musicpanel.performSearch
 import com.yichao.evilgodxu.musicpanel.playSearchResultWithQuality
 import com.yichao.evilgodxu.musicpanel.tryPlayLocalMatch
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 // 首页专属在线搜索面板：搜索输入/历史/结果逻辑与其样式在此独立封装
@@ -423,54 +415,22 @@ private fun SearchResultList(
                     )
                 }
                 else -> {
-                    val listState = rememberLazyListState()
-                    // 滚动接近列表末尾时加载下一页；仅在滚动位置或列表长度变化时求值，避免持续自动加载
-                    LaunchedEffect(listState) {
-                        snapshotFlow {
-                            val info = listState.layoutInfo
-                            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                            lastVisible to info.totalItemsCount
-                        }
-                            .distinctUntilChanged()
-                            .collect { (lastVisible, total) ->
-                                val nearEnd = total > 0 && lastVisible >= total - 3
-                                if (nearEnd && !playbackState.isSearching && playbackState.hasMoreSearchResults) {
-                                    loadMoreSearchResults(playbackState, context)
+                    SearchResultsLazyList(
+                        playbackState = playbackState,
+                        context = context,
+                        onResultClick = { result ->
+                            // 本地曲库命中同曲直接播放；否则弹出音质选择对话框由用户选音质
+                            scope.launch {
+                                if (!tryPlayLocalMatch(result, playbackState, context, scope)) {
+                                    playbackState.qualityPickTrack = result
+                                    playbackState.qualityBusy = false
+                                    playbackState.qualityError = null
                                 }
                             }
-                    }
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        itemsIndexed(
-                            items = playbackState.searchResults,
-                            // 结合来源与 id 保证 key 唯一
-                            key = { _, result -> "${result.source}-${result.id}" }
-                        ) { _, result ->
-                            SearchResultRow(
-                                result = result,
-                                titleColor = Color.White,
-                                onClick = {
-                                    // 本地曲库命中同曲直接播放；否则弹出音质选择对话框由用户选音质
-                                    scope.launch {
-                                        if (!tryPlayLocalMatch(result, playbackState, context, scope)) {
-                                            playbackState.qualityPickTrack = result
-                                            playbackState.qualityBusy = false
-                                            playbackState.qualityError = null
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                        // 底部脚注：加载中或全部加载完成后展示
-                        if (playbackState.isLoadingMore || !playbackState.hasMoreSearchResults) {
-                            item(key = "load-more-footer") {
-                                SearchLoadMoreFooter(playbackState, tint = Color.White)
-                            }
-                        }
-                    }
+                        },
+                        titleColor = Color.White,
+                        tint = Color.White,
+                    )
                 }
             }
         }

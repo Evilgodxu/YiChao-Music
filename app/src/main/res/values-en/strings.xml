@@ -62,6 +62,8 @@
     <string name="music_panel_search_no_results">No songs found</string>
     <string name="music_panel_search_loading">Searching…</string>
     <string name="music_panel_search_loading_more">Loading…</string>
+    <string name="music_panel_search_pull_load">Pull up to load more</string>
+    <string name="music_panel_search_release_load">Release to load more</string>
     <string name="music_panel_search_load_all">All results shown</string>
     <string name="music_panel_search_source">Netease</string>
     <string name="music_panel_search_source_qq">QQ Music</string>

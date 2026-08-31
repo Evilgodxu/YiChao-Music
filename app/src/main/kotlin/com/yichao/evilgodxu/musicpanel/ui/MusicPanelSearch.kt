@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -48,10 +50,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -65,6 +72,7 @@ import coil3.request.ImageRequest
 import com.yichao.evilgodxu.R
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -322,44 +330,11 @@ internal fun SearchResultsOverlay(
                         )
                     }
                 } else {
-                    val listState = rememberLazyListState()
-                    // 滚动接近列表末尾时加载下一页；仅在滚动位置或列表长度变化时求值，避免持续自动加载
-                    LaunchedEffect(listState) {
-                        snapshotFlow {
-                            val info = listState.layoutInfo
-                            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                            lastVisible to info.totalItemsCount
-                        }
-                            .distinctUntilChanged()
-                            .collect { (lastVisible, total) ->
-                                val nearEnd = total > 0 && lastVisible >= total - 3
-                                if (nearEnd && !playbackState.isSearching && playbackState.hasMoreSearchResults) {
-                                    loadMoreSearchResults(playbackState, context)
-                                }
-                            }
-                    }
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        itemsIndexed(
-                            items = playbackState.searchResults,
-                            // 聚合两种来源后 id 可能重复，key 需结合来源保证唯一
-                            key = { _, result -> "${result.source}-${result.id}" }
-                        ) { index, result ->
-                            SearchResultRow(
-                                result = result,
-                                onClick = { onTrackSelected(result) }
-                            )
-                        }
-                        // 底部脚注：加载中或全部加载完成后展示
-                        if (playbackState.isLoadingMore || !playbackState.hasMoreSearchResults) {
-                            item(key = "load-more-footer") {
-                                SearchLoadMoreFooter(playbackState)
-                            }
-                        }
-                    }
+                    SearchResultsLazyList(
+                        playbackState = playbackState,
+                        context = context,
+                        onResultClick = onTrackSelected,
+                    )
                 }
             }
         } else {
@@ -492,4 +467,103 @@ internal fun SearchLoadMoreFooter(
             textAlign = TextAlign.Center
         )
     }
+}
+
+// 上拉加载所需的松手触发阈值
+private val SEARCH_PULL_LOAD_THRESHOLD_DP = 60.dp
+
+// 搜索结果列表：触底后继续上拉（overscroll）达到阈值才加载下一页，避免误触；上拉过程展示提示
+@Composable
+internal fun SearchResultsLazyList(
+    playbackState: MusicPlaybackState,
+    context: Context,
+    onResultClick: (NeteaseSongSearchResult) -> Unit,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    val listState = rememberLazyListState()
+    // 累计的底部上拉距离，达到阈值松手后触发加载下一页
+    var pullDistance by remember { mutableFloatStateOf(0f) }
+    val loadThreshold = with(LocalDensity.current) { SEARCH_PULL_LOAD_THRESHOLD_DP.toPx() }
+    val connection = remember(listState) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                // 已滚动到底部且继续上拉（可用偏移为负）时累计距离
+                if (available.y < 0 && listState.isAtBottom()) {
+                    pullDistance -= available.y
+                } else if (pullDistance > 0f) {
+                    // 反向滚动离开底部时取消未完成的上拉加载意图
+                    pullDistance = 0f
+                }
+                return Offset.Zero
+            }
+        }
+    }
+    // 手指松开（滚动停止）时按累计距离决定是否加载下一页，并复位累计距离
+    LaunchedEffect(listState, loadThreshold) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .filter { !it }
+            .collect {
+                if (pullDistance >= loadThreshold && playbackState.hasMoreSearchResults &&
+                    !playbackState.isSearching && playbackState.searchResults.isNotEmpty()
+                ) {
+                    loadMoreSearchResults(playbackState, context)
+                }
+                pullDistance = 0f
+            }
+    }
+    LazyColumn(
+        state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(connection),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        itemsIndexed(
+            items = playbackState.searchResults,
+            // 聚合两种来源后 id 可能重复，key 需结合来源保证唯一
+            key = { _, result -> "${result.source}-${result.id}" }
+        ) { _, result ->
+            SearchResultRow(
+                result = result,
+                titleColor = titleColor,
+                onClick = { onResultClick(result) }
+            )
+        }
+        // 底部脚注：加载中 / 上拉加载提示 / 全部加载完成
+        item(key = "load-more-footer") {
+            when {
+                playbackState.isLoadingMore -> SearchLoadMoreFooter(playbackState, tint)
+                playbackState.hasMoreSearchResults -> SearchPullLoadHint(pullDistance, loadThreshold, tint)
+                else -> SearchLoadMoreFooter(playbackState, tint)
+            }
+        }
+    }
+}
+
+// 列表是否已滚动到底部（最后一项可见）
+private fun LazyListState.isAtBottom(): Boolean {
+    val info = layoutInfo
+    val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+    return info.totalItemsCount > 0 && lastVisible >= info.totalItemsCount - 1
+}
+
+// 上拉加载提示：未达阈值提示继续上拉，达到阈值提示松手加载
+@Composable
+private fun SearchPullLoadHint(pullDistance: Float, threshold: Float, tint: Color) {
+    val canRelease = pullDistance >= threshold
+    Text(
+        text = stringResource(
+            if (canRelease) R.string.music_panel_search_release_load
+            else R.string.music_panel_search_pull_load
+        ),
+        color = tint.copy(alpha = if (canRelease) 1f else 0.6f),
+        fontSize = 11.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp)
+    )
 }
