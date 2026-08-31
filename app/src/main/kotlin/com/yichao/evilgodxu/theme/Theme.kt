@@ -58,6 +58,8 @@ val LocalStatusBarLight = androidx.compose.runtime.staticCompositionLocalOf { fa
 object SystemBarAppearance {
     var isLightStatusBars: Boolean = false
     var isLightNavigationBars: Boolean = false
+    // 首页竖屏沉浸式隐藏状态栏的请求，由首页页面写入，Activity 在配置/焦点变化时复读
+    var isHomePortraitImmersive: Boolean = false
 }
 
 // 应用当前页面的系统栏图标外观；各页面入口调用，读取页面级覆盖

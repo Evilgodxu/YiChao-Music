@@ -115,10 +115,13 @@ class YiChaoActivity : ComponentActivity() {
         applySystemBarAppearance()
     }
 
-    // 窗口重新获得焦点时系统可能重置系统栏外观（如对话框关闭后），复读 Compose 应用的外观
+    // 窗口重新获得焦点时系统可能重置系统栏外观与显隐（如对话框关闭后），复读 Compose 应用的状态
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) applySystemBarAppearance()
+        if (hasFocus) {
+            applySystemBarAppearance()
+            updateSystemBarsVisibility()
+        }
     }
 
     private fun applySystemBarAppearance() {
@@ -227,12 +230,15 @@ class YiChaoActivity : ComponentActivity() {
         updateSystemBarsVisibility()
     }
 
-    // 横屏隐藏系统栏，竖屏显示
+    // 横屏隐藏全部系统栏；首页竖屏沉浸式仅隐藏状态栏；其余情况显示
     private fun updateSystemBarsVisibility(orientation: Int = resources.configuration.orientation) {
         if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
             windowInsetsController.hide(WindowInsets.Type.systemBars())
         } else {
             windowInsetsController.show(WindowInsets.Type.systemBars())
+            if (SystemBarAppearance.isHomePortraitImmersive) {
+                windowInsetsController.hide(WindowInsets.Type.statusBars())
+            }
         }
     }
 }
