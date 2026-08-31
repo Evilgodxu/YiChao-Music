@@ -12,8 +12,16 @@ internal sealed interface ProxyParseResult {
 // 代理音源解析与校验：严格校验必填字段，宽松处理可选动作
 internal object ProxySourceParser {
 
-    // 应用内支持的平台键，与 MusicSearchSource 名称小写对齐
-    val SUPPORTED_PLATFORMS = setOf("netease", "qq", "kugou", "kuwo", "migu")
+    // 应用内支持的平台键（短标识），与 MusicSearchSource.platformKey 对齐
+    val SUPPORTED_PLATFORMS = setOf("wy", "qq", "kg", "kw", "mg")
+
+    // 旧版长平台键映射到新短键：已导入的旧音源无需改动即可继续生效
+    private val LEGACY_PLATFORM_KEYS = mapOf(
+        "netease" to "wy",
+        "kugou" to "kg",
+        "kuwo" to "kw",
+        "migu" to "mg",
+    )
 
     private val QUALITY_KEYS = mapOf(
         "standard" to MusicQuality.STANDARD,
@@ -34,12 +42,13 @@ internal object ProxySourceParser {
             ?: return ProxyParseResult.Failure("缺少必填字段 platforms")
         val platforms = mutableMapOf<String, ProxyPlatformSpec>()
         platformsObj.keys().forEach { key ->
-            if (key !in SUPPORTED_PLATFORMS) return@forEach
+            val canonical = LEGACY_PLATFORM_KEYS[key] ?: key
+            if (canonical !in SUPPORTED_PLATFORMS) return@forEach
             val platformObj = platformsObj.optJSONObject(key) ?: return@forEach
-            parsePlatform(platformObj)?.let { platforms[key] = it }
+            parsePlatform(platformObj)?.let { platforms[canonical] = it }
         }
         if (platforms.isEmpty()) {
-            return ProxyParseResult.Failure("未定义受支持平台（netease/qq/kugou/kuwo/migu）")
+            return ProxyParseResult.Failure("未定义受支持平台（wy/qq/kg/kw/mg）")
         }
 
         return ProxyParseResult.Success(

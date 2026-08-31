@@ -236,5 +236,11 @@ internal object ProxySourceEngine {
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
 }
 
-// 平台键与应用内搜索平台对齐（netease/qq/kugou/kuwo/migu）
-internal fun MusicSearchSource.platformKey(): String = name.lowercase()
+// 平台键与应用内搜索平台对齐（wy/qq/kg/kw/mg）
+internal fun MusicSearchSource.platformKey(): String = when (this) {
+    MusicSearchSource.NETEASE -> "wy"
+    MusicSearchSource.QQ -> "qq"
+    MusicSearchSource.KUGOU -> "kg"
+    MusicSearchSource.KUWO -> "kw"
+    MusicSearchSource.MIGU -> "mg"
+}
