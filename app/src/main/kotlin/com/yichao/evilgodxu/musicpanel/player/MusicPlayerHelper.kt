@@ -160,7 +160,8 @@ fun refreshCurrentMediaItem(state: MusicPlaybackState) {
 
 /**
  * 当前曲目本地文件下载/升级完成后，把播放项替换为指向新本地文件的 MediaItem，
- * 避免播放器继续占用在线流而遗留缓存；播放源地址变化时才替换。
+ * 避免播放器继续占用在线流或已删除的旧文件而遗留缓存。
+ * 替换当前项会触发播放源切换，这里记录原播放状态与进度并恢复：播放中则无缝续播，暂停中则保持暂停。
  */
 fun refreshCurrentPlaybackSource(state: MusicPlaybackState) {
     val context = state.appContext ?: return
@@ -173,8 +174,12 @@ fun refreshCurrentPlaybackSource(state: MusicPlaybackState) {
         val current = controller.currentMediaItem
         if (current?.mediaId != track.id.toString()) return@launch
         val newItem = toMediaItem(context, track)
-        if (current.localConfiguration?.uri?.toString() != newItem.localConfiguration?.uri?.toString()) {
-            controller.replaceMediaItem(index, newItem)
-        }
+        if (current.localConfiguration?.uri?.toString() == newItem.localConfiguration?.uri?.toString()) return@launch
+        // 替换前记录播放状态与进度，替换后据此恢复，实现升级后继续播放
+        val wasPlaying = controller.isPlaying
+        val resumePosition = controller.currentPosition.coerceAtLeast(0L)
+        controller.replaceMediaItem(index, newItem)
+        if (resumePosition > 0) controller.seekTo(resumePosition)
+        if (wasPlaying) controller.play() else controller.pause()
     }
 }
