@@ -277,25 +277,17 @@ private suspend fun embedCachedMetadata(
     }
 }
 
-// 当前本地曲目升级为无损：按标题/歌手匹配在线歌曲并解析无损直链下载，成功后删除旧文件、
+// 本地曲目按用户确认的在线候选升级为无损：解析无损直链并下载，成功后删除旧文件、
 // 索引转向新文件并触发媒体扫描，同时刷新当前播放源避免继续占用已删除的旧文件
-internal suspend fun upgradeCurrentTrackToLossless(
+internal suspend fun upgradeTrackToLossless(
     context: Context,
     playbackState: MusicPlaybackState,
+    track: MusicTrack,
+    candidate: NeteaseSongSearchResult,
 ): Boolean {
-    val track = playbackState.currentTrack ?: return false
     if (!track.isLocalAudioSource) return false
-    // 匹配在线原曲（标题 + 歌手 + 时长），匹配失败则保持原文件
-    val match = NeteaseMusicApi.match(track.title, track.artist, track.duration) ?: return false
-    val result = NeteaseSongSearchResult(
-        id = match.id,
-        title = match.title,
-        artist = match.artist,
-        coverUrl = match.coverUrl,
-        duration = track.duration,
-    )
-    val url = resolvePlayUrlByQuality(context, result, MusicQuality.LOSSLESS) ?: return false
-    val newUri = downloadLosslessToDownloads(context, result, url) ?: return false
+    val url = resolvePlayUrlByQuality(context, candidate, MusicQuality.LOSSLESS) ?: return false
+    val newUri = downloadLosslessToDownloads(context, candidate, url) ?: return false
     val newPath = queryMediaPath(context, Uri.parse(newUri)).orEmpty()
     // 索引转向新文件：同时更新本地路径，使曲目身份指向新的无损文件
     withContext(Dispatchers.Main) {
@@ -311,8 +303,8 @@ internal suspend fun upgradeCurrentTrackToLossless(
             playbackState.persistPlaylist()
         }
     }
-    // 写入标题/艺术家/封面，媒体扫描后本地文件元数据不丢失
-    embedCachedMetadata(context, playbackState, track.id)
+    // 写入标题/艺术家/封面：候选封面优先，缺失时沿用旧封面缓存
+    embedUpgradeMetadata(context, playbackState, track, candidate)
     // 刷新当前播放源指向新文件，避免播放器继续占用将被删除的旧文件
     refreshCurrentPlaybackSource(playbackState)
     // 删除升级前的旧本地文件
@@ -322,6 +314,26 @@ internal suspend fun upgradeCurrentTrackToLossless(
         MediaScannerConnection.scanFile(context, arrayOf(newPath), null, null)
     }
     return true
+}
+
+// 写入升级后新文件的标题/艺术家/封面：候选封面优先，缺失时沿用旧封面缓存
+private suspend fun embedUpgradeMetadata(
+    context: Context,
+    playbackState: MusicPlaybackState,
+    track: MusicTrack,
+    candidate: NeteaseSongSearchResult,
+) {
+    val bytes = if (candidate.coverUrl.isNullOrBlank()) {
+        MusicMetadataCache.loadCoverBytes(track.coverCachePath)
+    } else {
+        NeteaseMusicApi.loadCoverBytes(candidate.coverUrl) ?: MusicMetadataCache.loadCoverBytes(track.coverCachePath)
+    } ?: return
+    val updated = playbackState.playlist.firstOrNull { it.id == track.id } ?: track
+    try {
+        MusicMetadataWriter.writeMetadataToSource(context, updated, candidate.title, candidate.artist, bytes)
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicDownloader", "内嵌无损升级元数据失败: 歌曲=${candidate.title}", e)
+    }
 }
 
 // 下载无损文件到公共下载目录并返回内容 Uri；试听片段或写入失败返回 null

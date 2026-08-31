@@ -262,6 +262,11 @@ class MusicPlaybackState {
     var losslessUpgradeBusy by mutableStateOf(false)
     // 最近一次无损升级失败提示：升级失败时保留对话框展示，供用户重试
     var losslessUpgradeError by mutableStateOf<String?>(null)
+    // 无损升级候选：按来源搜索的在线原曲，用户确认选中后下载无损替换本地文件
+    var losslessUpgradeCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
+    var isLosslessUpgradeSearching by mutableStateOf(false)
+    // 无损升级候选搜索来源
+    var losslessUpgradeSource by mutableStateOf(MusicSearchSource.NETEASE)
     var coverCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var isCoverSearching by mutableStateOf(false)
     var localCoverCandidates by mutableStateOf<List<RecentCover>>(emptyList())
