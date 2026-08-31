@@ -446,7 +446,7 @@ fun PlayerArea(
                     )
                 }
                 Spacer(Modifier.height(20.dp))
-                // 律动与进度条（与音乐面板一致，宽度收窄 15%）
+                // 音频信息与进度条（与音乐面板一致，宽度收窄 15%）
                 Box(
                     modifier = Modifier.fillMaxWidth(0.85f),
                 ) {

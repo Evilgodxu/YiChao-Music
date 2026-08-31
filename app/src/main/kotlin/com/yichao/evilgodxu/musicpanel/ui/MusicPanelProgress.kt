@@ -184,7 +184,7 @@ internal fun VerticalProgressBar(
     }
 }
 
-// 律动条：展示当前曲目音频格式信息（格式 · 位深/采样率 · 比特率），信息未就绪时留空
+// 音频信息条：展示当前曲目格式、位深/采样率与比特率，信息未就绪时留空
 @Composable
 internal fun TrackFormatInfoSection(
     playbackState: MusicPlaybackState,

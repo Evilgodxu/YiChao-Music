@@ -651,6 +651,18 @@ class MusicPlaybackState {
         }
     }
 
+    // 冷启动未播放时预读当前曲目格式信息，供音频信息条展示；开始播放后由解码头覆盖
+    fun refreshIdleTrackFormatInfo(context: Context) {
+        if (audioSignalPathFormat != null || currentTrack == null) return
+        playbackScope.launch(Dispatchers.IO) {
+            val track = currentTrack ?: return@launch
+            val info = TrackAudioInfoReader.readIdleFormat(context, track) ?: return@launch
+            if (currentTrack?.id == track.id && audioSignalPathFormat == null) {
+                audioSignalPathFormat = info
+            }
+        }
+    }
+
     // 持久化播放速度，供重启后恢复
     private fun persistPlaybackSpeed() {
         val context = appContext ?: return

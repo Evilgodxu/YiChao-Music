@@ -34,6 +34,8 @@ fun HomeScreen(
             state.currentIndex = index
             state.currentTrack = state.playlist[index]
         }
+        // 未播放时也预读当前曲目格式信息，重启后音频信息条仍能展示
+        state.refreshIdleTrackFormatInfo(context)
     }
     // 首页背景固定深色，状态栏图标始终固定白色，不随主题变化
     CompositionLocalProvider(LocalStatusBarLight provides false) {
