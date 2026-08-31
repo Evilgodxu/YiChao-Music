@@ -196,7 +196,6 @@ fun HomeAssembly(
                         // 长按标题/艺术家菜单“在线搜索”：切到在线搜索面板并自动按当前菜单文本搜索
                         PlayerArea(
                             modifier = Modifier.fillMaxSize(),
-                            backgroundColor = homeBackgroundColor,
                             topBarInset = innerPadding.calculateTopPadding(),
                             onOpenOnlineSearch = { query ->
                                 playbackState.setSearchQuery(query)

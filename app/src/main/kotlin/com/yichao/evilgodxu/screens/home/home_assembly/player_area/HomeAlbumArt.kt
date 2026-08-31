@@ -4,10 +4,6 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.material3.Icon
@@ -17,13 +13,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.musicpanel.MusicMetadataCache
@@ -112,28 +113,36 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
 // 封面底部渐隐区占封面高度的比例
 private const val BOTTOM_FADE_FRACTION = 0.2f
 
-// 首页沉浸式封面：全宽置顶，上下边缘以渲染背景色渐隐融入页面背景
+// 首页沉浸式封面：全宽置顶，上下边缘渐隐为透明融入真实渲染背景
 @Composable
 internal fun HomeImmersiveCover(
     track: MusicTrack?,
-    backgroundColor: Color,
-    topFadeHeight: Dp,
+    topFraction: Float,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier) {
-        HomeAlbumArt(track, Modifier.fillMaxSize())
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(topFadeHeight)
-                .background(Brush.verticalGradient(listOf(backgroundColor, Color.Transparent))),
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .fillMaxHeight(BOTTOM_FADE_FRACTION)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, backgroundColor))),
-        )
+    HomeAlbumArt(
+        track = track,
+        modifier = modifier.verticalFadeMask(
+            topFraction.coerceIn(0f, 1f - BOTTOM_FADE_FRACTION),
+            BOTTOM_FADE_FRACTION,
+        ),
+    )
+}
+
+// 上下边缘渐隐蒙层：与跑马灯同款 DstIn 处理，封面顶部与底部渐变消失透出背景
+private fun Modifier.verticalFadeMask(topFraction: Float, bottomFraction: Float): Modifier = drawWithCache {
+    val brush = Brush.verticalGradient(
+        colorStops = arrayOf(
+            0f to Color.Transparent,
+            topFraction to Color.Black,
+            1f - bottomFraction to Color.Black,
+            1f to Color.Transparent,
+        ),
+    )
+    onDrawWithContent {
+        drawIntoCanvas { canvas -> canvas.saveLayer(Rect(Offset.Zero, size), Paint()) }
+        drawContent()
+        drawRect(brush = brush, size = size, blendMode = BlendMode.DstIn)
+        drawIntoCanvas { canvas -> canvas.restore() }
     }
 }

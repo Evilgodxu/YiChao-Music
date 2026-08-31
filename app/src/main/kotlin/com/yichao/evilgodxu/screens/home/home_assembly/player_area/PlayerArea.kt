@@ -85,7 +85,6 @@ import com.yichao.evilgodxu.musicpanel.copyToClipboard
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
 import com.yichao.evilgodxu.musicpanel.searchLyricsCandidates
-import com.yichao.evilgodxu.theme.md_theme_dark_surface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -93,8 +92,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerArea(
     modifier: Modifier = Modifier,
-    // 渲染背景色：封面上下边缘渐隐目标色
-    backgroundColor: Color = md_theme_dark_surface,
     // 标题栏区域高度：封面顶部渐隐区与错误横幅避让基准
     topBarInset: Dp = 0.dp,
     onOpenOnlineSearch: (String) -> Unit = {},
@@ -196,7 +193,7 @@ fun PlayerArea(
         // 封面为全宽正方形，占位高度即屏幕宽度
         val coverHeight = maxWidth
         val contentMaxHeight = (maxHeight - coverHeight).coerceAtLeast(0.dp)
-        // 沉浸式专辑封面：全宽置顶并嵌入标题栏区域，上下边缘以渲染背景色渐隐融入背景
+        // 沉浸式专辑封面：全宽置顶并嵌入标题栏区域，上下边缘渐隐为透明融入背景
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -209,8 +206,7 @@ fun PlayerArea(
         ) {
             HomeImmersiveCover(
                 track = playbackState.currentTrack,
-                backgroundColor = backgroundColor,
-                topFadeHeight = topBarInset + TopFadeExtra,
+                topFraction = (topBarInset + TopFadeExtra) / coverHeight,
                 modifier = Modifier.fillMaxSize(),
             )
         }
