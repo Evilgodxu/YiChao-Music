@@ -258,6 +258,10 @@ class MusicPlaybackState {
     var qualityError by mutableStateOf<String?>(null)
     // 音质试播曲目 ID：播放就绪(READY)后清空；播放失败时据此移除试播曲目并保留对话框
     var pendingQualityPlayTrackId by mutableStateOf<Long?>(null)
+    // 无损升级进行中：阻止重复触发与误关对话框
+    var losslessUpgradeBusy by mutableStateOf(false)
+    // 最近一次无损升级失败提示：升级失败时保留对话框展示，供用户重试
+    var losslessUpgradeError by mutableStateOf<String?>(null)
     var coverCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
     var isCoverSearching by mutableStateOf(false)
     var localCoverCandidates by mutableStateOf<List<RecentCover>>(emptyList())

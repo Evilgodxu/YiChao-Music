@@ -67,6 +67,7 @@ import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicTrack
 import com.yichao.evilgodxu.musicpanel.TrackFormatInfoSection
 import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
+import com.yichao.evilgodxu.musicpanel.currentTrackNeedsLosslessUpgrade
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import kotlinx.coroutines.launch
 
@@ -80,6 +81,8 @@ fun LandscapePlayerArea(
 ) {
     var playlistVisible by remember { mutableStateOf(false) }
     var coverCarouselVisible by remember { mutableStateOf(false) }
+    // 无损升级确认对话框显隐
+    var showLosslessUpgrade by remember { mutableStateOf(false) }
     // 封面与点击检测层在窗口坐标系下的位置，用于判定点击是否命中封面
     var tapBounds by remember { mutableStateOf<Rect?>(null) }
     var coverBounds by remember { mutableStateOf<Rect?>(null) }
@@ -170,6 +173,11 @@ fun LandscapePlayerArea(
                 TrackFormatInfoSection(
                     playbackState = playbackState,
                     contentColor = Color.White,
+                    onClick = {
+                        if (currentTrackNeedsLosslessUpgrade(playbackState)) {
+                            showLosslessUpgrade = true
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 6.dp),
@@ -185,6 +193,13 @@ fun LandscapePlayerArea(
             visible = playlistVisible,
             playbackState = playbackState,
             onDismiss = { playlistVisible = false },
+        )
+
+        // 音频信息条点击触发的无损升级确认对话框
+        LosslessUpgradeDialog(
+            visible = showLosslessUpgrade,
+            playbackState = playbackState,
+            onDismiss = { showLosslessUpgrade = false },
         )
 
         // 3D 封面轮播覆盖全屏，淡入 + 轻微缩放过渡入场，避免闪屏且衔接自然

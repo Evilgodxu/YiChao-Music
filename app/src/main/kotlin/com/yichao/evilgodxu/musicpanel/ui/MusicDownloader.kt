@@ -196,6 +196,21 @@ private fun isTrialAudioFile(file: File): Boolean {
     }
 }
 
+// 校验文件确为无损音频格式，读不到格式或非无损一律视为升级失败
+private fun isLosslessAudioFile(file: File): Boolean {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(file.absolutePath)
+        val mime = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+        val name = TrackAudioInfoReader.mimeToFormatName(mime)
+        name != null && isLosslessFormatName(name)
+    } catch (e: Exception) {
+        false
+    } finally {
+        runCatching { retriever.release() }
+    }
+}
+
 private fun audioMimeType(extension: String): String = when (extension) {
     "flac" -> "audio/flac"
     "ogg" -> "audio/ogg"
@@ -259,5 +274,115 @@ private suspend fun embedCachedMetadata(
         MusicMetadataWriter.writeMetadataToSource(context, track, track.title, track.artist, bytes)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicDownloader", "内嵌缓存元数据失败: 歌曲=${track.title}", e)
+    }
+}
+
+// 当前本地曲目升级为无损：按标题/歌手匹配在线歌曲并解析无损直链下载，成功后删除旧文件、
+// 索引转向新文件并触发媒体扫描，同时刷新当前播放源避免继续占用已删除的旧文件
+internal suspend fun upgradeCurrentTrackToLossless(
+    context: Context,
+    playbackState: MusicPlaybackState,
+): Boolean {
+    val track = playbackState.currentTrack ?: return false
+    if (!track.isLocalAudioSource) return false
+    // 匹配在线原曲（标题 + 歌手 + 时长），匹配失败则保持原文件
+    val match = NeteaseMusicApi.match(track.title, track.artist, track.duration) ?: return false
+    val result = NeteaseSongSearchResult(
+        id = match.id,
+        title = match.title,
+        artist = match.artist,
+        coverUrl = match.coverUrl,
+        duration = track.duration,
+    )
+    val url = resolvePlayUrlByQuality(context, result, MusicQuality.LOSSLESS) ?: return false
+    val newUri = downloadLosslessToDownloads(context, result, url) ?: return false
+    val newPath = queryMediaPath(context, Uri.parse(newUri)).orEmpty()
+    // 索引转向新文件：同时更新本地路径，使曲目身份指向新的无损文件
+    withContext(Dispatchers.Main) {
+        val idx = playbackState.playlist.indexOfFirst { it.id == track.id }
+        if (idx >= 0) {
+            val updated = playbackState.playlist[idx].copy(audioUri = newUri, path = newPath)
+            val list = playbackState.playlist.toMutableList()
+            list[idx] = updated
+            playbackState.playlist = list
+            if (playbackState.currentTrack?.id == track.id) {
+                playbackState.currentTrack = updated
+            }
+            playbackState.persistPlaylist()
+        }
+    }
+    // 写入标题/艺术家/封面，媒体扫描后本地文件元数据不丢失
+    embedCachedMetadata(context, playbackState, track.id)
+    // 刷新当前播放源指向新文件，避免播放器继续占用将被删除的旧文件
+    refreshCurrentPlaybackSource(playbackState)
+    // 删除升级前的旧本地文件
+    deleteOldAudioFile(context, track, newUri)
+    // 触发媒体扫描：新文件入库，旧文件条目同步移除
+    if (newPath.isNotBlank()) {
+        MediaScannerConnection.scanFile(context, arrayOf(newPath), null, null)
+    }
+    return true
+}
+
+// 下载无损文件到公共下载目录并返回内容 Uri；试听片段或写入失败返回 null
+private suspend fun downloadLosslessToDownloads(
+    context: Context,
+    result: NeteaseSongSearchResult,
+    url: String,
+): String? = withContext(Dispatchers.IO) {
+    try {
+        // 按实际 URL 后缀推断格式，无损直链通常为 flac
+        val extension = url.substringBefore('?')
+            .substringAfterLast('.', "")
+            .lowercase()
+            .takeIf { it in AUDIO_EXTENSIONS } ?: "flac"
+        val fileName = "${sanitizeFileName(result.title)} - ${sanitizeFileName(result.artist)}.$extension"
+        val tempFile = File.createTempFile("upgrade", ".$extension", context.cacheDir)
+        try {
+            val request = Request.Builder().url(url).build()
+            MusicHttpClient.client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) return@withContext null
+                resp.body.byteStream().use { input ->
+                    tempFile.outputStream().use { output -> input.copyTo(output, STREAM_BUFFER_SIZE) }
+                }
+            }
+            // 无损直链可能返回试听片段(≤30秒)，不入库不升级
+            if (isTrialAudioFile(tempFile)) return@withContext null
+            // 校验确为无损格式，避免平台未提供无损时以有损文件顶替
+            if (!isLosslessAudioFile(tempFile)) return@withContext null
+            val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, audioMimeType(extension))
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YiChao/Audio")
+            }
+            val uri = context.contentResolver.insert(collection, contentValues)
+            if (uri == null) return@withContext null
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                tempFile.inputStream().use { input -> input.copyTo(os, STREAM_BUFFER_SIZE) }
+            }
+            uri.toString()
+        } finally {
+            tempFile.delete()
+        }
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicDownloader", "无损升级下载失败: 歌曲=${result.title}", e)
+        null
+    }
+}
+
+// 删除升级前的旧本地文件：经 MediaStore 删除并清理媒体条目，失败时直删路径并触发媒体扫描
+private suspend fun deleteOldAudioFile(context: Context, track: MusicTrack, newUri: String) {
+    if (track.audioUri == newUri) return
+    val scheme = runCatching { Uri.parse(track.audioUri).scheme }.getOrNull()
+    if (scheme != "content" && scheme != "file") return
+    withContext(Dispatchers.IO) {
+        runCatching {
+            Uri.parse(track.audioUri).let { context.contentResolver.delete(it, null, null) }
+        }
+        track.path.takeIf { it.isNotBlank() }?.let { path ->
+            runCatching { File(path).delete() }
+            MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+        }
     }
 }

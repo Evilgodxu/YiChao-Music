@@ -29,6 +29,9 @@ data class MusicTrack(
     // 本地源的内嵌封面由后台提取，提取完成前不直接回退在线封面
     val isLocalAudioSource: Boolean
         get() = path.isNotBlank() || audioUri.startsWith("content:") || audioUri.startsWith("file:")
+
+    // 是否可升级为无损：仅本地音频源可被匹配并替换为无损版本
+    fun isUpgradableToLossless(): Boolean = isLocalAudioSource
 }
 
 // 播放模式

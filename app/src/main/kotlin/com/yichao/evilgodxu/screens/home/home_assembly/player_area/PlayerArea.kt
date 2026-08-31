@@ -82,6 +82,7 @@ import com.yichao.evilgodxu.musicpanel.applyLocalLyrics
 import com.yichao.evilgodxu.musicpanel.applyLyricsCandidate
 import com.yichao.evilgodxu.musicpanel.applyLyricsLineEdit
 import com.yichao.evilgodxu.musicpanel.copyToClipboard
+import com.yichao.evilgodxu.musicpanel.currentTrackNeedsLosslessUpgrade
 import com.yichao.evilgodxu.musicpanel.loadRecentCovers
 import com.yichao.evilgodxu.musicpanel.menuEdgePositionProvider
 import com.yichao.evilgodxu.musicpanel.searchCoverCandidates
@@ -167,6 +168,8 @@ fun PlayerArea(
     var showMetaMenu by remember { mutableStateOf(false) }
     var menuText by remember { mutableStateOf("") }
     var menuIsTitle by remember { mutableStateOf(true) }
+    // 无损升级确认对话框显隐
+    var showLosslessUpgrade by remember { mutableStateOf(false) }
     // 歌词微调按钮显示状态：点击歌词区切换
     var lyricTuneVisible by remember { mutableStateOf(false) }
     // 微调操作计数：每次调整自增以重置自动隐藏计时
@@ -453,6 +456,11 @@ fun PlayerArea(
                     ProgressSection(
                         playbackState = playbackState,
                         contentColor = Color.White,
+                        onFormatClick = {
+                            if (currentTrackNeedsLosslessUpgrade(playbackState)) {
+                                showLosslessUpgrade = true
+                            }
+                        },
                     )
                 }
                 Spacer(Modifier.height(20.dp))
@@ -505,6 +513,13 @@ fun PlayerArea(
                 }
             },
             onCancel = { showLyricsEdit = false },
+        )
+
+        // 音频信息条点击触发的无损升级确认对话框
+        LosslessUpgradeDialog(
+            visible = showLosslessUpgrade,
+            playbackState = playbackState,
+            onDismiss = { showLosslessUpgrade = false },
         )
 
         LocalCoverDialog(

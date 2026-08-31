@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.musicpanel
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.sp
 internal fun ProgressSection(
     playbackState: MusicPlaybackState,
     contentColor: Color? = null,
+    onFormatClick: (() -> Unit)? = null,
 ) {
     // 进度条与时间文本颜色：默认取主题色，传入 contentColor 时（如首页）覆盖为指定色
     val activeColor = contentColor ?: MaterialTheme.colorScheme.primary
@@ -47,6 +49,7 @@ internal fun ProgressSection(
         TrackFormatInfoSection(
             playbackState = playbackState,
             contentColor = contentColor,
+            onClick = onFormatClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .alpha(0.6f),
@@ -184,24 +187,19 @@ internal fun VerticalProgressBar(
     }
 }
 
-// 音频信息条：展示当前曲目格式、位深/采样率与比特率，信息未就绪时留空
+// 音频信息条：展示当前曲目格式、位深/采样率与比特率，信息未就绪时留空；
+// 传入 onClick 时整条可点击（首页用于触发无损升级）
 @Composable
 internal fun TrackFormatInfoSection(
     playbackState: MusicPlaybackState,
     modifier: Modifier = Modifier,
     contentColor: Color? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     // 仅展示属于当前曲目的格式信息，避免后台切歌后错配残留
     val format = playbackState.audioSignalPathFormat
         .takeIf { playbackState.audioSignalPathTrackId == playbackState.currentTrack?.id }
-    val text = if (format != null && (format.sampleRate > 0 || format.bitrate > 0)) {
-        val formatName = format.format.removePrefix("audio/")
-        val bitRate = if (format.sampleRate > 0) {
-            "${format.bitDepth}bit/${formatKhz(format.sampleRate)}kHz"
-        } else "${format.bitDepth}bit"
-        val bitrate = format.bitrate.takeIf { it > 0 }?.let { "${it}kbps" }
-        listOfNotNull(formatName, bitRate, bitrate).joinToString(" · ")
-    } else null
+    val text = format?.let { formatDisplayLabel(it) }
     if (text != null) {
         Text(
             text = text,
@@ -209,9 +207,44 @@ internal fun TrackFormatInfoSection(
             fontSize = 10.sp,
             maxLines = 1,
             textAlign = TextAlign.Center,
-            modifier = modifier,
+            modifier = modifier.clickable(enabled = onClick != null) { onClick?.invoke() },
         )
     }
+}
+
+// 格式信息展示文本：格式 · 位深/采样率 · 比特率；无有效信息时返回 null
+internal fun formatDisplayLabel(format: AudioSignalPathFormat): String? {
+    if (format.sampleRate <= 0 && format.bitrate <= 0) return null
+    val formatName = format.format.removePrefix("audio/")
+    val bitRate = if (format.sampleRate > 0) {
+        "${format.bitDepth}bit/${formatKhz(format.sampleRate)}kHz"
+    } else "${format.bitDepth}bit"
+    val bitrate = format.bitrate.takeIf { it > 0 }?.let { "${it}kbps" }
+    return listOfNotNull(formatName, bitRate, bitrate).joinToString(" · ")
+}
+
+// 无损格式集合：命中的格式已无需再升级
+private val LOSSLESS_FORMATS = setOf(
+    "FLAC", "WAV", "WAVE", "ALAC", "APE", "AIFF", "AIF", "PCM", "DSD", "DSF", "DFF",
+)
+
+// 判定展示格式是否已达到无损
+internal fun isLosslessFormat(format: AudioSignalPathFormat): Boolean =
+    isLosslessFormatName(format.format.removePrefix("audio/"))
+
+// 按格式名判定是否已达到无损
+internal fun isLosslessFormatName(name: String): Boolean {
+    val normalized = name.uppercase().trim()
+    return normalized in LOSSLESS_FORMATS || normalized.endsWith("LOSSLESS")
+}
+
+// 当前曲目是否触发无损升级：展示格式低于无损且该曲目可升级
+internal fun currentTrackNeedsLosslessUpgrade(playbackState: MusicPlaybackState): Boolean {
+    val format = playbackState.audioSignalPathFormat
+        .takeIf { playbackState.audioSignalPathTrackId == playbackState.currentTrack?.id }
+        ?: return false
+    if (isLosslessFormat(format)) return false
+    return playbackState.currentTrack?.isUpgradableToLossless() == true
 }
 
 // 采样率转 kHz 文本：整数值不带小数点，非整数值保留一位小数

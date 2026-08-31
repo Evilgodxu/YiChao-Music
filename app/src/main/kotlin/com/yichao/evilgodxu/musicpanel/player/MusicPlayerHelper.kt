@@ -157,3 +157,24 @@ fun refreshCurrentMediaItem(state: MusicPlaybackState) {
         }
     }
 }
+
+/**
+ * 当前曲目本地文件下载/升级完成后，把播放项替换为指向新本地文件的 MediaItem，
+ * 避免播放器继续占用在线流而遗留缓存；播放源地址变化时才替换。
+ */
+fun refreshCurrentPlaybackSource(state: MusicPlaybackState) {
+    val context = state.appContext ?: return
+    val controller = state.mediaController ?: return
+    val track = state.currentTrack ?: return
+    val index = state.currentIndex
+    if (index < 0) return
+    state.playbackScope.launch {
+        if (controller.mediaItemCount != state.playlist.size) return@launch
+        val current = controller.currentMediaItem
+        if (current?.mediaId != track.id.toString()) return@launch
+        val newItem = toMediaItem(context, track)
+        if (current.localConfiguration?.uri?.toString() != newItem.localConfiguration?.uri?.toString()) {
+            controller.replaceMediaItem(index, newItem)
+        }
+    }
+}
