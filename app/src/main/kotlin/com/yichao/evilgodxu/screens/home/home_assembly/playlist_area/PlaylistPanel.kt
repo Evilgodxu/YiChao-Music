@@ -110,7 +110,6 @@ internal fun PlaylistPanel(
                 is PlaylistSyncResult.Failure -> SyncUiState.Failed(
                     context.getString(
                         when (result.reason) {
-                            SyncFailure.NO_SOURCE -> R.string.playlist_import_no_source
                             SyncFailure.FETCH_FAILED -> R.string.playlist_import_fetch_failed
                             SyncFailure.NO_DOWNLOAD -> R.string.playlist_import_empty
                             SyncFailure.LIBRARY_MATCH_FAILED -> R.string.playlist_import_failed
@@ -311,10 +310,9 @@ private fun PlaylistOverview(
         }
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            // 新建歌单入口固定置于“我的歌单”列表顶部，不随列表变动移动
-            CreatePlaylistRow(onClick = onCreatePlaylist)
-            Spacer(modifier = Modifier.height(8.dp))
             ImportPlaylistRow(onClick = onImportPlaylist)
+            Spacer(modifier = Modifier.height(8.dp))
+            CreatePlaylistRow(onClick = onCreatePlaylist)
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(PlaylistStore.playlists, key = { it.id }) { playlist ->
@@ -515,7 +513,7 @@ private fun CreatePlaylistRow(onClick: () -> Unit) {
     }
 }
 
-// 从平台分享链接导入歌单入口：样式与新建歌单卡片一致
+// 从平台分享链接导入歌单入口：样式与新建歌单卡片一致，纯文字无图标
 @Composable
 private fun ImportPlaylistRow(onClick: () -> Unit) {
     Row(
@@ -532,13 +530,6 @@ private fun ImportPlaylistRow(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            imageVector = AppIcons.CloudDownload,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.playlist_import),
             color = Color.White,

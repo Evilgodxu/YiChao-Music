@@ -31,9 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MetadataDialogCard
 import com.yichao.evilgodxu.musicpanel.proxy.PlaylistSyncer
-import com.yichao.evilgodxu.musicpanel.proxy.ProxySourceStore
 import com.yichao.evilgodxu.musicpanel.proxy.RemotePlaylistLink
-import com.yichao.evilgodxu.musicpanel.proxy.platformKey
 import kotlinx.coroutines.launch
 
 // 从平台分享链接导入歌单：输入链接 → 解析预览歌单 → 确认后回调启动后台同步
@@ -68,10 +66,7 @@ internal fun PlaylistImportDialog(
             }
             val fetched = PlaylistSyncer.fetchRemote(context, parsed)
             if (fetched == null) {
-                val noSource = ProxySourceStore.platformSpec(context, parsed.source.platformKey())?.playlist == null
-                error = context.getString(
-                    if (noSource) R.string.playlist_import_no_source else R.string.playlist_import_fetch_failed
-                )
+                error = context.getString(R.string.playlist_import_fetch_failed)
                 parsing = false
                 return@launch
             }

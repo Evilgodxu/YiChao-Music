@@ -211,6 +211,60 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         }
     }
 
+    // 内置歌单解析：按歌单 ID 拉取名称与全部歌曲
+    suspend fun fetchPlaylist(playlistId: String): NeteasePlaylistData? = withContext(Dispatchers.IO) {
+        try {
+            val root = request("v6/playlist/detail", JSONObject().apply {
+                put("id", playlistId)
+                put("n", 100000)
+                put("s", 8)
+            })
+            val playlist = root.optJSONObject("playlist") ?: return@withContext null
+            val trackIds = (playlist.optJSONArray("trackIds") ?: JSONArray()).let { arr ->
+                List(arr.length()) { arr.optJSONObject(it)?.optLong("id") }.filterNotNull()
+            }
+            val songs = fetchSongDetails(trackIds)
+            if (songs.isEmpty()) return@withContext null
+            NeteasePlaylistData(playlist.optString("name"), songs)
+        } catch (e: Exception) {
+            CrashLogManager.logException("NeteaseMusicApi", "解析歌单失败: $playlistId", e)
+            null
+        }
+    }
+
+    // 按歌单内歌曲 ID 分批拉取详情并映射为统一曲目
+    private suspend fun fetchSongDetails(ids: List<Long>): List<NeteaseSongSearchResult> {
+        if (ids.isEmpty()) return emptyList()
+        val songs = mutableListOf<NeteaseSongSearchResult>()
+        ids.chunked(200).forEach { batch ->
+            val c = batch.joinToString(",") { "{\"id\":$it}" }
+            val array = runCatching {
+                request("v3/song/detail", JSONObject().put("c", "[$c]")).optJSONArray("songs")
+            }.getOrNull() ?: return@forEach
+            val batchIds = batch.toSet()
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val id = item.optLong("id")
+                if (id !in batchIds) continue
+                val artists = item.optJSONArray("ar") ?: item.optJSONArray("artists") ?: JSONArray()
+                val artist = List(artists.length()) { artists.getJSONObject(it).optString("name") }
+                    .filter { it.isNotBlank() }
+                    .joinToString(" / ")
+                val album = item.optJSONObject("al") ?: item.optJSONObject("album")
+                val cover = album?.optString("picUrl")?.takeIf { it.isNotBlank() }?.let { ensureHttps(it) }
+                songs += NeteaseSongSearchResult(
+                    id = id,
+                    title = item.optString("name"),
+                    artist = artist,
+                    coverUrl = cover,
+                    coverThumbUrl = cover?.let { thumbUrl(it) },
+                    duration = item.optLong("dt", 0L),
+                )
+            }
+        }
+        return songs
+    }
+
     private fun searchMatch(keyword: String): List<NeteaseSongMatch> {
         val body = JSONObject().apply {
             put("s", keyword)

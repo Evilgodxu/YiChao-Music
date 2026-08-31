@@ -6,6 +6,7 @@ import com.yichao.evilgodxu.musicpanel.MusicHttpClient
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.MusicQuality
 import com.yichao.evilgodxu.musicpanel.MusicSearchSource
+import com.yichao.evilgodxu.musicpanel.NeteaseMusicApi
 import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
 import com.yichao.evilgodxu.musicpanel.downloadTrackToLibrary
 import com.yichao.evilgodxu.musicpanel.normalizeTitle
@@ -21,7 +22,7 @@ internal data class RemotePlaylistLink(
 )
 
 // 歌单同步失败原因
-internal enum class SyncFailure { NO_SOURCE, FETCH_FAILED, NO_DOWNLOAD, LIBRARY_MATCH_FAILED }
+internal enum class SyncFailure { FETCH_FAILED, NO_DOWNLOAD, LIBRARY_MATCH_FAILED }
 
 // 同步统计：已存在跳过 / 新下载 / 下载失败
 internal data class SyncStats(
@@ -41,7 +42,8 @@ internal sealed interface PlaylistSyncResult {
     data class Failure(val reason: SyncFailure) : PlaylistSyncResult
 }
 
-// 歌单同步：解析分享链接 → 经代理音源拉取歌单 → 本地同名跳过 → 高音质优先下载入库
+// 歌单同步：解析分享链接 → 拉取歌单（代理音源优先，未配置或失败回退内置解析）→
+// 本地同名跳过 → 高音质优先下载入库
 internal object PlaylistSyncer {
 
     // 解析分享链接为平台 + 歌单 ID；直接解析失败时尝试跟随重定向
@@ -99,9 +101,15 @@ internal object PlaylistSyncer {
         }.getOrNull()
     }
 
-    // 经代理音源拉取歌单（仅走代理，未配置或失败返回 null）
-    suspend fun fetchRemote(context: Context, link: RemotePlaylistLink): ProxyPlaylistResult? =
-        ProxySourceEngine.fetchPlaylist(context, link.source, link.playlistId)
+    // 拉取歌单：代理音源优先，未配置或失败时回退内置解析（仅网易云内置支持）
+    suspend fun fetchRemote(context: Context, link: RemotePlaylistLink): ProxyPlaylistResult? {
+        ProxySourceEngine.fetchPlaylist(context, link.source, link.playlistId)?.let { return it }
+        val builtin = when (link.source) {
+            MusicSearchSource.NETEASE -> NeteaseMusicApi.fetchPlaylist(link.playlistId)
+            else -> null
+        } ?: return null
+        return ProxyPlaylistResult(builtin.name, builtin.songs)
+    }
 
     // 同步：拉取歌单 → 本地同名跳过 → 逐首解析直链（高音质优先）并下载 → 刷新曲库 → 返回入库曲目 ID
     suspend fun syncToLibrary(
@@ -110,9 +118,6 @@ internal object PlaylistSyncer {
         link: RemotePlaylistLink,
         onProgress: (done: Int, total: Int, title: String) -> Unit,
     ): PlaylistSyncResult {
-        if (ProxySourceStore.platformSpec(context, link.source.platformKey())?.playlist == null) {
-            return PlaylistSyncResult.Failure(SyncFailure.NO_SOURCE)
-        }
         val fetched = fetchRemote(context, link)
             ?: return PlaylistSyncResult.Failure(SyncFailure.FETCH_FAILED)
         val total = fetched.songs.size
