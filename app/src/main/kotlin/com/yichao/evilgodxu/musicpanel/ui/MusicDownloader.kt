@@ -303,7 +303,7 @@ internal suspend fun upgradeTrackToLossless(
             playbackState.persistPlaylist()
         }
     }
-    // 写入标题/艺术家/封面：候选封面优先，缺失时沿用旧封面缓存
+    // 写入标题/艺术家；封面沿用旧文件内嵌原图
     embedUpgradeMetadata(context, playbackState, track, candidate)
     // 刷新当前播放源指向新文件，避免播放器继续占用将被删除的旧文件
     refreshCurrentPlaybackSource(playbackState)
@@ -316,23 +316,40 @@ internal suspend fun upgradeTrackToLossless(
     return true
 }
 
-// 写入升级后新文件的标题/艺术家/封面：候选封面优先，缺失时沿用旧封面缓存
+// 写入升级后新文件的标题/艺术家：封面沿用旧文件内嵌的原图，
+// 旧文件无内嵌封面时不主动下载，留空交由占位符显示
 private suspend fun embedUpgradeMetadata(
     context: Context,
     playbackState: MusicPlaybackState,
     track: MusicTrack,
     candidate: NeteaseSongSearchResult,
 ) {
-    val bytes = if (candidate.coverUrl.isNullOrBlank()) {
-        MusicMetadataCache.loadCoverBytes(track.coverCachePath)
-    } else {
-        NeteaseMusicApi.loadCoverBytes(candidate.coverUrl) ?: MusicMetadataCache.loadCoverBytes(track.coverCachePath)
-    } ?: return
     val updated = playbackState.playlist.firstOrNull { it.id == track.id } ?: track
+    val coverBytes = extractEmbeddedCover(context, track)
     try {
-        MusicMetadataWriter.writeMetadataToSource(context, updated, candidate.title, candidate.artist, bytes)
+        MusicMetadataWriter.writeMetadataToSource(context, updated, candidate.title, candidate.artist, coverBytes)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicDownloader", "内嵌无损升级元数据失败: 歌曲=${candidate.title}", e)
+    }
+}
+
+// 提取旧本地文件内嵌的封面原图字节：文件路径优先，其次本地 content/file URI；无内嵌或读取失败返回 null
+private suspend fun extractEmbeddedCover(context: Context, track: MusicTrack): ByteArray? = withContext(Dispatchers.IO) {
+    val retriever = MediaMetadataRetriever()
+    try {
+        if (track.path.isNotBlank()) {
+            retriever.setDataSource(track.path)
+        } else {
+            val uri = Uri.parse(track.audioUri)
+            if (uri.scheme != "content" && uri.scheme != "file") return@withContext null
+            retriever.setDataSource(context, uri)
+        }
+        retriever.embeddedPicture
+    } catch (e: Exception) {
+        CrashLogManager.logException("MusicDownloader", "提取旧文件内嵌封面失败: 歌曲=${track.title}", e)
+        null
+    } finally {
+        runCatching { retriever.release() }
     }
 }
 
