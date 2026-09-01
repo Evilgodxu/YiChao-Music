@@ -39,7 +39,7 @@ internal object MusicMetadataCache {
     private fun mediaRoot(context: Context): File {
         val public = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             ?.let { File(it, CACHE_DIR_NAME) }
-        return public ?: context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
+        return public ?: context.getExternalFilesDir(null) ?: context.filesDir
     }
 
     internal fun coverRoot(context: Context): File = File(mediaRoot(context), COVER_DIR)
@@ -74,7 +74,8 @@ internal object MusicMetadataCache {
         }
         val dir = File(mediaRoot(context), dirName)
         if (!dir.isDirectory && !runCatching { dir.mkdirs() }.getOrDefault(false)) return null
-        ensureNoMedia(dir)
+        // 仅封面目录需 .nomedia 防止混入相册，歌词文本不受媒体扫描影响
+        if (dirName == COVER_DIR) ensureNoMedia(dir)
         val file = File(dir, name)
         return if (runCatching { file.writeBytes(bytes) }.isSuccess && file.isFile) file else null
     }
@@ -142,10 +143,11 @@ internal object MusicMetadataCache {
 
     // 应用专属目录兜底：MediaStore 与公共目录直写均不可用时保证缓存仍可落盘
     private fun writeToPrivateDir(context: Context, dirName: String, name: String, bytes: ByteArray): File? {
-        val root = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return null
+        val root = context.getExternalFilesDir(null) ?: return null
         val dir = File(root, dirName)
         if (!dir.isDirectory && !dir.mkdirs()) return null
-        ensureNoMedia(dir)
+        // 仅封面目录需 .nomedia 防止混入相册，歌词文本不受媒体扫描影响
+        if (dirName == COVER_DIR) ensureNoMedia(dir)
         val file = File(dir, name)
         return if (runCatching { file.writeBytes(bytes) }.isSuccess && file.isFile) file else null
     }
@@ -332,7 +334,7 @@ internal object MusicMetadataCache {
         if (hasDirectDownloadAccess()) {
             val roots = buildList {
                 add(mediaRoot(context))
-                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                context.getExternalFilesDir(null)
                     ?.takeIf { it.path != mediaRoot(context).path }
                     ?.let { add(it) }
             }
@@ -343,8 +345,10 @@ internal object MusicMetadataCache {
     }
 
     private fun removeOrphanFiles(dir: File, referenced: Set<String>) {
+        // 仅封面目录保留 .nomedia，歌词目录残留的旧 .nomedia 一并清理
+        val isCoverDir = dir.name == COVER_DIR
         dir.takeIf { it.exists() }?.listFiles().orEmpty().forEach { file ->
-            if (file.isFile && file.name != ".nomedia" && file.absolutePath !in referenced) {
+            if (file.isFile && (file.name != ".nomedia" || !isCoverDir) && file.absolutePath !in referenced) {
                 runCatching { file.delete() }
             }
         }
