@@ -918,27 +918,21 @@ class MusicPlaybackState {
         timerRemaining = 0
     }
 
-    // 将原始曲目列表按收藏优先排序，并保留当前曲目索引
+    // 将原始曲目列表按默认规则排序（歌手聚合 → 专辑聚合 → 标题），并保留当前曲目索引
     fun setSortedPlaylist(tracks: List<MusicTrack>) {
         val currentId = currentTrack?.id
         val sorted = tracks
             .map { it.copy(isFavorite = likedIds.contains(it.id)) }
-            .sortedWith(compareByDescending<MusicTrack> { it.isFavorite }.thenBy { it.title })
+            .sortedByDefaultOrder()
         playlist = sorted
         currentIndex = sorted.indexOfFirst { it.id == currentId }.coerceAtLeast(-1)
     }
 
-    // 切换指定曲目的收藏状态并重排列表
+    // 切换指定曲目的收藏状态：仅就地更新收藏标记，不改变列表顺序
     fun toggleFavorite(trackId: Long) {
         val newLiked = if (likedIds.contains(trackId)) likedIds - trackId else likedIds + trackId
         likedIds = newLiked
-        // 仅重写目标曲目的收藏状态并重排，避免对无关元素重复 copy
-        val currentId = currentTrack?.id
-        val sorted = playlist
-            .map { if (it.id == trackId) it.copy(isFavorite = trackId in newLiked) else it }
-            .sortedWith(compareByDescending<MusicTrack> { it.isFavorite }.thenBy { it.title })
-        playlist = sorted
-        currentIndex = sorted.indexOfFirst { it.id == currentId }.coerceAtLeast(-1)
+        playlist = playlist.map { if (it.id == trackId) it.copy(isFavorite = trackId in newLiked) else it }
         persistPlaylist()
     }
 
@@ -1105,4 +1099,49 @@ class MusicPlaybackState {
     fun setSleepTimerExpired(expired: Boolean) { sleepTimerExpired = expired }
     @JvmName("updateCurrentPosition")
     fun setCurrentPosition(position: Long) { currentPosition = position }
+}
+
+// 歌手分隔符：顿号、中英文逗号/分号、斜杠、反斜杠、与号
+private val ARTIST_SEPARATOR = Regex("""[、,，;；/\\&]""")
+
+// 解析歌曲关联的全部歌手：按分隔符拆分并清理空白，无有效项时退回整串
+private fun parseTrackArtists(artist: String): List<String> =
+    artist.split(ARTIST_SEPARATOR)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .ifEmpty { listOf(artist.trim()) }
+
+// 按默认规则排序：优先按歌手聚合、其次按专辑聚合、专辑内再按标题排序；
+// 多歌手歌曲归属到当前列表中歌曲数量最多的歌手，数量相同时取解析顺序靠前的歌手
+private fun List<MusicTrack>.sortedByDefaultOrder(): List<MusicTrack> {
+    // 统计各歌手参与当前列表的歌曲数量（多歌手歌曲计入每个关联歌手）
+    val artistSongCounts = hashMapOf<String, Int>()
+    forEach { track ->
+        parseTrackArtists(track.artist).forEach { artist ->
+            artistSongCounts[artist] = (artistSongCounts[artist] ?: 0) + 1
+        }
+    }
+    // 确定每首歌的归属歌手，用于聚合分组
+    val ownerByTrackId = hashMapOf<Long, String>()
+    forEach { track ->
+        val artists = parseTrackArtists(track.artist)
+        var owner = artists.firstOrNull().orEmpty()
+        if (artists.size > 1) {
+            var ownerCount = artistSongCounts[owner] ?: 0
+            for (candidate in artists.drop(1)) {
+                val candidateCount = artistSongCounts[candidate] ?: 0
+                if (candidateCount > ownerCount) {
+                    owner = candidate
+                    ownerCount = candidateCount
+                }
+            }
+        }
+        ownerByTrackId[track.id] = owner
+    }
+    return sortedWith(
+        compareBy<MusicTrack> { ownerByTrackId[it.id] ?: "" }
+            .thenBy { it.albumName }
+            .thenBy { it.albumId }
+            .thenBy { it.title }
+    )
 }
