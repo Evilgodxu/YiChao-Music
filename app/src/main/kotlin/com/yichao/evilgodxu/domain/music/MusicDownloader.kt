@@ -135,6 +135,8 @@ private suspend fun registerCachedFileAsLocal(
             playbackState.currentIndex = migratedIndex
             playbackState.currentTrack = playbackState.playlist[migratedIndex]
         }
+        // 缓存完成后以本地文件补齐当前曲目信息条，避免在线播放期间空白
+        playbackState.refreshTrackFormatInfoFromLocal(context)
     }
 }
 

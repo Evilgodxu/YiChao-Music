@@ -669,6 +669,19 @@ class MusicPlaybackState {
         }
     }
 
+    // 缓存完成后以本地缓存文件为源强制补齐当前曲目格式信息，避免在线播放期间信息条空白
+    fun refreshTrackFormatInfoFromLocal(context: Context) {
+        val track = currentTrack ?: return
+        if (!track.isLocalAudioSource) return
+        playbackScope.launch(Dispatchers.IO) {
+            val info = TrackAudioInfoReader.readIdleFormat(context, track) ?: return@launch
+            if (currentTrack?.id == track.id) {
+                audioSignalPathFormat = info
+                audioSignalPathTrackId = track.id
+            }
+        }
+    }
+
     // 回到前台时校正音频信息：与当前曲目错配时清掉旧值并重新读取当前曲目源格式，
     // 保证信息条始终对应当前曲目而不依赖解码回调回填
     fun reconcileTrackFormatInfo(context: Context) {
