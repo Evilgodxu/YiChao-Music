@@ -1,6 +1,8 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 
+import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -198,17 +200,27 @@ fun PlayerArea(
         }
     }
 
+    // 多窗口（自由窗口/分屏）检测：小窗底部有系统控制条，需预留半高控制栏的避让留白
+    val activity = LocalActivityResultRegistryOwner.current as? Activity
+    val bottomClearance = if (activity?.isInMultiWindowMode() == true) {
+        BottomControlBarClearance
+    } else {
+        0.dp
+    }
+
     // 外层容器：沉浸封面置顶，其余模块从封面下方按序排列
     BoxWithConstraints(modifier = modifier) {
-        // 封面为正方形：常规窗口下边长即宽度；自由窗口高度偏矮时按可用高度等比例缩放，避免底部内容被截断
-        val coverHeight = (maxHeight - lyricsAreaHeight - BottomFixedContentHeight)
+        // 封面保持全宽沉浸：常规窗口下为宽高等于宽度的正方形；自由窗口高度偏矮时按可用高度压缩高度，
+        // 配合内容裁切保留全宽置顶的沉浸效果，避免底部内容被截断
+        val coverHeight = (maxHeight - lyricsAreaHeight - BottomFixedContentHeight - bottomClearance)
             .coerceAtLeast(MinCoverHeight)
             .coerceAtMost(maxWidth)
-        // 沉浸式专辑封面：置顶并嵌入标题栏区域，上下边缘渐隐为透明融入背景
+        // 沉浸式专辑封面：全宽置顶并嵌入标题栏区域，上下边缘渐隐为透明融入背景
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .size(coverHeight)
+                .fillMaxWidth()
+                .height(coverHeight)
                 .combinedClickable(
                     onClick = {},
                     onLongClick = { if (playbackState.currentTrack != null) showCoverMenu = true },
@@ -271,7 +283,8 @@ fun PlayerArea(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(bottom = bottomClearance),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // 封面与歌词间距
@@ -806,5 +819,7 @@ private val TopFadeExtra = 20.dp
 
 // 歌词区下方固定区域高度：间距、标题/艺人两行、进度条与控制栏，用于计算封面可占用高度
 private val BottomFixedContentHeight = 8.dp + 8.dp + 24.dp + 4.dp + 20.dp + 8.dp + 40.dp + 8.dp + 48.dp
-// 自由窗口下封面最小边长：窗口过矮时不再压缩封面，保证封面可用
+// 自由窗口下封面最小高度：窗口过矮时不再压缩封面，保证封面可用
 private val MinCoverHeight = 120.dp
+// 多窗口底部系统控制条避让留白：播放控制栏高度（48dp）的一半
+private val BottomControlBarClearance = 24.dp
