@@ -3,8 +3,6 @@ package com.yichao.evilgodxu.musicpanel
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
@@ -28,7 +26,6 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
-import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -56,72 +53,6 @@ class MusicPanelViewManager(
 
     private val playbackState = MusicPanelStateHolder.state
     private var pendingExternalUri: android.net.Uri? = null
-    private var usbRouteJob: Job? = null
-
-    // USB 音频独占监听器
-    private val usbAudioMonitor = UsbAudioMonitor(
-        context = context,
-        onUsbDeviceAttached = { deviceName ->
-            playbackState.usbDeviceName = deviceName
-            playbackState.isUsbDeviceConnected = true
-            playbackState.usbError = null  // 连接成功时清除错误
-            refreshSignalPathState(playbackState)
-            // 根据用户偏好自动启用 USB 独占
-            if (playbackState.usbExclusiveEnabled) {
-                usbRouteJob?.cancel()
-                usbRouteJob = managerScope.launch {
-                    val success = UsbAudioMonitor.setUsbExclusive(context, true)
-                    if (success && playbackState.isUsbDeviceConnected &&
-                        playbackState.usbDeviceName == deviceName) {
-                        withContext(Dispatchers.Main) {
-                            playbackState.isUsbExclusiveMode = true
-                        }
-                    } else {
-                        UsbAudioMonitor.setUsbExclusive(context, false)
-                        withContext(Dispatchers.Main) {
-                            playbackState.isUsbExclusiveMode = false
-                        }
-                    }
-                }
-            }
-        },
-        onUsbDeviceDetached = {
-            playbackState.isUsbDeviceConnected = false
-            playbackState.isUsbExclusiveMode = false
-            playbackState.usbDeviceName = ""
-            playbackState.usbError = null  // 断开时清除错误
-            refreshSignalPathState(playbackState)
-            // 移除首选设备设置，让音频回退到系统默认路由
-            usbRouteJob?.cancel()
-            usbRouteJob = managerScope.launch {
-                UsbAudioMonitor.setUsbExclusive(context, false)
-            }
-        },
-        onError = { message ->
-            playbackState.usbError = message
-        },
-        // 请求权限前先关闭面板（面板悬浮窗优先级高于系统弹窗）
-        onBeforeRequestPermission = { dismiss() }
-    )
-    // 蓝牙耳机监听器
-    private val bluetoothHeadsetMonitor = BluetoothHeadsetMonitor(
-        context = context,
-        onHeadsetConnected = { deviceName, isNewConnection ->
-            playbackState.isBluetoothHeadsetConnected = true
-            deviceName?.let { playbackState.bluetoothHeadsetName = it }
-            refreshSignalPathState(playbackState)
-            if (isNewConnection && !playbackState.bluetoothVolumeInitialized) {
-                // 单次播放会话内首次连接蓝牙耳机时自动降低媒体音量到 25%
-                BluetoothHeadsetMonitor.reduceMediaVolume(context, 0.25f)
-                playbackState.bluetoothVolumeInitialized = true
-            }
-        },
-        onHeadsetDisconnected = {
-            playbackState.isBluetoothHeadsetConnected = false
-            playbackState.bluetoothHeadsetName = ""
-            refreshSignalPathState(playbackState)
-        }
-    )
     private val externalTrackMutex = Mutex()
     private var initialization: Deferred<Unit>? = null
     private var mediaObserverRegistered = false
@@ -218,9 +149,6 @@ class MusicPanelViewManager(
             blurBehindRadius = 80
         }
 
-        // 在 UI 渲染前同步检查已连接的蓝牙设备，确保首次显示时状态正确
-        bluetoothHeadsetMonitor.checkExistingSync()
-
         val view = ComposeView(context).apply {
             alpha = 0f
             scaleX = 0.8f
@@ -306,8 +234,6 @@ class MusicPanelViewManager(
                 playbackState.updatePosition()
             }
             registerMediaObserver()
-            usbAudioMonitor.register()
-            bluetoothHeadsetMonitor.register()
         }
     }
 
@@ -441,10 +367,6 @@ class MusicPanelViewManager(
                     context.contentResolver.unregisterContentObserver(mediaObserver)
                     mediaObserverRegistered = false
                 }
-                usbAudioMonitor.unregister()
-                usbRouteJob?.cancel()
-                usbRouteJob = null
-                bluetoothHeadsetMonitor.unregister()
                 playbackState.updatePosition()
                 if (!playbackState.isPlayerActive) {
                     playbackState.softRelease()
@@ -453,30 +375,5 @@ class MusicPanelViewManager(
                 managerJob.cancel()
             }
             .start()
-    }
-
-    /** 刷新播放链路面板的状态行 */
-    private fun refreshSignalPathState(state: MusicPlaybackState) {
-        state.audioSignalPathStrategy = if (state.isUsbExclusiveMode) "Direct" else "Mixer"
-        state.audioSignalPathOutputDevice = resolveOutputDeviceName(state)
-        state.audioSignalPathRoute = if (state.isUsbDeviceConnected) "USB"
-            else if (state.isBluetoothHeadsetConnected) "Bluetooth" else "System"
-    }
-
-    private fun resolveOutputDeviceName(state: MusicPlaybackState): String {
-        if (state.isUsbDeviceConnected && state.usbDeviceName.isNotBlank()) return state.usbDeviceName
-        if (state.isBluetoothHeadsetConnected && state.bluetoothHeadsetName.isNotBlank()) {
-            return state.bluetoothHeadsetName
-        }
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            .firstOrNull { device ->
-                device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
-                    device.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-            }
-            ?.productName
-            ?.toString()
-            ?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.signal_path_speaker)
     }
 }

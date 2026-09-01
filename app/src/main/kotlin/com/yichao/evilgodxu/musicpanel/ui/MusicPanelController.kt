@@ -1,6 +1,5 @@
 package com.yichao.evilgodxu.musicpanel
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -186,6 +185,5 @@ class MusicPanelController(private val context: Context) {
     private fun hasRequiredPermissions(): Boolean =
         context.checkSelfPermission(mediaAudioPermission()) == PackageManager.PERMISSION_GRANTED &&
             context.checkSelfPermission(mediaImagePermission()) == PackageManager.PERMISSION_GRANTED &&
-            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             Environment.isExternalStorageManager()
 }

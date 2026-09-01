@@ -13,8 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 // 透明权限申请 Activity，用于从 Service/无障碍服务上下文动态申请权限：
 // 1. 申请 READ_MEDIA_AUDIO（音频文件访问）
 // 2. 申请 READ_MEDIA_IMAGES（读取本地封面候选图片）
-// 3. 申请 BLUETOOTH_CONNECT（读取已连接蓝牙耳机名称）
-// 4. 音频权限申请完后，若未授予全部文件访问权限，自动跳转系统设置由用户手动授予
+// 3. 音频权限申请完后，若未授予全部文件访问权限，自动跳转系统设置由用户手动授予
 class MusicPanelPermissionActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
@@ -41,13 +40,12 @@ class MusicPanelPermissionActivity : ComponentActivity() {
         MusicPanelPermissionBridge.clearPendingShowAction()
     }
 
-    // 链式申请缺失的权限：音频 → 蓝牙 → 全部文件访问
+    // 链式申请缺失的权限：音频 → 图片 → 全部文件访问
     private fun requestNextPermission() {
         when {
-            hasAudioPermission() && hasImagePermission() && hasBluetoothPermission() && hasAllFilesAccess() -> completeAndFinish()
+            hasAudioPermission() && hasImagePermission() && hasAllFilesAccess() -> completeAndFinish()
             !hasAudioPermission() -> permissionLauncher.launch(Manifest.permission.READ_MEDIA_AUDIO)
             !hasImagePermission() -> permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
-            !hasBluetoothPermission() -> permissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
             else -> launchAllFilesSettings()
         }
     }
@@ -61,9 +59,6 @@ class MusicPanelPermissionActivity : ComponentActivity() {
         return checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) ==
                 PackageManager.PERMISSION_GRANTED
     }
-
-    private fun hasBluetoothPermission(): Boolean =
-        checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     private fun hasAllFilesAccess(): Boolean = Environment.isExternalStorageManager()
 

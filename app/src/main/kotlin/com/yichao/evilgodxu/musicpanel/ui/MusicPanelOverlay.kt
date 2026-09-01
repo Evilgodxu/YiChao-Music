@@ -402,7 +402,6 @@ fun MusicPanelOverlay(
 
                     SettingsOverlay(
                         visible = showSettings,
-                        playbackState = playbackState,
                         showSoundEffects = showSoundEffects,
                         onShowSoundEffectsChange = { showSoundEffects = it },
                         onDismiss = { showSettings = false }
@@ -566,9 +565,8 @@ fun MusicPanelOverlay(
                         )
                     }
 
-                    AudioSignalPathOverlay(
+                    PendingFeatureOverlay(
                         visible = showAudioSignalPath,
-                        playbackState = playbackState,
                         onDismiss = { showAudioSignalPath = false },
                     )
                 }

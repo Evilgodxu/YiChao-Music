@@ -1,6 +1,6 @@
 package com.yichao.evilgodxu.musicpanel
 
-// 播放链路的音频格式与输出参数（USB 独占路由展示）
+// 当前曲目的音频格式信息（音频信息条展示用）
 data class AudioSignalPathFormat(
     val format: String,
     val sampleRate: Int,

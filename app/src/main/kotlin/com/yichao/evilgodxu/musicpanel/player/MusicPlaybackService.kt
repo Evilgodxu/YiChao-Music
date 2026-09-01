@@ -14,7 +14,6 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.yichao.evilgodxu.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -26,7 +25,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         // 变速/变调交给 AudioTrack 原生处理，避免 Sonic 软件变速在低速时产生噪声
-        val usbAudioSink = DefaultAudioSink.Builder(this)
+        val audioSink = DefaultAudioSink.Builder(this)
             .setEnableAudioOutputPlaybackParameters(true)
             .build()
         val renderersFactory = object : DefaultRenderersFactory(this) {
@@ -34,9 +33,8 @@ class MusicPlaybackService : MediaSessionService() {
                 context: android.content.Context,
                 enableFloatOutput: Boolean,
                 enableAudioOutputPlaybackParameters: Boolean,
-            ): AudioSink = usbAudioSink
+            ): AudioSink = audioSink
         }
-        UsbAudioMonitor.audioSinkDeviceSetter = usbAudioSink::setPreferredDevice
         player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -64,12 +62,6 @@ class MusicPlaybackService : MediaSessionService() {
                 if (format != null) {
                     val sampleRate = format.sampleRate.takeIf { it > 0 } ?: 48000
                     val decodedChannels = format.channelCount.takeIf { it > 0 } ?: 2
-                    val encoding = if (format.pcmEncoding > 0) format.pcmEncoding else android.media.AudioFormat.ENCODING_PCM_16BIT
-                    UsbAudioMonitor.updatePlaybackFormat(sampleRate, decodedChannels, encoding)
-                    // 独占模式下按新格式重新应用位完美混音属性（采样率/位深可能随曲目变化）
-                    if (state.isUsbExclusiveMode) {
-                        UsbAudioMonitor.setUsbExclusive(this@MusicPlaybackService, true)
-                    }
                     // 优先沿用源格式预读的位深/声道，保证播放前后展示一致不跳变；
                     // 位深是源文件属性，不以解码输出位深推算（高解析度曲目解码常以浮点输出）
                     val sourceFormat = state.audioSignalPathFormat
@@ -105,8 +97,6 @@ class MusicPlaybackService : MediaSessionService() {
                         }
                     }
                 }
-                // 每次轨道切换都刷新状态，确保信号路径始终有值
-                updateSignalPathState(state)
             }
 
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -219,32 +209,7 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onDestroy() {
         mediaSession?.release()
         mediaSession = null
-        UsbAudioMonitor.audioSinkDeviceSetter = null
         player.release()
         super.onDestroy()
-    }
-
-    private fun resolveOutputDeviceName(state: MusicPlaybackState): String {
-        if (state.isUsbDeviceConnected && state.usbDeviceName.isNotBlank()) return state.usbDeviceName
-        if (state.isBluetoothHeadsetConnected && state.bluetoothHeadsetName.isNotBlank()) {
-            return state.bluetoothHeadsetName
-        }
-        val audioManager = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
-        return audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
-            .firstOrNull { device ->
-                device.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
-                    device.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-            }
-            ?.productName
-            ?.toString()
-            ?.takeIf { it.isNotBlank() }
-            ?: getString(R.string.signal_path_speaker)
-    }
-
-    /** 刷新播放链路面板的状态行 */
-    private fun updateSignalPathState(state: MusicPlaybackState) {
-        state.audioSignalPathStrategy = if (state.isUsbExclusiveMode) "Direct" else "Mixer"
-        state.audioSignalPathOutputDevice = resolveOutputDeviceName(state)
-        state.audioSignalPathRoute = if (state.isUsbDeviceConnected) "USB" else if (state.isBluetoothHeadsetConnected) "Bluetooth" else "System"
     }
 }

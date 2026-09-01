@@ -77,9 +77,7 @@
     <string name="music_quality_standard">Standard</string>
     <string name="music_panel_playback_settings">Playback settings</string>
     <string name="music_panel_usb_exclusive">USB audio exclusive</string>
-    <string name="music_panel_usb_enabled">Enabled: %s</string>
-    <string name="music_panel_usb_connected_not_enabled">Connected but exclusive not enabled</string>
-    <string name="music_panel_usb_not_detected">No USB audio device detected</string>
+    <string name="music_panel_usb_not_implemented">USB exclusive not implemented</string>
     <string name="music_panel_sound_effects_title">Sound effects</string>
     <string name="music_panel_sound_effects_enter">Open</string>
     <string name="music_panel_sound_effects_not_implemented">Not implemented</string>
@@ -116,40 +114,15 @@
     <string name="music_panel_favorite">Favorite</string>
     <string name="music_panel_play_next">Play next</string>
     <string name="music_panel_cancel_play_next">Cancel play next</string>
-    <string name="music_panel_bluetooth_device">Bluetooth device</string>
-    <string name="music_panel_usb_device">USB device</string>
 
     <!-- Music scanner -->
     <string name="music_scanner_external_music">External music</string>
     <string name="music_scanner_unknown_artist">Unknown artist</string>
     <string name="music_scanner_unknown_song">Unknown song</string>
 
-    <!-- USB device fallback name -->
-    <string name="usb_audio_default_name">USB audio device</string>
-
-    <!-- Audio signal path -->
-    <string name="signal_path_title">Audio path</string>
-    <string name="signal_path_format">Format</string>
-    <string name="signal_path_sample_rate">Source rate</string>
-    <string name="signal_path_output_rate">Output rate</string>
-    <string name="signal_path_bit_depth">Bit depth</string>
-    <string name="signal_path_channels">Channels</string>
-    <string name="signal_path_output_strategy">Output strategy</string>
-    <string name="signal_path_output_device">Output device</string>
-    <string name="signal_path_route">Audio route</string>
-    <string name="signal_path_dsd_mode">DSD mode</string>
-    <string name="signal_path_direct">Direct</string>
-    <string name="signal_path_mixer">Mixer</string>
-    <string name="signal_path_system">System</string>
-    <string name="signal_path_mono">Mono</string>
-    <string name="signal_path_stereo">Stereo</string>
-    <string name="signal_path_channels_value">%d channels</string>
-    <string name="signal_path_bit_value">%d-bit</string>
-    <string name="signal_path_khz">%.1f kHz</string>
-    <string name="signal_path_hz">%d Hz</string>
-    <string name="signal_path_speaker">Speaker</string>
-    <string name="signal_path_bluetooth">Bluetooth</string>
-    <string name="signal_path_dash">-</string>
+    <!-- Pending feature panel -->
+    <string name="music_panel_pending_feature_title">Pending feature 1</string>
+    <string name="music_panel_feature_not_implemented">Not implemented</string>
 
     <!-- Mini player -->
     <string name="mini_player_cover">Album cover</string>

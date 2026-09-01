@@ -457,25 +457,9 @@ class MusicPlaybackState {
         }
     }
 
-    // USB 独占模式相关状态
-    var isUsbDeviceConnected by mutableStateOf(false)
-    var isUsbExclusiveMode by mutableStateOf(false)
-    var usbExclusiveEnabled by mutableStateOf(true)   // 用户偏好：是否启用 USB 独占（默认开启）
-    var usbDeviceName by mutableStateOf("")
-    var usbError by mutableStateOf<String?>(null)     // USB 错误信息（显示在面板底部）
     var audioSignalPathFormat by mutableStateOf<AudioSignalPathFormat?>(null)
     // 音频信息所属曲目：保证格式信息始终与当前曲目对应，后台切歌后再回前台不会错配
     var audioSignalPathTrackId by mutableStateOf<Long?>(null)
-    var audioSignalPathStrategy by mutableStateOf("Mixer")
-    var audioSignalPathOutputDevice by mutableStateOf("-")
-    var audioSignalPathRoute by mutableStateOf("-")
-    var audioSignalPathDsdMode by mutableStateOf("PCM")
-
-    // 蓝牙耳机相关状态
-    var isBluetoothHeadsetConnected by mutableStateOf(false)
-    var bluetoothHeadsetName by mutableStateOf("")
-    // 单次播放会话内仅初始化一次蓝牙音量
-    var bluetoothVolumeInitialized = false
 
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
@@ -840,7 +824,6 @@ class MusicPlaybackState {
     }
 
     fun softRelease() {
-        bluetoothVolumeInitialized = false
         stopPositionTicker()
         persistState()
         currentTrack?.let { track ->
@@ -860,7 +843,6 @@ class MusicPlaybackState {
 
 
     fun release() {
-        bluetoothVolumeInitialized = false
         stopPositionTicker()
         persistState()
         currentTrack?.let { track ->
@@ -1116,8 +1098,4 @@ class MusicPlaybackState {
     fun setSleepTimerExpired(expired: Boolean) { sleepTimerExpired = expired }
     @JvmName("updateCurrentPosition")
     fun setCurrentPosition(position: Long) { currentPosition = position }
-    @JvmName("updateUsbExclusiveEnabled")
-    fun setUsbExclusiveEnabled(enabled: Boolean) { usbExclusiveEnabled = enabled }
-    @JvmName("updateUsbExclusiveMode")
-    fun setUsbExclusiveMode(enabled: Boolean) { isUsbExclusiveMode = enabled }
 }

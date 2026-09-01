@@ -77,9 +77,7 @@
     <string name="music_quality_standard">标准</string>
     <string name="music_panel_playback_settings">播放设置</string>
     <string name="music_panel_usb_exclusive">USB 音频独占</string>
-    <string name="music_panel_usb_enabled">已启用：%s</string>
-    <string name="music_panel_usb_connected_not_enabled">已连接但未启用独占</string>
-    <string name="music_panel_usb_not_detected">未检测到 USB 音频设备</string>
+    <string name="music_panel_usb_not_implemented">暂未实现usb独占</string>
     <string name="music_panel_sound_effects_title">音效设置</string>
     <string name="music_panel_sound_effects_enter">进入</string>
     <string name="music_panel_sound_effects_not_implemented">暂未实现</string>
@@ -116,40 +114,15 @@
     <string name="music_panel_favorite">收藏</string>
     <string name="music_panel_play_next">下一首播放</string>
     <string name="music_panel_cancel_play_next">取消下一首播放</string>
-    <string name="music_panel_bluetooth_device">蓝牙设备</string>
-    <string name="music_panel_usb_device">USB 设备</string>
 
     <!-- 音乐扫描 -->
     <string name="music_scanner_external_music">外部音乐</string>
     <string name="music_scanner_unknown_artist">未知艺术家</string>
     <string name="music_scanner_unknown_song">未知歌曲</string>
 
-    <!-- 设备名称兜底 -->
-    <string name="usb_audio_default_name">USB 音频设备</string>
-
-    <!-- 播放链路面板 -->
-    <string name="signal_path_title">播放链路</string>
-    <string name="signal_path_format">音频格式</string>
-    <string name="signal_path_sample_rate">源采样率</string>
-    <string name="signal_path_output_rate">输出采样率</string>
-    <string name="signal_path_bit_depth">位深</string>
-    <string name="signal_path_channels">声道</string>
-    <string name="signal_path_output_strategy">输出策略</string>
-    <string name="signal_path_output_device">输出设备</string>
-    <string name="signal_path_route">音频路由</string>
-    <string name="signal_path_dsd_mode">DSD 模式</string>
-    <string name="signal_path_direct">直出</string>
-    <string name="signal_path_mixer">混音</string>
-    <string name="signal_path_system">系统</string>
-    <string name="signal_path_mono">单声道</string>
-    <string name="signal_path_stereo">立体声</string>
-    <string name="signal_path_channels_value">%d 声道</string>
-    <string name="signal_path_bit_value">%d 位</string>
-    <string name="signal_path_khz">%.1f kHz</string>
-    <string name="signal_path_hz">%d Hz</string>
-    <string name="signal_path_speaker">扬声器</string>
-    <string name="signal_path_bluetooth">蓝牙</string>
-    <string name="signal_path_dash">-</string>
+    <!-- 待实现功能面板 -->
+    <string name="music_panel_pending_feature_title">待实现功能1</string>
+    <string name="music_panel_feature_not_implemented">暂未实现</string>
 
     <!-- 迷你播放器 -->
     <string name="mini_player_cover">专辑封面</string>

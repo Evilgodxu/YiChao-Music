@@ -29,10 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,12 +39,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.theme.AppSwitch
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun SettingsOverlay(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
     showSoundEffects: Boolean,
     onShowSoundEffectsChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -91,8 +87,6 @@ internal fun SettingsOverlay(
                             onBack = { onShowSoundEffectsChange(false) }
                         )
                     } else {
-                        val context = LocalContext.current
-                        val settingsScope = rememberCoroutineScope()
                         Column(modifier = Modifier.fillMaxSize()) {
                             // 标题与关闭按钮固定在顶部，不随设置项滚动
                             Row(
@@ -123,32 +117,10 @@ internal fun SettingsOverlay(
                             ) {
                                 SettingsSwitchRow(
                                     title = stringResource(R.string.music_panel_usb_exclusive),
-                                    subtitle = if (playbackState.isUsbDeviceConnected) {
-                                        if (playbackState.isUsbExclusiveMode) {
-                                            stringResource(R.string.music_panel_usb_enabled, playbackState.usbDeviceName)
-                                        } else stringResource(R.string.music_panel_usb_connected_not_enabled)
-                                    } else {
-                                        stringResource(R.string.music_panel_usb_not_detected)
-                                    },
-                                    checked = if (playbackState.isUsbDeviceConnected)
-                                        playbackState.isUsbExclusiveMode
-                                    else
-                                        playbackState.usbExclusiveEnabled,
-                                    onCheckedChange = { enabled ->
-                                        playbackState.setUsbExclusiveEnabled(enabled)
-                                        if (playbackState.isUsbDeviceConnected) {
-                                            settingsScope.launch {
-                                                if (enabled) {
-                                                    playbackState.setUsbExclusiveMode(
-                                                        UsbAudioMonitor.setUsbExclusive(context, true)
-                                                    )
-                                                } else {
-                                                    UsbAudioMonitor.setUsbExclusive(context, false)
-                                                    playbackState.setUsbExclusiveMode(false)
-                                                }
-                                            }
-                                        }
-                                    }
+                                    subtitle = stringResource(R.string.music_panel_usb_not_implemented),
+                                    checked = false,
+                                    onCheckedChange = null,
+                                    enabled = false,
                                 )
 
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -156,14 +128,6 @@ internal fun SettingsOverlay(
                                 SoundEffectEntryRow(
                                     onClick = { onShowSoundEffectsChange(true) }
                                 )
-
-                                playbackState.usbError?.let { error ->
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    MusicErrorBanner(
-                                        message = error,
-                                        onDismiss = { playbackState.usbError = null }
-                                    )
-                                }
                             }
                         }
                     }
@@ -218,7 +182,8 @@ internal fun SettingsSwitchRow(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
@@ -248,7 +213,8 @@ internal fun SettingsSwitchRow(
         Spacer(modifier = Modifier.width(12.dp))
         AppSwitch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
         )
     }
 }

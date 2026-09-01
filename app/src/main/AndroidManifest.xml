@@ -12,8 +12,6 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- 读取本地封面候选图片 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- 蓝牙设备 -->
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <!-- 音乐播放器声明 -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -22,10 +20,6 @@
     <!-- 在线音乐搜索与歌词获取 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- USB 音频设备 -->
-    <uses-feature
-        android:name="android.hardware.usb.host"
-        android:required="false" />
     <!-- 更新通知（Android 13+ 需运行时授权） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -64,7 +58,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 音乐播放前台服务：媒体会话控制通知栏/锁屏，并监听 USB 音频设备插入 -->
+        <!-- 音乐播放前台服务：媒体会话控制通知栏/锁屏 -->
         <service
             android:name=".musicpanel.MusicPlaybackService"
             android:enabled="true"
@@ -73,15 +67,9 @@
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-            </intent-filter>
-            <meta-data
-                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-                android:resource="@xml/usb_device_filter" />
         </service>
 
-        <!-- 透明权限申请页：从悬浮窗上下文链式申请音频/图片/蓝牙/全部文件权限 -->
+        <!-- 透明权限申请页：从悬浮窗上下文链式申请音频/图片/全部文件权限 -->
         <activity
             android:name=".musicpanel.MusicPanelPermissionActivity"
             android:theme="@style/Theme.Transparent"
