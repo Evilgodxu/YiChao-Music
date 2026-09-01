@@ -41,6 +41,8 @@ private const val SWIPE_OPEN_RATIO = 0.25f
 private val TRACK_PREVIEW_CANCEL_DISTANCE = 100.dp
 // 提示显示所需的最小位移，兼作滑动的方向判定阈值
 private val TRACK_PREVIEW_MIN_DISTANCE = 8.dp
+// 滑动开始后持续按住该时长才视为按住滑动（显示预览）；短于此视为瞬间滑动，直接切歌不提示
+private const val TRACK_PREVIEW_FLICK_HOLD_MS = 200L
 
 /**
  * 首页滑动切换状态与手势逻辑：持有搜索/歌单面板的显隐与跟手进度，提供手势 Modifier 与结算动画。
@@ -121,6 +123,8 @@ internal class HomeSwipeController(
                 var accX = 0f
                 var accY = 0f
                 var axis = 0 // 0=未定，1=横向(切换面板)，2=纵向(切歌)
+                // 纵向滑动锁定时刻：作为瞬间滑动(一甩即松手)的判定基准
+                var axisLockUptime = 0L
                 while (axis == 0) {
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -129,6 +133,7 @@ internal class HomeSwipeController(
                     accX += change.positionChange().x
                     accY += change.positionChange().y
                     if (abs(accX) >= slop || abs(accY) >= slop) {
+                        axisLockUptime = change.uptimeMillis
                         axis = if (abs(accX) > abs(accY)) 1 else 2
                     }
                 }
@@ -189,24 +194,31 @@ internal class HomeSwipeController(
                     settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
                 } else if (axis == 2) {
                     // 纵向主导：向上切下一首、向下切上一首；仅播放器视图（无覆盖面板）生效，避免与面板内滚动冲突。
-                    // 滑动期间（未松手）实时显示将播放的曲目方向；松手时由滑回起点的距离决定取消或切歌
+                    // 滑动开始后持续按住（未松手）才实时显示将播放的曲目方向，滑回起点附近松手取消切歌；
+                    // 瞬间滑动（一甩即松手）保持原逻辑直接切歌，不显示提示
                     val previewEnabled = swipeToChangeTrack.value &&
                         searchProgress <= 0f && playlistProgress <= 0f
                     var swipeY = accY
                     var maxSwipeY = abs(accY)
+                    var steadyHold = false
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id }
                         if (change == null || !change.pressed || change.isConsumed) break
                         swipeY += change.positionChange().y
                         change.consume()
+                        if (!steadyHold &&
+                            change.uptimeMillis - axisLockUptime >= TRACK_PREVIEW_FLICK_HOLD_MS
+                        ) {
+                            steadyHold = true
+                        }
                         if (abs(swipeY) > maxSwipeY) maxSwipeY = abs(swipeY)
-                        if (previewEnabled) {
+                        if (previewEnabled && steadyHold) {
                             trackSwitchPreviewText = previewTextOf(swipeY, maxSwipeY)
                         }
                     }
-                    // 松手判定：位移回到起点附近则取消切歌，否则按方向切换（保持原直接滑动逻辑）
-                    if (previewEnabled && abs(swipeY) >= cancelDistancePx) {
+                    // 松手判定：按住滑动时位移回到起点附近则取消切歌；瞬间滑动保持原逻辑直接切歌
+                    if (previewEnabled && (!steadyHold || abs(swipeY) >= cancelDistancePx)) {
                         val next = if (swipeY < 0f) playbackState.nextIndex()
                         else playbackState.previousIndex()
                         if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
