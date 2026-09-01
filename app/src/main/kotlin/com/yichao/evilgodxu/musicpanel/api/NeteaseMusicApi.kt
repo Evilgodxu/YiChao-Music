@@ -58,7 +58,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         return song.copy(coverUrl = album?.optString("picUrl")?.takeIf { it.isNotBlank() })
     }
 
-    // 在线音乐源统一接口实现，返回完整的搜索结果显示
+    // 在线音乐源统一接口实现，返回完整的搜索结果列表
     override suspend fun search(keyword: String, page: Int, pageSize: Int): List<NeteaseSongSearchResult> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("s", keyword)
@@ -114,7 +114,7 @@ internal object NeteaseMusicApi : OnlineMusicSource {
         "演唱会", "钢琴", "吉他", "纯音乐", "dj版", "remix", "cover", "live版", "重唱"
     )
 
-    /** 批量补全搜索结果中缺失封面 URL 的条目，与 QPlayer 的 fillMissingCovers() 对应 */
+    /** 批量补全搜索结果中缺失封面 URL 的条目 */
     private fun fillMissingCovers(results: List<NeteaseSongSearchResult>): List<NeteaseSongSearchResult> {
         val missingIds = results.filter { it.coverUrl.isNullOrBlank() }.map { it.id }
         if (missingIds.isEmpty()) return results

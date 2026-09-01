@@ -57,7 +57,7 @@ internal suspend fun cacheToDownloads(
                 }
             }
 
-            // 试听片段(≤30秒)不缓存，保持在线播放
+            // 试听片段（≤30 秒）不缓存，保持在线播放
             if (isTrialAudioFile(tempFile)) return
 
             // 下载集合用 Downloads + RELATIVE_PATH 写入公共下载目录，无写权限时 insert 直接失败，维持在线播放
@@ -124,7 +124,7 @@ internal suspend fun downloadTrackToLibrary(
                     tempFile.outputStream().use { output -> input.copyTo(output, STREAM_BUFFER_SIZE) }
                 }
             }
-            // 试听片段(≤30秒)不缓存入库，与播放缓存规则一致
+            // 试听片段（≤30 秒）不缓存入库，与播放缓存规则一致
             if (isTrialAudioFile(tempFile)) return@withContext null
             val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
             val contentValues = ContentValues().apply {
@@ -375,7 +375,7 @@ private suspend fun downloadLosslessToDownloads(
                     tempFile.outputStream().use { output -> input.copyTo(output, STREAM_BUFFER_SIZE) }
                 }
             }
-            // 无损直链可能返回试听片段(≤30秒)，不入库不升级
+            // 无损直链可能返回试听片段（≤30 秒），不入库不升级
             if (isTrialAudioFile(tempFile)) return@withContext null
             // 校验确为无损格式，避免平台未提供无损时以有损文件顶替
             if (!isLosslessAudioFile(tempFile)) return@withContext null

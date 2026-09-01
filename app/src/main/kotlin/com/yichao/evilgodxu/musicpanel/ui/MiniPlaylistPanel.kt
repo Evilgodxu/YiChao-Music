@@ -103,7 +103,7 @@ internal fun MiniPlaylistPanel(
                 )
             }
         }
-        // 当前曲目不在可视区域内时，滚动定位到对应位置
+        // 滚动列表定位到当前播放曲目位置
         LaunchedEffect(playbackState.currentTrack?.id) {
             if (playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
                 listState.animateScrollToItem(

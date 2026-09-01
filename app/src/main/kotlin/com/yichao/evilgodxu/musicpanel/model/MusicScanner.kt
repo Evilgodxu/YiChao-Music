@@ -213,7 +213,7 @@ object MusicScanner {
         }
     }
 
-    // 读取本地音频内嵌封面原图（最长边 1024 采样）：首页大封面优先使用内嵌原图；
+    // 读取本地音频内嵌封面原图（按封面保存上限 2048 采样）：首页大封面优先使用内嵌原图；
     // 本地文件路径优先，其次 content/file URI；纯在线流无内嵌封面返回 null
     internal fun loadEmbeddedCover(context: Context, audioUri: Uri, path: String): Bitmap? {
         if (path.isNotBlank()) {

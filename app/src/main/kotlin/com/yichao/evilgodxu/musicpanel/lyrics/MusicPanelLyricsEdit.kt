@@ -97,7 +97,7 @@ internal fun LyricsEditDialog(
                         color = MaterialTheme.colorScheme.primary,
                         onClick = {
                             val trimmed = value.trim()
-                            // 确认前校验，避免闭锁后保存的只是格式无效的文本
+                            // 确认前校验，避免写入格式无效的歌词文本
                             if (MusicMetadataCache.parseLyricsText(trimmed).isNotEmpty()) {
                                 onConfirm(trimmed)
                             } else {

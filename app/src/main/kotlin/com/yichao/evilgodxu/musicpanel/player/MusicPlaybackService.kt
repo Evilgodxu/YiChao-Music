@@ -50,7 +50,7 @@ class MusicPlaybackService : MediaSessionService() {
                 val format = tracks.groups.firstOrNull { it.isSelected }?.getTrackFormat(0)
                 val state = MusicPanelStateHolder.state
                 val currentTrack = state.currentTrack
-                // 无论 format 是否为空，每次轨道切换都更新信号路径状态
+                // 每次轨道切换后按解码格式更新信号路径状态
                 val fileFormat = format?.let { f ->
                     currentTrack?.path
                         ?.substringAfterLast('.', "")

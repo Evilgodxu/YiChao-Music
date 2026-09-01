@@ -78,7 +78,7 @@ object MetadataEnricher {
         track: MusicTrack?,
     ) {
         if (track == null) return
-        // 已具备完整缓存或已标记失败，无需补全；歌词缓存路径有效时不因失败标记跳过，须读回内容
+        // 已具备完整缓存则无需补全；封面与歌词均失败且无有效歌词缓存时才跳过
         if (hasCompleteMetadata(track)) return
         if (track.coverFailed && track.lyricFailed && !MusicMetadataCache.isValid(track.lyricCachePath)) return
         // 全量补全已排期该曲目，由全量任务统一回写

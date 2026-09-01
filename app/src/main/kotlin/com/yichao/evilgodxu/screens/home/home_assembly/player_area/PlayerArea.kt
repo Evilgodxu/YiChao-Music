@@ -287,7 +287,7 @@ fun PlayerArea(
                                     .indexOfLast { it.timeMs <= lyricsMenuPositionMs }
                                     .coerceAtLeast(0)
                                 lyricsEditIndex = index
-                                // 预填该行存储的完整原文：时间戳 + 歌词(含逐字标签) + 翻译行
+                                // 预填该行存储的完整原文：时间戳 + 歌词（含逐字标签） + 翻译行
                                 lyricsEditInitialText = MusicMetadataCache.encodeLyrics(listOf(track.lyricLines[index]))
                                 showLyricsEdit = true
                             }

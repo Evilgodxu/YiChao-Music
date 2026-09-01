@@ -45,7 +45,7 @@ internal fun SpeedDialog(
     }
 }
 
-// 调速面板主体：标题 + 加减 0.1 + 中间数值(点击重置 1.0)
+// 调速面板主体：标题 + 加减 0.1 + 中间数值（点击重置 1.0）
 @Composable
 private fun SpeedPanelContent(
     speed: Float,

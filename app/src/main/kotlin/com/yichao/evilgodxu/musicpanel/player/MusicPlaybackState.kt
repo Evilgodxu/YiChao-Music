@@ -627,7 +627,7 @@ class MusicPlaybackState {
         val savedMode = preferences[savedModeKey] ?: PlayMode.RepeatAll.ordinal
         val savedSpeed = preferences[savedSpeedKey] ?: PLAYBACK_SPEED_DEFAULT
         withContext(Dispatchers.Main) {
-            // 恢复上次选中的歌单来源与默认库备份；无来源时处于全量播放列表
+            // 无保存来源时处于全量播放列表
             playlistSource = savedSource
             defaultPlaylistBackup = cachedBackup.takeIf { it.isNotEmpty() }
             // 收藏合并自当前歌单与默认库备份，避免切歌单后库内收藏丢失
@@ -661,8 +661,8 @@ class MusicPlaybackState {
         }
     }
 
-    // 回到前台时校正音频信息：与当前曲目错配时若在播放则清掉旧值并重读当前曲目源格式，
-    // 否则直接读取，保证信息条始终对应当前曲目而不依赖解码回调回填
+    // 回到前台时校正音频信息：与当前曲目错配时清掉旧值并重新读取当前曲目源格式，
+    // 保证信息条始终对应当前曲目而不依赖解码回调回填
     fun reconcileTrackFormatInfo(context: Context) {
         val track = currentTrack ?: return
         if (audioSignalPathTrackId == track.id) return
@@ -945,7 +945,7 @@ class MusicPlaybackState {
         persistPlaylist()
     }
 
-    // 更新当前播放位置（用于 UI 进度条）
+    // 更新播放列表中指定曲目的元数据并持久化（列表与当前曲目同步替换）
     fun updateTrack(updated: MusicTrack) {
         playlist = playlist.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }
         currentTrack = currentTrack?.let { if (it.id == updated.id) updated else it }
@@ -1050,10 +1050,10 @@ class MusicPlaybackState {
 
     private fun autoNextIndex(): Int = calculateIndex(direction = 1, repeatOne = true)
 
-    // 构造下一首索引
+    // 下一首索引
     fun nextIndex(): Int = calculateIndex(direction = 1, repeatOne = false)
 
-    // 构造上一首索引
+    // 上一首索引
     fun previousIndex(): Int = calculateIndex(direction = -1, repeatOne = false)
 
     // ===== UI 层状态写入口：悬浮窗 UI 统一通过这些方法写入状态，避免直接对 public var 赋值 =====

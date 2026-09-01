@@ -19,7 +19,7 @@ import java.nio.file.StandardCopyOption
 internal object MusicMetadataWriter {
 
     // 元数据写入结果：Full 为整曲重建；HeadAndTail 仅重建头部标签，
-    // 音频躯干由调用方按 audioStart 偏移从源流式复制，降低大文件写入的峰值内存
+    // 音频躯干按 audioStart 偏移从源复制，降低大文件写入的峰值内存
     private sealed interface WriteResult {
         data class Full(val bytes: ByteArray) : WriteResult
         data class HeadAndTail(val head: ByteArray, val audioStart: Int) : WriteResult

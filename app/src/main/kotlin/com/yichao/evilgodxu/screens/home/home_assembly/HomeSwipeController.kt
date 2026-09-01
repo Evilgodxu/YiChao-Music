@@ -102,7 +102,7 @@ internal class HomeSwipeController(
                 while (axis == 0) {
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    // 手指抬起或被子控件(进度条/控制栏等)消费，放弃本手势
+                    // 手指抬起或被子控件（进度条/控制栏等）消费，放弃本手势
                     if (!change.pressed || change.isConsumed) break
                     accX += change.positionChange().x
                     accY += change.positionChange().y
@@ -166,7 +166,7 @@ internal class HomeSwipeController(
                     if (playlistOpen != showPlaylist) showPlaylist = playlistOpen
                     settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
                 } else if (axis == 2) {
-                    // 纵向主导：向上切下一首、向下切上一首；仅播放器视图(无覆盖面板)生效，避免与面板内滚动冲突
+                    // 纵向主导：向上切下一首、向下切上一首；仅播放器视图（无覆盖面板）生效，避免与面板内滚动冲突
                     var swipeY = accY
                     while (true) {
                         val event = awaitPointerEvent()

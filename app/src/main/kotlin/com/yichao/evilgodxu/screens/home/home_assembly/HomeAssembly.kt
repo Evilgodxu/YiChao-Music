@@ -97,7 +97,7 @@ fun HomeAssembly(
     BackHandler(enabled = swipeController.showPlaylist) {
         swipeController.showPlaylist = false
     }
-    // 只有播放器真正开始播放(无错误)时才收起在线搜索覆盖层；播放失败出现错误提示时保持面板打开
+    // 只有播放器真正开始播放（无错误）时才收起在线搜索覆盖层；播放失败出现错误提示时保持面板打开
     LaunchedEffect(playbackState.isPlaying) {
         if (playbackState.isPlaying && swipeController.showOnlineSearch) {
             swipeController.showOnlineSearch = false

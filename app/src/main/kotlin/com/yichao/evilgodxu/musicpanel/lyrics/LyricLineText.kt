@@ -119,7 +119,7 @@ internal fun LyricChar(
     shadowBlurRadius: Float,
 ) {
     // 跳起与落下均渐进过渡：新字柔和弹起的同时旧字缓缓回落，
-    // 两者在时间上重叠,形成连续流动感，避免瞬间落下/瞬间跳起的突兀
+    // 两者在时间上重叠，形成连续流动感，避免瞬间落下/瞬间跳起的突兀
     val emphasis = remember { Animatable(0f) }
     LaunchedEffect(filling) {
         emphasis.animateTo(
@@ -148,7 +148,7 @@ internal fun LyricChar(
     )
     val density = LocalDensity.current
     val floatPx = with(density) { 0.05f * fontSize.toPx() }
-    // 文本样式与 Text 组件默认行为一致（沿用 LocalTextStyle），保证布局高度与旧版逐字渲染相同
+    // 文本样式与 Text 组件默认行为一致（沿用 LocalTextStyle），保证布局高度准确
     val textMeasurer = rememberTextMeasurer()
     val currentTextStyle = LocalTextStyle.current
     val layout = remember(text, fontSize, fontWeight, currentTextStyle) {
@@ -163,7 +163,7 @@ internal fun LyricChar(
     Box(
         modifier = Modifier
             .graphicsLayer {
-                // 跳起效果：弹簧放大带过冲 + 轻微上浮，参数与改前旧版一致
+                // 跳起效果：弹簧放大带过冲 + 轻微上浮
                 scaleX = 1f + 0.14f * emphasis.value
                 scaleY = 1f + 0.14f * emphasis.value
                 translationY = -floatPx * emphasis.value
@@ -187,7 +187,7 @@ private const val LINE_CHAR_SHADOW_BLUR = 5f
 
 private const val LYRIC_FILL_SMOOTH_MS = 60
 
-// 演唱结束的字回落用时：与下一字跳起重叠渐变,形成渐落衔接，不宜过短
+// 演唱结束的字回落用时：与下一字跳起重叠渐变，形成渐落衔接，不宜过短
 private const val LYRIC_JUMP_DOWN_MS = 320
 
 // 按可用宽度分行：行宽超过可用宽度即换行，行尾截断完整单词时回退到最近空格

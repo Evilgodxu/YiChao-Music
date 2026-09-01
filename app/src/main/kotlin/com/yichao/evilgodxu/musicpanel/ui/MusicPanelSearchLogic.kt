@@ -134,7 +134,7 @@ internal suspend fun applyLocalLyrics(
     }
 }
 
-// 编辑歌词行原文：整行按增强 LRC 文本(时间戳/逐字/翻译)重新解析后替换原行，写回缓存并刷新
+// 编辑歌词行原文：整行按增强 LRC 文本（时间戳/逐字/翻译）重新解析后替换原行，写回缓存并刷新
 internal suspend fun applyLyricsLineEdit(
     context: Context,
     playbackState: MusicPlaybackState,

@@ -274,7 +274,7 @@ private fun LyricsPerspectiveZone(
     }
 }
 
-// 横屏封面宽度占比：原 0.68，按要求缩小 30%
+// 横屏封面宽度占比：基准 0.68 缩放 70%
 private const val LANDSCAPE_COVER_FRACTION = 0.68f * 0.7f
 // 封面下方文本行宽度 = 封面宽度的 80%
 private const val INFO_WIDTH_FRACTION = 0.8f
