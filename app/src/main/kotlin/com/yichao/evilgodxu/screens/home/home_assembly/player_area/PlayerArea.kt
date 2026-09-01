@@ -12,7 +12,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -199,16 +198,17 @@ fun PlayerArea(
         }
     }
 
-    // 外层容器：沉浸封面置顶占满屏幕宽度，其余模块从封面下方按序排列
+    // 外层容器：沉浸封面置顶，其余模块从封面下方按序排列
     BoxWithConstraints(modifier = modifier) {
-        // 封面为全宽正方形，占位高度即屏幕宽度
-        val coverHeight = maxWidth
-        // 沉浸式专辑封面：全宽置顶并嵌入标题栏区域，上下边缘渐隐为透明融入背景
+        // 封面为正方形：常规窗口下边长即宽度；自由窗口高度偏矮时按可用高度等比例缩放，避免底部内容被截断
+        val coverHeight = (maxHeight - lyricsAreaHeight - BottomFixedContentHeight)
+            .coerceAtLeast(MinCoverHeight)
+            .coerceAtMost(maxWidth)
+        // 沉浸式专辑封面：置顶并嵌入标题栏区域，上下边缘渐隐为透明融入背景
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .aspectRatio(1f)
+                .size(coverHeight)
                 .combinedClickable(
                     onClick = {},
                     onLongClick = { if (playbackState.currentTrack != null) showCoverMenu = true },
@@ -803,3 +803,8 @@ private const val LyricFineTuneStepMs = 100L
 
 // 封面顶部渐隐区在标题栏高度之外的延伸距离
 private val TopFadeExtra = 20.dp
+
+// 歌词区下方固定区域高度：间距、标题/艺人两行、进度条与控制栏，用于计算封面可占用高度
+private val BottomFixedContentHeight = 8.dp + 8.dp + 24.dp + 4.dp + 20.dp + 8.dp + 40.dp + 8.dp + 48.dp
+// 自由窗口下封面最小边长：窗口过矮时不再压缩封面，保证封面可用
+private val MinCoverHeight = 120.dp
