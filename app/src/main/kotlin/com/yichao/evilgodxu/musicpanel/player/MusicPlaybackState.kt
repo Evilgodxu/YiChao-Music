@@ -121,6 +121,8 @@ class MusicPlaybackState {
                 duration = 0L
                 // 切换曲目即持久化最新 URI，确保后台自动下一首也能被冷启动恢复
                 persistState()
+                // 切歌后主动预读新曲源格式，避免信息条等待解码回填而长时间空白
+                appContext?.let { refreshIdleTrackFormatInfo(it) }
             }
             // 切换曲目后清理未在播放的在线歌曲，避免在线播放曲目在播放列表中常驻；
             // 元数据补全只在缓存完成时执行一次，切歌不再触发，避免重复写封面并触发系统级文件扫描
@@ -675,15 +677,13 @@ class MusicPlaybackState {
         }
     }
 
-    // 回到前台时校正音频信息：与当前曲目错配时若在播放则清掉等解码回填，否则重读当前曲目
+    // 回到前台时校正音频信息：与当前曲目错配时若在播放则清掉旧值并重读当前曲目源格式，
+    // 否则直接读取，保证信息条始终对应当前曲目而不依赖解码回调回填
     fun reconcileTrackFormatInfo(context: Context) {
         val track = currentTrack ?: return
         if (audioSignalPathTrackId == track.id) return
-        if (mediaController?.isPlaying == true) {
-            audioSignalPathFormat = null
-            audioSignalPathTrackId = null
-            return
-        }
+        audioSignalPathFormat = null
+        audioSignalPathTrackId = null
         refreshIdleTrackFormatInfo(context)
     }
 

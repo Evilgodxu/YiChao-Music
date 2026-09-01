@@ -6,6 +6,7 @@ import android.net.Uri
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.io.File
 import java.io.FileInputStream
+import java.io.InputStream
 
 // 本地音频格式信息读取：解码头未给出或冷启动未播放时，直接读文件元数据补齐
 internal object TrackAudioInfoReader {
@@ -27,27 +28,43 @@ internal object TrackAudioInfoReader {
         return estimateAverageBitrateKbps(context, track)
     }
 
-    // 冷启动未播放时预填的格式信息：采样率取媒体元数据，位深 FLAC 解析 STREAMINFO，其余按 16，声道按立体声
+    // 容器头解析出的基础格式参数（位深/声道）
+    data class ContainerFormat(val bitDepth: Int, val channels: Int)
+
+    // 读取源文件位深与声道：FLAC 解析 STREAMINFO、WAV 解析 RIFF fmt 块。
+    // 仅按文件扩展名判定格式，供主线程（解码头）轻量调用；其余格式返回 null
+    fun readContainerFormat(context: Context, track: MusicTrack): ContainerFormat? =
+        when (track.path.substringAfterLast('.', "").uppercase().takeIf { it.isNotBlank() }) {
+            "FLAC" -> readFlacContainerFormat(context, track)
+            "WAV", "WAVE" -> readWavContainerFormat(context, track)
+            else -> null
+        }
+
+    // 冷启动未播放时预填的格式信息：采样率/比特率走官方 MediaMetadataRetriever，
+    // 位深与声道对 FLAC/WAV 解析容器头，其余按 16bit/立体声
     fun readIdleFormat(context: Context, track: MusicTrack): AudioSignalPathFormat? {
         if (!track.isLocalAudioSource) return null
-        val formatName = track.path
-            .substringAfterLast('.', "")
-            .uppercase()
-            .takeIf { it.isNotBlank() }
-            ?: readMimeFormat(context, track)
-            ?: return null
+        val formatName = trackFormatName(context, track) ?: return null
         val sampleRate = readSampleRate(context, track) ?: 0
         val bitrateKbps = readBitrateKbps(context, track) ?: 0
         if (sampleRate <= 0 && bitrateKbps <= 0) return null
+        val container = readContainerFormat(context, track)
         return AudioSignalPathFormat(
             format = formatName,
             sampleRate = sampleRate,
             outputRate = sampleRate,
-            bitDepth = if (formatName == "FLAC") readFlacBitDepth(context, track) ?: 16 else 16,
-            channels = 2,
+            bitDepth = container?.bitDepth ?: 16,
+            channels = container?.channels ?: 2,
             bitrate = bitrateKbps,
         )
     }
+
+    private fun trackFormatName(context: Context, track: MusicTrack): String? =
+        track.path
+            .substringAfterLast('.', "")
+            .uppercase()
+            .takeIf { it.isNotBlank() }
+            ?: readMimeFormat(context, track)
 
     // mime 映射为展示用格式名；已知格式统一命名，其余取 mime 尾段
     fun mimeToFormatName(mime: String?): String? = when (mime) {
@@ -114,19 +131,51 @@ internal object TrackAudioInfoReader {
         return (sizeBytes * 8 / durationSec / 1000).toInt().takeIf { it > 0 }
     }
 
-    // 解析 FLAC STREAMINFO（fLaC + 块头 + 34 字节流信息）中的位深
-    private fun readFlacBitDepth(context: Context, track: MusicTrack): Int? = runCatching {
-        val bytes = ByteArray(42)
-        val input = if (track.path.isNotBlank()) {
-            FileInputStream(track.path)
-        } else {
-            context.contentResolver.openInputStream(Uri.parse(track.audioUri))
-        } ?: return@runCatching null
-        val read = input.use { it.read(bytes) }
-        if (read < 42 || !bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(0x66, 0x4C, 0x61, 0x43))) {
-            return@runCatching null
+    // 解析 FLAC STREAMINFO（fLaC + 块头 + 34 字节流信息）中的声道与位深。
+    // 位域规范：采样率 20 位 + 声道 3 位 + 位深 5 位 + 总采样 36 位
+    private fun readFlacContainerFormat(context: Context, track: MusicTrack): ContainerFormat? =
+        readHeader(context, track, 42) { bytes ->
+            if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(0x66, 0x4C, 0x61, 0x43))) return@readHeader null
+            ContainerFormat(
+                channels = ((bytes[20].toInt() and 0x0E) ushr 1) + 1,
+                bitDepth = ((bytes[20].toInt() and 0x01) shl 4) or ((bytes[21].toInt() and 0xF0) ushr 4) + 1,
+            )
         }
-        // 流信息 8 字节位域：采样率 20 位 + 声道 3 位 + 位深 5 位 + 总采样 36 位
-        (((bytes[12].toInt() and 1) shl 4) or ((bytes[13].toInt() and 0xF0) ushr 4)) + 1
-    }.getOrNull()
+
+    // 解析 WAV RIFF 头（44 字节）fmt 块中的声道与位深
+    private fun readWavContainerFormat(context: Context, track: MusicTrack): ContainerFormat? =
+        readHeader(context, track, 44) { bytes ->
+            if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(0x52, 0x49, 0x46, 0x46)) ||
+                !bytes.copyOfRange(8, 12).contentEquals(byteArrayOf(0x57, 0x41, 0x56, 0x45))
+            ) return@readHeader null
+            ContainerFormat(
+                channels = ((bytes[23].toInt() and 0xFF) shl 8) or (bytes[22].toInt() and 0xFF),
+                bitDepth = ((bytes[35].toInt() and 0xFF) shl 8) or (bytes[34].toInt() and 0xFF),
+            )
+        }
+
+    // 读取本地音频文件头部若干字节：文件路径优先，否则经 ContentResolver 打开
+    private inline fun readHeader(
+        context: Context,
+        track: MusicTrack,
+        size: Int,
+        parse: (ByteArray) -> ContainerFormat?,
+    ): ContainerFormat? {
+        val input = if (track.path.isNotBlank()) {
+            runCatching { FileInputStream(track.path) }.getOrNull()
+        } else if (track.audioUri.startsWith("content:") || track.audioUri.startsWith("file:")) {
+            runCatching { context.contentResolver.openInputStream(Uri.parse(track.audioUri)) }.getOrNull()
+        } else {
+            null
+        }
+        val bytes = ByteArray(size)
+        val read = if (input != null) {
+            runCatching { input.use { it.read(bytes) } }.getOrNull() ?: 0
+        } else {
+            0
+        }
+        if (read < size) return null
+        val format = parse(bytes) ?: return null
+        return format.takeIf { it.channels > 0 && it.bitDepth > 0 }
+    }
 }

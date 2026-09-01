@@ -63,23 +63,27 @@ class MusicPlaybackService : MediaSessionService() {
                 }
                 if (format != null) {
                     val sampleRate = format.sampleRate.takeIf { it > 0 } ?: 48000
-                    val channels = format.channelCount.takeIf { it > 0 } ?: 2
+                    val decodedChannels = format.channelCount.takeIf { it > 0 } ?: 2
                     val encoding = if (format.pcmEncoding > 0) format.pcmEncoding else android.media.AudioFormat.ENCODING_PCM_16BIT
-                    UsbAudioMonitor.updatePlaybackFormat(sampleRate, channels, encoding)
+                    UsbAudioMonitor.updatePlaybackFormat(sampleRate, decodedChannels, encoding)
                     // 独占模式下按新格式重新应用位完美混音属性（采样率/位深可能随曲目变化）
                     if (state.isUsbExclusiveMode) {
                         UsbAudioMonitor.setUsbExclusive(this@MusicPlaybackService, true)
                     }
+                    // 优先沿用源格式预读的位深/声道，保证播放前后展示一致不跳变；
+                    // 位深是源文件属性，不以解码输出位深推算（高解析度曲目解码常以浮点输出）
+                    val sourceFormat = state.audioSignalPathFormat
+                        .takeIf { state.audioSignalPathTrackId == currentTrack?.id }
+                    val bitDepth = sourceFormat?.bitDepth
+                        ?: currentTrack?.takeIf { it.isLocalAudioSource }
+                            ?.let { TrackAudioInfoReader.readContainerFormat(applicationContext, it)?.bitDepth }
+                        ?: 16
+                    val channels = sourceFormat?.channels ?: decodedChannels
                     state.audioSignalPathFormat = AudioSignalPathFormat(
                         format = fileFormat ?: "PCM",
                         sampleRate = sampleRate,
                         outputRate = sampleRate,
-                        bitDepth = when (encoding) {
-                            android.media.AudioFormat.ENCODING_PCM_8BIT -> 8
-                            android.media.AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24
-                            android.media.AudioFormat.ENCODING_PCM_FLOAT -> 32
-                            else -> 16
-                        },
+                        bitDepth = bitDepth,
                         channels = channels,
                         // Format.bitrate 单位为 bps，统一换算为 kbps；VBR 曲目 bitrate 未知时回退 averageBitrate
                         bitrate = maxOf(format.bitrate, format.averageBitrate)
