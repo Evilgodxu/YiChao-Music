@@ -200,16 +200,15 @@ internal fun TrackFormatInfoSection(
     val format = playbackState.audioSignalPathFormat
         .takeIf { playbackState.audioSignalPathTrackId == playbackState.currentTrack?.id }
     val text = format?.let { formatDisplayLabel(it) }
-    if (text != null) {
-        Text(
-            text = text,
-            color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 10.sp,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-            modifier = modifier.clickable(enabled = onClick != null) { onClick?.invoke() },
-        )
-    }
+    // 信息未就绪时渲染空文本，占位保持单行高度，避免底部控制栏随信息条显隐而跳变
+    Text(
+        text = text.orEmpty(),
+        color = contentColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 10.sp,
+        maxLines = 1,
+        textAlign = TextAlign.Center,
+        modifier = modifier.clickable(enabled = onClick != null) { onClick?.invoke() },
+    )
 }
 
 // 格式信息展示文本：格式 · 位深/采样率 · 比特率；无有效信息时返回 null
