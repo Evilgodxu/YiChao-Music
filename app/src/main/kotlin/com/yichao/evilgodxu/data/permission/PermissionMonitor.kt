@@ -1,14 +1,14 @@
 package com.yichao.evilgodxu.data.permission
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.Manifest
 import android.os.Environment
 import android.provider.Settings
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 
 // 需要申请的核心权限类型

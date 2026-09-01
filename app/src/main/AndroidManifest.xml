@@ -60,7 +60,7 @@
 
         <!-- 音乐播放前台服务：媒体会话控制通知栏/锁屏 -->
         <service
-            android:name=".musicpanel.MusicPlaybackService"
+            android:name=".service.MusicPlaybackService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
@@ -71,7 +71,7 @@
 
         <!-- 透明权限申请页：从悬浮窗上下文链式申请音频/图片/全部文件权限 -->
         <activity
-            android:name=".musicpanel.MusicPanelPermissionActivity"
+            android:name=".overlay.MusicPanelPermissionActivity"
             android:theme="@style/Theme.Transparent"
             android:excludeFromRecents="true"
             android:exported="false"
@@ -81,7 +81,7 @@
         <!-- 音乐封面提供者：向系统媒体面板暴露本地封面文件 -->
         <!-- exported 必须为 true：系统媒体面板（SystemUI）需要跨进程读取封面 URI，exported=false 会拒绝访问 -->
         <provider
-            android:name=".musicpanel.MusicCoverProvider"
+            android:name=".data.music.metadata.MusicCoverProvider"
             android:authorities="${applicationId}.musiccover"
             android:exported="true"
             android:grantUriPermissions="true" />

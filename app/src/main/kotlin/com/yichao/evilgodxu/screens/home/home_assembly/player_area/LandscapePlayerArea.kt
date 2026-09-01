@@ -12,28 +12,27 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
@@ -42,33 +41,36 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.settings.landscapeLyricLayoutFlow
 import com.yichao.evilgodxu.data.settings.LandscapeLyricLayoutParams
 import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
-import com.yichao.evilgodxu.data.settings.landscapeLyricLayoutFlow
-import com.yichao.evilgodxu.musicpanel.CoverCarouselOverlay
-import com.yichao.evilgodxu.musicpanel.LyricsPanel
-import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
-import com.yichao.evilgodxu.musicpanel.MusicTrack
-import com.yichao.evilgodxu.musicpanel.TrackFormatInfoSection
-import com.yichao.evilgodxu.musicpanel.VerticalProgressBar
-import com.yichao.evilgodxu.musicpanel.currentTrackNeedsLosslessUpgrade
-import com.yichao.evilgodxu.musicpanel.playTrackAt
+import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playTrackAt
+import com.yichao.evilgodxu.screens.home.dialog.LosslessUpgradeDialog
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSheet
+import com.yichao.evilgodxu.ui.music.cover.CoverCarouselOverlay
+import com.yichao.evilgodxu.ui.music.currentTrackNeedsLosslessUpgrade
+import com.yichao.evilgodxu.ui.music.lyrics.LyricsPanel
+import com.yichao.evilgodxu.ui.music.TrackFormatInfoSection
+import com.yichao.evilgodxu.ui.music.VerticalProgressBar
 import kotlinx.coroutines.launch
 
 // 横屏播放器：双栏结构（封面视觉区 → 歌词透视区）左右居中，标题栏与控制栏点击弹出
@@ -369,4 +371,3 @@ private fun Modifier.horizontalFadeMask(fadeFraction: Float = 0.25f): Modifier =
         drawIntoCanvas { canvas -> canvas.restore() }
     }
 }
-

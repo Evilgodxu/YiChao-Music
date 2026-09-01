@@ -6,9 +6,9 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.LocaleList
 import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale

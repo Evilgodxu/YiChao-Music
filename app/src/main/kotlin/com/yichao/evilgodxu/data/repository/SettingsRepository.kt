@@ -3,12 +3,12 @@ package com.yichao.evilgodxu.data.repository
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import com.yichao.evilgodxu.data.settings.AppLanguage
+import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.data.settings.SettingsKeys
 import com.yichao.evilgodxu.data.settings.SettingsState
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import com.yichao.evilgodxu.data.settings.settingsDataStore
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 // 设置仓库：数据层入口，封装 DataStore 数据源

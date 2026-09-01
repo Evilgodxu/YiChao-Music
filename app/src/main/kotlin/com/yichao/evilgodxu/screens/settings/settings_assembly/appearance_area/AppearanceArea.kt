@@ -3,11 +3,11 @@ package com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
-import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.ui.icons.AppIcons
 
 // 外观分区
 @Composable

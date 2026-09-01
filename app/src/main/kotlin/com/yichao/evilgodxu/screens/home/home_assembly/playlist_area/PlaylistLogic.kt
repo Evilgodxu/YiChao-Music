@@ -1,6 +1,6 @@
 package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
 
-import com.yichao.evilgodxu.musicpanel.MusicTrack
+import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 
 // 按 id 集合从全量曲目中解析曲目，保持集合顺序

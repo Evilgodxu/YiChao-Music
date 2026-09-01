@@ -1,7 +1,5 @@
 package com.yichao.evilgodxu.update
 
-import com.yichao.evilgodxu.log.CrashLogManager
-
 import android.app.DownloadManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -9,13 +7,14 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Environment
-import com.yichao.evilgodxu.musicpanel.MusicHttpClient
+import com.yichao.evilgodxu.data.music.api.MusicHttpClient
+import com.yichao.evilgodxu.log.CrashLogManager
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
 import okhttp3.Request
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 版本更新信息

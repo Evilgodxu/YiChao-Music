@@ -1,18 +1,17 @@
 package com.yichao.evilgodxu
 
 import android.app.Application
-
 import coil3.ImageLoader
-import coil3.SingletonImageLoader
 import coil3.memory.MemoryCache
+import coil3.SingletonImageLoader
 import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.di.appModule
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin

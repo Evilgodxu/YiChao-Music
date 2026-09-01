@@ -5,16 +5,16 @@ import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
+import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.permission.PermissionMonitor
 import com.yichao.evilgodxu.data.permission.PermissionType
-import com.yichao.evilgodxu.musicpanel.MetadataEnricher
-import com.yichao.evilgodxu.musicpanel.MusicPanelStateHolder
-import com.yichao.evilgodxu.musicpanel.PlaylistRefresher
-import kotlinx.coroutines.Job
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {

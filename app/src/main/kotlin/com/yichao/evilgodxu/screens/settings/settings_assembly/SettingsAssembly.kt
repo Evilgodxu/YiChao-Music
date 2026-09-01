@@ -2,13 +2,13 @@ package com.yichao.evilgodxu.screens.settings.settings_assembly
 
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,28 +18,28 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import com.yichao.evilgodxu.ui.icons.AppIcons
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import com.yichao.evilgodxu.screens.settings.SettingsUiState
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.dialog.LanguageSelectionDialog
 import com.yichao.evilgodxu.screens.settings.dialog.ThemeSelectionDialog
 import com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area.AppInfoArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area.AppearanceArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.language_area.LanguageArea
-import com.yichao.evilgodxu.screens.settings.settings_assembly.proxy_source_area.ProxySourceArea
 import com.yichao.evilgodxu.screens.settings.settings_assembly.player_area.PlayerArea
+import com.yichao.evilgodxu.screens.settings.settings_assembly.proxy_source_area.ProxySourceArea
+import com.yichao.evilgodxu.screens.settings.SettingsUiState
+import com.yichao.evilgodxu.ui.icons.AppIcons
 
 // 设置页分区组装器：编排外观、语言与关于分区
 @OptIn(ExperimentalMaterial3Api::class)

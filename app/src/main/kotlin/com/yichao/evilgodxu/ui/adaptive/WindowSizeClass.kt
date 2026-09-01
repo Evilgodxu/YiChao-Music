@@ -1,11 +1,11 @@
 package com.yichao.evilgodxu.ui.adaptive
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.window.core.layout.WindowSizeClass
 import androidx.window.core.layout.computeWindowSizeClass
+import androidx.window.core.layout.WindowSizeClass
 
 // CompositionLocal 用于在 Compose 树中传递窗口尺寸类
 val LocalWindowSizeClass = compositionLocalOf<WindowSizeClass> {

@@ -3,13 +3,13 @@ package com.yichao.evilgodxu.data.permission
 import android.content.Context
 import android.provider.Settings
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
 
 // 应用级悬浮窗授权监控：生命周期独立于 Activity/ViewModel。
 // 用户在系统悬浮窗设置页授权时，即使 Activity 已被销毁（如开启"不保留活动"或配置变更），

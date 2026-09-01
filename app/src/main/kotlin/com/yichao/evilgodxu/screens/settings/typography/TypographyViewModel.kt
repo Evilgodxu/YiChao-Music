@@ -3,17 +3,17 @@ package com.yichao.evilgodxu.screens.settings.typography
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
 import com.yichao.evilgodxu.data.settings.homePortraitLyricLayoutFlow
 import com.yichao.evilgodxu.data.settings.landscapeLyricLayoutFlow
+import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
 import com.yichao.evilgodxu.data.settings.musicPanelLyricLayoutFlow
 import com.yichao.evilgodxu.data.settings.saveHomePortraitLyricLayout
 import com.yichao.evilgodxu.data.settings.saveLandscapeLyricLayout
 import com.yichao.evilgodxu.data.settings.saveMusicPanelLyricLayout
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 

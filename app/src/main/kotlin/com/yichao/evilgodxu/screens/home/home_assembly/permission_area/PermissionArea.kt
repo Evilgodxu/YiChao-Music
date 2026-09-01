@@ -20,21 +20,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.yichao.evilgodxu.ui.icons.AppIcons
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
+import com.yichao.evilgodxu.data.permission.PermissionType
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.HomeUiState
+import com.yichao.evilgodxu.ui.icons.AppIcons
 
 // 权限状态对话框：未全部授权时显示且不可关闭，列表 + 右侧按钮申请，全部授权后自动隐藏
 @Composable

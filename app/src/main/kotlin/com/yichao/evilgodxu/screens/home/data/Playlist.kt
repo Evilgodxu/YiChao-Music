@@ -1,5 +1,7 @@
 package com.yichao.evilgodxu.screens.home.data
 
+import com.yichao.evilgodxu.data.music.model.MusicTrack
+
 // 自定义歌单实体，trackIds 引用 MusicTrack.id
 data class Playlist(
     val id: Long,

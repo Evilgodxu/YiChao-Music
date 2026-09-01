@@ -1,8 +1,8 @@
 package com.yichao.evilgodxu.screens.settings
 
+import com.yichao.evilgodxu.data.music.proxy.ProxySourceSpec
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import com.yichao.evilgodxu.musicpanel.proxy.ProxySourceSpec
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
