@@ -221,7 +221,7 @@
     <string name="playlist_switch_default">默认歌单</string>
     <string name="playlist_sort_handle">排序调整</string>
     <string name="playlist_edit_album_title">编辑专辑元数据</string>
-    <string name="playlist_import">从链接导入歌单</string>
+    <string name="playlist_import">导入歌单</string>
     <string name="playlist_import_title">从链接导入歌单</string>
     <string name="playlist_import_link_hint">粘贴歌单分享链接</string>
     <string name="playlist_import_tip">网易云歌单内置解析，其余平台需代理音源</string>

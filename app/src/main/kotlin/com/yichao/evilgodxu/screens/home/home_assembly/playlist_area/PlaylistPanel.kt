@@ -497,13 +497,6 @@ private fun CreatePlaylistRow(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            imageVector = AppIcons.Add,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.playlist_create),
             color = Color.White,
