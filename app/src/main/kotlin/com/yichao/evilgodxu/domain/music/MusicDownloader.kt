@@ -9,6 +9,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.yichao.evilgodxu.data.music.api.MusicHttpClient
 import com.yichao.evilgodxu.data.music.api.MusicQuality
+import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
@@ -17,8 +18,11 @@ import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.ui.music.isLosslessFormatName
 import java.io.File
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Request
 
 // 在线歌曲缓存下载：流式下载到公共下载目录的媒体集合条目，完成后重定向播放源
@@ -49,6 +53,8 @@ internal suspend fun cacheToDownloads(
             embedCachedMetadata(context, playbackState, trackId)
             // 提取封面/歌词展示缓存并清理冗余封面文件
             MetadataEnricher.enrichAndCleanup(context, playbackState)
+            // 复用旧缓存同样登记本地音频库并刷新，避免旧缓存文件从未入库
+            registerCachedFileAsLocal(context, playbackState, trackId, existingUri)
             return
         }
 
@@ -94,10 +100,41 @@ internal suspend fun cacheToDownloads(
         embedCachedMetadata(context, playbackState, trackId)
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
         MetadataEnricher.enrichAndCleanup(context, playbackState)
+        // 缓存完成：登记本地音频库并刷新播放列表，建立本地索引
+        registerCachedFileAsLocal(context, playbackState, trackId, audioUri)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicDownloader", "缓存下载文件失败", e)
     } finally {
         playbackState.cacheInProgressIds.remove(trackId)
+    }
+}
+
+// 缓存完成后把文件登记进本地音频库并刷新播放列表，建立本地索引；
+// 当前播放的缓存曲目刷新后按真实路径重新定位到迁移条目，避免换 ID 后与播放列表脱节
+private suspend fun registerCachedFileAsLocal(
+    context: Context,
+    playbackState: MusicPlaybackState,
+    trackId: Long,
+    audioUri: String,
+) {
+    val path = queryMediaPath(context, Uri.parse(audioUri)) ?: return
+    // 等待扫描完成再刷新，确保 MusicScanner 能读到新条目
+    withTimeoutOrNull(SCAN_TIMEOUT_MS) {
+        suspendCancellableCoroutine { cont ->
+            MediaScannerConnection.scanFile(context, arrayOf(path), null) { _, _ ->
+                cont.resume(Unit)
+            }
+        }
+    }
+    PlaylistRefresher.refresh(context, playbackState, restoreCurrent = true)
+    withContext(Dispatchers.Main) {
+        val current = playbackState.currentTrack ?: return@withContext
+        if (current.id != trackId) return@withContext
+        val migratedIndex = playbackState.playlist.indexOfFirst { it.path == path }
+        if (migratedIndex >= 0 && playbackState.playlist[migratedIndex].id != trackId) {
+            playbackState.currentIndex = migratedIndex
+            playbackState.currentTrack = playbackState.playlist[migratedIndex]
+        }
     }
 }
 
@@ -188,6 +225,9 @@ private val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "m4a", "wav", "aac", 
 
 // 流式复制音频数据的读缓冲大小
 private const val STREAM_BUFFER_SIZE = 64 * 1024
+
+// 等待媒体扫描完成的上限：超时后仍继续刷新，新条目由后续媒体变更刷新兜底
+private const val SCAN_TIMEOUT_MS = 10_000L
 
 // 探测音频时长是否 ≤30 秒的试听片段
 private fun isTrialAudioFile(file: File): Boolean {
