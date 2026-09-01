@@ -455,9 +455,6 @@ fun PlayerArea(
                     playbackState = playbackState,
                     onPlaylistClick = { playlistVisible = !playlistVisible },
                 )
-                // 自由窗口底部留白：避免控制按钮贴近窗口边缘
-                Spacer(Modifier.height(20.dp))
-                Spacer(Modifier.height(16.dp))
             }
         }
 
