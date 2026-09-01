@@ -22,8 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.unit.dp
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.musicpanel.MusicPlaybackState
 import com.yichao.evilgodxu.musicpanel.playTrackAt
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +35,12 @@ import kotlin.math.abs
 
 // 左右滑动切换（右滑搜索、左滑歌单）共用的回弹阈值：滑动进度达到该比例则展开，否则回弹至播放器
 private const val SWIPE_OPEN_RATIO = 0.25f
+
+// 纵向切换曲目：滑动（未松手）期间在封面底部显示将播放的曲目方向；
+// 松手时位移回到起点该距离内判定为取消切歌，否则按方向切换
+private val TRACK_PREVIEW_CANCEL_DISTANCE = 100.dp
+// 提示显示所需的最小位移，兼作滑动的方向判定阈值
+private val TRACK_PREVIEW_MIN_DISTANCE = 8.dp
 
 /**
  * 首页滑动切换状态与手势逻辑：持有搜索/歌单面板的显隐与跟手进度，提供手势 Modifier 与结算动画。
@@ -43,6 +52,9 @@ internal class HomeSwipeController(
     private val scope: CoroutineScope,
     private val keyboardController: SoftwareKeyboardController?,
     private val swipeToChangeTrack: State<Boolean>,
+    // 纵向切歌滑回取消与提示显示的距离阈值（px）
+    private val cancelDistancePx: Float,
+    private val previewMinDistancePx: Float,
 ) {
     // 右滑呼出的在线搜索覆盖层显隐状态
     var showOnlineSearch by mutableStateOf(false)
@@ -53,6 +65,12 @@ internal class HomeSwipeController(
     var playlistProgress by mutableFloatStateOf(0f)
     // 内容区像素宽度，用于将滑动距离换算为进度比例
     var contentWidthPx by mutableFloatStateOf(0f)
+    // 纵向切歌预览文本：滑动且未松手时显示于封面底部，手势结束时清空
+    var trackSwitchPreviewText by mutableStateOf<String?>(null)
+        private set
+    // 即将播放下一曲/上一曲的固定提示文案
+    private val nextPreviewText = context.getString(R.string.home_player_swipe_preview_next)
+    private val previousPreviewText = context.getString(R.string.home_player_swipe_preview_previous)
     // 本次手势起始时面板的展开状态，回滑关闭时按相同比例阈值判定
     private var gestureSearchOpen by mutableStateOf(false)
     private var gesturePlaylistOpen by mutableStateOf(false)
@@ -91,6 +109,8 @@ internal class HomeSwipeController(
         get() = Modifier.pointerInput(Unit) {
             val slop = viewConfiguration.touchSlop
             awaitEachGesture {
+                // 手势开始时清空预览，避免上一次手势残留
+                trackSwitchPreviewText = null
                 // 记录手势起始时的面板展开状态，回滑时按相同阈值判定关闭
                 gestureSearchOpen = showOnlineSearch
                 gesturePlaylistOpen = showPlaylist
@@ -166,7 +186,10 @@ internal class HomeSwipeController(
                     if (playlistOpen != showPlaylist) showPlaylist = playlistOpen
                     settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
                 } else if (axis == 2) {
-                    // 纵向主导：向上切下一首、向下切上一首；仅播放器视图（无覆盖面板）生效，避免与面板内滚动冲突
+                    // 纵向主导：向上切下一首、向下切上一首；仅播放器视图（无覆盖面板）生效，避免与面板内滚动冲突。
+                    // 滑动期间（未松手）实时显示将播放的曲目方向；松手时由滑回起点的距离决定取消或切歌
+                    val previewEnabled = swipeToChangeTrack.value &&
+                        searchProgress <= 0f && playlistProgress <= 0f
                     var swipeY = accY
                     while (true) {
                         val event = awaitPointerEvent()
@@ -174,17 +197,30 @@ internal class HomeSwipeController(
                         if (change == null || !change.pressed || change.isConsumed) break
                         swipeY += change.positionChange().y
                         change.consume()
+                        if (previewEnabled) {
+                            trackSwitchPreviewText = previewTextOf(swipeY)
+                        }
                     }
-                    if (swipeToChangeTrack.value &&
-                        searchProgress <= 0f && playlistProgress <= 0f
-                    ) {
+                    // 松手判定：位移回到起点附近则取消切歌，否则按方向切换（保持原直接滑动逻辑）
+                    if (previewEnabled && abs(swipeY) >= cancelDistancePx) {
                         val next = if (swipeY < 0f) playbackState.nextIndex()
                         else playbackState.previousIndex()
                         if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
                     }
+                    trackSwitchPreviewText = null
                 }
             }
         }
+
+    // 纵向切歌预览文本：位移未达最小阈值不显示；按方向取下一曲/上一曲，目标不存在时同样不显示
+    private fun previewTextOf(swipeY: Float): String? {
+        if (abs(swipeY) < previewMinDistancePx) return null
+        return if (swipeY < 0f) {
+            if (playbackState.nextIndex() >= 0) nextPreviewText else null
+        } else {
+            if (playbackState.previousIndex() >= 0) previousPreviewText else null
+        }
+    }
 }
 
 @Composable
@@ -197,6 +233,10 @@ internal fun rememberHomeSwipeController(
     val keyboardController = LocalSoftwareKeyboardController.current
     // 手势协程中读取实时开关值，避免捕获过期状态
     val swipeToChangeTrackState = rememberUpdatedState(swipeToChangeTrack)
+    // 纵向切歌的距离阈值按当前密度换算为像素
+    val density = LocalDensity.current
+    val cancelDistancePx = with(density) { TRACK_PREVIEW_CANCEL_DISTANCE.toPx() }
+    val previewMinDistancePx = with(density) { TRACK_PREVIEW_MIN_DISTANCE.toPx() }
     return remember(playbackState) {
         HomeSwipeController(
             playbackState = playbackState,
@@ -204,6 +244,8 @@ internal fun rememberHomeSwipeController(
             scope = scope,
             keyboardController = keyboardController,
             swipeToChangeTrack = swipeToChangeTrackState,
+            cancelDistancePx = cancelDistancePx,
+            previewMinDistancePx = previewMinDistancePx,
         )
     }
 }

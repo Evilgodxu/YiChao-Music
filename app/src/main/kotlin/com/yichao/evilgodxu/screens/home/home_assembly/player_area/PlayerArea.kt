@@ -3,6 +3,12 @@ package com.yichao.evilgodxu.screens.home.home_assembly.player_area
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -92,6 +98,8 @@ fun PlayerArea(
     modifier: Modifier = Modifier,
     // 标题栏区域高度：封面顶部渐隐区与错误横幅避让基准
     topBarInset: Dp = 0.dp,
+    // 纵向切歌预览提示：滑动未松手时显示于专辑封面底部
+    swipePreviewText: String? = null,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
@@ -229,6 +237,29 @@ fun PlayerArea(
                 },
                 onDismiss = { showCoverMenu = false },
             )
+            // 纵向切歌预览：滑动未松手时显示于封面底部，提醒将播放的曲目方向
+            AnimatedVisibility(
+                visible = swipePreviewText != null,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = fadeIn(animationSpec = tween(150)) +
+                    slideInVertically(animationSpec = tween(150)) { it / 2 },
+                exit = fadeOut(animationSpec = tween(150)) +
+                    slideOutVertically(animationSpec = tween(150)) { it / 2 },
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 24.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = swipePreviewText.orEmpty(),
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
         }
         // 歌词/标题/进度/控制栏：从封面下方按序排列
         Box(

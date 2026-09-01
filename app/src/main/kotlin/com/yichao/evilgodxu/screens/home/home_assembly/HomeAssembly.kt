@@ -197,6 +197,7 @@ fun HomeAssembly(
                         PlayerArea(
                             modifier = Modifier.fillMaxSize(),
                             topBarInset = innerPadding.calculateTopPadding(),
+                            swipePreviewText = swipeController.trackSwitchPreviewText,
                             onOpenOnlineSearch = { query ->
                                 playbackState.setSearchQuery(query)
                                 playbackState.setSearchResultsVisible(true)

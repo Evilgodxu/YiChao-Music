@@ -140,6 +140,8 @@
     <string name="home_player_lyric_delay">歌词延后</string>
     <string name="home_player_lyric_advance">歌词提前</string>
     <string name="home_player_close_playlist">关闭播放列表</string>
+    <string name="home_player_swipe_preview_next">即将播放下一曲</string>
+    <string name="home_player_swipe_preview_previous">即将播放上一曲</string>
     <string name="home_upgrade_lossless_title">升级为无损音质</string>
     <string name="home_upgrade_lossless_no_candidates">未匹配到可升级的在线歌曲</string>
     <string name="home_upgrade_lossless_confirm">升级</string>

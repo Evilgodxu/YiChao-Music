@@ -140,6 +140,8 @@
     <string name="home_player_lyric_delay">Delay lyrics</string>
     <string name="home_player_lyric_advance">Advance lyrics</string>
     <string name="home_player_close_playlist">Close playlist</string>
+    <string name="home_player_swipe_preview_next">About to play next track</string>
+    <string name="home_player_swipe_preview_previous">About to play previous track</string>
     <string name="home_upgrade_lossless_title">Upgrade to lossless</string>
     <string name="home_upgrade_lossless_no_candidates">No upgradable online match</string>
     <string name="home_upgrade_lossless_confirm">Upgrade</string>
