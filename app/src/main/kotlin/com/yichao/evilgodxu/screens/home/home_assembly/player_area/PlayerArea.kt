@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -38,9 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -116,7 +112,8 @@ fun PlayerArea(
             ),
         )
 
-    // 歌词区高度随可见行数与字号自适应：每行占行高与上下内边距之和，行间为固定间距
+    // 歌词区高度随可见行数与字号自适应：每行占行高与上下 2dp 内边距，行间 2dp 固定间距，
+    // 末尾补足歌词面板顶部 4dp 内边距，使外层高度与内部歌词窗口一致
     val textMeasurer = rememberTextMeasurer()
     val lyricLineHeight = with(LocalDensity.current) {
         textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = homePortraitLayout.fontSizeSp.sp)).size.height.toDp()
@@ -192,11 +189,10 @@ fun PlayerArea(
         }
     }
 
-    // 外层容器：沉浸封面置顶占满屏幕宽度，其余模块在封面下方剩余空间居中并按需等比缩小
+    // 外层容器：沉浸封面置顶占满屏幕宽度，其余模块从封面下方按序排列
     BoxWithConstraints(modifier = modifier) {
         // 封面为全宽正方形，占位高度即屏幕宽度
         val coverHeight = maxWidth
-        val contentMaxHeight = (maxHeight - coverHeight).coerceAtLeast(0.dp)
         // 沉浸式专辑封面：全宽置顶并嵌入标题栏区域，上下边缘渐隐为透明融入背景
         Box(
             modifier = Modifier
@@ -234,36 +230,20 @@ fun PlayerArea(
                 onDismiss = { showCoverMenu = false },
             )
         }
-        // 其余模块：歌词/标题/进度/控制栏在封面下方剩余空间垂直居中，内容超出可用高度时整体等比缩小
+        // 歌词/标题/进度/控制栏：从封面下方按序排列
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = coverHeight),
-            contentAlignment = Alignment.Center,
         ) {
-            // 记录已见最大内容高度：切歌时格式行隐现会改变实测高度，取最大值避免整体缩放抖动
-            var contentHeightPx by remember(
-                homePortraitLayout.fontSizeSp,
-                homePortraitLayout.visibleLines,
-            ) { mutableIntStateOf(0) }
-            val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
-            val scale = if (contentHeightDp > 0.dp) {
-                (contentMaxHeight / contentHeightDp).coerceIn(0.55f, 1f)
-            } else 1f
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(unbounded = true)
-                    .onSizeChanged { if (it.height > contentHeightPx) contentHeightPx = it.height }
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        transformOrigin = TransformOrigin(0.5f, 0.5f)
-                    },
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(Modifier.height(16.dp))
-                // 歌词：固定为 5 行歌词高度，点击歌词区切换微调按钮显隐
+                // 封面与歌词间距
+                Spacer(Modifier.height(8.dp))
+                // 歌词：高度随设置的可见行数自适应（默认 5 行），点击歌词区切换微调按钮显隐
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -386,7 +366,8 @@ fun PlayerArea(
                         }
                     }
                 }
-                Spacer(Modifier.height(20.dp))
+                // 歌词与标题间距
+                Spacer(Modifier.height(8.dp))
                 // 标题与艺术家：过长时跑马灯滚动并带边缘渐隐，与横屏一致
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     MarqueeInfoLine(
@@ -452,7 +433,8 @@ fun PlayerArea(
                         onDismiss = { showMetaMenu = false },
                     )
                 }
-                Spacer(Modifier.height(20.dp))
+                // 艺术家与音频格式条间距
+                Spacer(Modifier.height(8.dp))
                 // 音频信息与进度条（与音乐面板一致，宽度收窄 15%）
                 Box(
                     modifier = Modifier.fillMaxWidth(0.85f),
@@ -467,7 +449,8 @@ fun PlayerArea(
                         },
                     )
                 }
-                Spacer(Modifier.height(20.dp))
+                // 进度条与控制栏间距
+                Spacer(Modifier.height(8.dp))
                 PlayerControls(
                     playbackState = playbackState,
                     onPlaylistClick = { playlistVisible = !playlistVisible },
