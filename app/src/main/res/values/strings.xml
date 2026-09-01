@@ -50,6 +50,7 @@
     <string name="music_panel_speed_value">%.1fx</string>
     <string name="music_panel_search_placeholder">搜索歌曲</string>
     <string name="music_panel_search_title">在线搜索</string>
+    <string name="music_panel_menu_search">搜索</string>
     <string name="music_panel_delete_title">是否删除这首歌曲？</string>
     <string name="music_panel_delete_message">将删除歌曲「%1$s · %2$s」</string>
     <string name="music_panel_delete_cancel">取消</string>
@@ -142,6 +143,7 @@
     <string name="home_player_close_playlist">关闭播放列表</string>
     <string name="home_player_swipe_preview_next">即将播放下一曲</string>
     <string name="home_player_swipe_preview_previous">即将播放上一曲</string>
+    <string name="home_player_swipe_preview_cancel">松手取消切歌</string>
     <string name="home_upgrade_lossless_title">升级为无损音质</string>
     <string name="home_upgrade_lossless_no_candidates">未匹配到可升级的在线歌曲</string>
     <string name="home_upgrade_lossless_confirm">升级</string>

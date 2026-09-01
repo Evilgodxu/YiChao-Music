@@ -304,7 +304,7 @@ internal fun MiniContextMenu(
                             onClick = onSearch
                         ) {
                             Text(
-                                text = stringResource(R.string.music_panel_search_title),
+                                text = stringResource(R.string.music_panel_menu_search),
                                 color = MaterialTheme.colorScheme.primary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,

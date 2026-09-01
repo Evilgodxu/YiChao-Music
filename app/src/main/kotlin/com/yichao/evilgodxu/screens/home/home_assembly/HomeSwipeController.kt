@@ -71,6 +71,8 @@ internal class HomeSwipeController(
     // 即将播放下一曲/上一曲的固定提示文案
     private val nextPreviewText = context.getString(R.string.home_player_swipe_preview_next)
     private val previousPreviewText = context.getString(R.string.home_player_swipe_preview_previous)
+    // 滑回起点附近松手将取消切歌的提示文案
+    private val cancelPreviewText = context.getString(R.string.home_player_swipe_preview_cancel)
     // 本次手势起始时面板的展开状态，回滑关闭时按相同比例阈值判定
     private var gestureSearchOpen by mutableStateOf(false)
     private var gesturePlaylistOpen by mutableStateOf(false)
@@ -191,14 +193,16 @@ internal class HomeSwipeController(
                     val previewEnabled = swipeToChangeTrack.value &&
                         searchProgress <= 0f && playlistProgress <= 0f
                     var swipeY = accY
+                    var maxSwipeY = abs(accY)
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id }
                         if (change == null || !change.pressed || change.isConsumed) break
                         swipeY += change.positionChange().y
                         change.consume()
+                        if (abs(swipeY) > maxSwipeY) maxSwipeY = abs(swipeY)
                         if (previewEnabled) {
-                            trackSwitchPreviewText = previewTextOf(swipeY)
+                            trackSwitchPreviewText = previewTextOf(swipeY, maxSwipeY)
                         }
                     }
                     // 松手判定：位移回到起点附近则取消切歌，否则按方向切换（保持原直接滑动逻辑）
@@ -212,14 +216,22 @@ internal class HomeSwipeController(
             }
         }
 
-    // 纵向切歌预览文本：位移未达最小阈值不显示；按方向取下一曲/上一曲，目标不存在时同样不显示
-    private fun previewTextOf(swipeY: Float): String? {
-        if (abs(swipeY) < previewMinDistancePx) return null
-        return if (swipeY < 0f) {
-            if (playbackState.nextIndex() >= 0) nextPreviewText else null
-        } else {
-            if (playbackState.previousIndex() >= 0) previousPreviewText else null
+    // 纵向切歌预览文本：未滑出过取消区时按方向预览（极小位移不显示）；
+    // 滑出过取消区后回落到取消区内统一提示松手取消，接近起点也保持显示
+    private fun previewTextOf(swipeY: Float, maxSwipeY: Float): String? {
+        if (maxSwipeY >= cancelDistancePx) {
+            return if (abs(swipeY) < cancelDistancePx) cancelPreviewText
+            else directionPreviewText(swipeY)
         }
+        if (abs(swipeY) < previewMinDistancePx) return null
+        return directionPreviewText(swipeY)
+    }
+
+    // 按当前滑动方向返回将播放的曲目提示，目标不存在时不显示
+    private fun directionPreviewText(swipeY: Float): String? = if (swipeY < 0f) {
+        if (playbackState.nextIndex() >= 0) nextPreviewText else null
+    } else {
+        if (playbackState.previousIndex() >= 0) previousPreviewText else null
     }
 }
 
