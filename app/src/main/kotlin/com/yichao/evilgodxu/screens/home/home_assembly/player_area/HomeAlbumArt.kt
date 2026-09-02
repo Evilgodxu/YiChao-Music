@@ -29,6 +29,7 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.theme.md_theme_dark_background
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -88,7 +89,8 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             modifier = modifier.background(Color.Black),
         )
         else -> Box(
-            modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+            // 首页背景恒为深色，占位背景固定用深色主题背景色，避免浅色主题下首帧浅色闪烁
+            modifier = modifier.background(md_theme_dark_background),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
