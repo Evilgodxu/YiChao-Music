@@ -89,6 +89,15 @@ class MusicPlaybackState {
         }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            // 曲目自然播完即计一次完整播放，作为常听收录依据：
+            // AUTO=自动续播/单曲结束切下一首；REPEAT=单曲循环重播当前曲目。
+            // 手动切歌(SEEK)、列表变更(PLAYLIST_CHANGED)非自然结束，不计入。
+            // 需在更新 currentTrack 前记录，此处 currentTrack 仍为刚播完的上一首。
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+            ) {
+                currentTrack?.id?.let { recordPlayed(it) }
+            }
             if (stopAfterCurrentTrack && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                 // 定时关闭：当前曲目自然结束 → 停止播放
                 completeSleepTimer()
@@ -167,7 +176,8 @@ class MusicPlaybackState {
                 Player.STATE_ENDED -> {
                     isPlaying = false
                     currentPosition = duration
-                    // 曲目自然播完计入完整播放，作为常听收录依据
+                    // REPEAT_MODE_OFF 播完整个时间线末尾（无切歌回调）时兜底计入完整播放；
+                    // 常规自然播完/单曲循环已在 onMediaItemTransition 中记录，此处不会重复
                     currentTrack?.id?.let { recordPlayed(it) }
                     if (suppressAutoNext) {
                         suppressAutoNext = false
