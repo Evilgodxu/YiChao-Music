@@ -49,14 +49,14 @@ import org.json.JSONObject
 // 音乐播放器状态持有者（悬浮窗级共享状态）
 class MusicPlaybackState {
 
-    // 常听收录窗口：统计 3 天内完整播放次数不少于 3 次的歌曲
+    // 常听收录窗口：统计 3 天内完整播放次数不少于 2 次的歌曲
     companion object {
         // 播放速度调节范围与默认值：步长 0.1
         const val PLAYBACK_SPEED_MIN = 0.5f
         const val PLAYBACK_SPEED_MAX = 2.0f
         const val PLAYBACK_SPEED_DEFAULT = 1.0f
         private const val RECENT_WINDOW_DAYS = 3
-        private const val RECENT_MIN_PLAYS = 3
+        private const val RECENT_MIN_PLAYS = 2
         // 播放期间周期性持久化间隔：保证冷启动/异常退出也能恢复当前曲目与进度
         private const val STATE_PERSIST_INTERVAL_MS = 3000L
     }
@@ -472,7 +472,7 @@ class MusicPlaybackState {
     // 收藏的歌曲 ID 集合（面板级内存状态）
     var likedIds by mutableStateOf<Set<Long>>(emptySet())
 
-    // 常听：3 天内完整播放次数不少于 3 次的歌曲，按最近一次播放时间倒序
+    // 常听：3 天内完整播放次数不少于 2 次的歌曲，按最近一次播放时间倒序
     private var recentPlayEvents by mutableStateOf<List<PlayEvent>>(emptyList())
     private val recentPlayedPreferences = "music_recent_played_preferences"
     private val recentPlayedKey = "music_recent_played_events"
