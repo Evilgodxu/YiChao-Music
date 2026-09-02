@@ -2,6 +2,10 @@ package com.yichao.evilgodxu.service
 
 import android.content.Intent
 import android.view.KeyEvent
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -25,9 +29,37 @@ import kotlinx.coroutines.launch
 class MusicPlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private var mediaSession: MediaSession? = null
+    private lateinit var audioManager: AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+    /** 焦点丢失前是否正在播放：恢复焦点后据此自动续播 */
+    private var resumeAfterFocusLoss = false
+    private val audioFocusHandler = Handler(Looper.getMainLooper())
+
+    /** 其他应用抢占焦点时的响应：一律暂停，恢复后按需续播，避免压低音量后不恢复导致的静音 */
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (resumeAfterFocusLoss) {
+                    resumeAfterFocusLoss = false
+                    player.setPlayWhenReady(true)
+                }
+            }
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                resumeAfterFocusLoss = false
+                player.pause()
+                abandonAudioFocus()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                resumeAfterFocusLoss = player.isPlaying
+                player.pause()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
+        audioManager = getSystemService(AudioManager::class.java)
         // 变速/变调交给 AudioTrack 原生处理，避免 Sonic 软件变速在低速时产生噪声
         val audioSink = DefaultAudioSink.Builder(this)
             .setEnableAudioOutputPlaybackParameters(true)
@@ -45,11 +77,15 @@ class MusicPlaybackService : MediaSessionService() {
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .build(),
-                true
+                false
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
         player.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) requestAudioFocus()
+            }
+
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 val format = tracks.groups.firstOrNull { it.isSelected }?.getTrackFormat(0)
                 val state = MusicPanelStateHolder.state
@@ -186,6 +222,27 @@ class MusicPlaybackService : MediaSessionService() {
         }
     }
 
+    private fun requestAudioFocus() {
+        val request = audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .setOnAudioFocusChangeListener(audioFocusListener, audioFocusHandler)
+            .build()
+            .also { audioFocusRequest = it }
+        audioManager.requestAudioFocus(request)
+    }
+
+    private fun abandonAudioFocus() {
+        audioFocusRequest?.let { request ->
+            audioManager.abandonAudioFocusRequest(request)
+            audioFocusRequest = null
+        }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
@@ -204,6 +261,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
 
     fun stopPlayback() {
+        abandonAudioFocus()
         player.stop()
         mediaSession?.release()
         mediaSession = null
@@ -211,6 +269,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        abandonAudioFocus()
         mediaSession?.release()
         mediaSession = null
         player.release()
