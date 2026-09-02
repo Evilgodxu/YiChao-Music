@@ -293,7 +293,19 @@ object MetadataEnricher {
                 )
             }
         }
-        // 其次复用按"标题 - 艺术家"落盘的通用歌词缓存（在线播放/手动刷新保存的 .lrc）
+        // 其次读取本地音频内嵌歌词：文件自带歌词优先于共享缓存与在线匹配；
+        // 读回后落盘为歌词缓存，避免冷启动重复读取音频文件头部
+        if (track.isLocalAudioSource) {
+            MusicEmbeddedLyricReader.read(context, track).takeIf { it.isNotEmpty() }?.let { lines ->
+                val lyricPath = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lines).orEmpty()
+                return track.copy(
+                    lyricCachePath = lyricPath,
+                    lyricLines = applyLyricOffset(lines, track.lyricOffsetMs),
+                    lyricFailed = false,
+                )
+            }
+        }
+        // 再次复用按"标题 - 艺术家"落盘的通用歌词缓存（在线播放/手动刷新保存的 .lrc）
         val existingPath = MusicMetadataCache.findLyrics(context, track.title, track.artist)
         val existingLines = existingPath?.let { MusicMetadataCache.loadLyrics(it) }
         if (!existingLines.isNullOrEmpty()) {
