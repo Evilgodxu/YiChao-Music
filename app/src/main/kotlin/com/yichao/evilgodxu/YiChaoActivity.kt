@@ -30,6 +30,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.yichao.evilgodxu.data.repository.SettingsRepository
+import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
+import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
 import com.yichao.evilgodxu.dialog.UpdateDialog
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
@@ -149,7 +151,7 @@ class YiChaoActivity : ComponentActivity() {
         handleExternalIntent(intent)
     }
 
-    // 处理外部通过打开/分享传入的音频：经迷你播放器后台播放，不展示全屏面板，并保持应用在后台
+    // 处理外部通过打开/分享传入的内容：音频经迷你播放器后台播放；文本/JSON 作为代理音源导入
     private fun handleExternalIntent(intent: Intent) {
         val uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
@@ -157,8 +159,35 @@ class YiChaoActivity : ComponentActivity() {
                 intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
             else -> null
         } ?: return
-        musicPanelController.playExternalInBackground(uri)
-        moveTaskToBack(true)
+        if (isAudioUri(uri)) {
+            musicPanelController.playExternalInBackground(uri)
+            moveTaskToBack(true)
+        } else {
+            importProxySource(uri)
+        }
+    }
+
+    private fun isAudioUri(uri: Uri): Boolean =
+        contentResolver.getType(uri)?.startsWith("audio/") == true
+
+    // 读取分享/打开的文本文件并按代理音源解析导入，结果以 Toast 提示
+    private fun importProxySource(uri: Uri) {
+        val text = runCatching {
+            contentResolver.openInputStream(uri)
+                ?.use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull()
+        val message = when {
+            text.isNullOrBlank() -> getString(R.string.settings_proxy_source_import_read_error)
+            else -> when (val result = ProxySourceStore.import(this, text)) {
+                is ProxyParseResult.Success ->
+                    getString(R.string.settings_proxy_source_import_success)
+                is ProxyParseResult.Failure -> getString(
+                    R.string.settings_proxy_source_import_failed,
+                    result.reason,
+                )
+            }
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     @Composable

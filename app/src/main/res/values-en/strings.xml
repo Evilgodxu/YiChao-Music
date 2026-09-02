@@ -178,6 +178,8 @@
     <string name="settings_proxy_source_remove_desc">Remove source</string>
     <string name="settings_proxy_source_import_failed">Import failed: %1$s</string>
     <string name="settings_proxy_source_link_error">Failed to fetch the link, please check the network</string>
+    <string name="settings_proxy_source_import_success">Proxy source imported</string>
+    <string name="settings_proxy_source_import_read_error">Import failed: unable to read the file</string>
 
     <!-- Cards & typography settings -->
     <string name="typography_screen_title">Cards &amp; Typography</string>

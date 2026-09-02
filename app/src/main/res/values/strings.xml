@@ -178,6 +178,8 @@
     <string name="settings_proxy_source_remove_desc">移除音源</string>
     <string name="settings_proxy_source_import_failed">导入失败：%1$s</string>
     <string name="settings_proxy_source_link_error">链接无法访问，请检查网络</string>
+    <string name="settings_proxy_source_import_success">代理音源导入成功</string>
+    <string name="settings_proxy_source_import_read_error">导入失败：无法读取文件内容</string>
 
     <!-- 卡片与排版设置 -->
     <string name="typography_screen_title">排版设置</string>
