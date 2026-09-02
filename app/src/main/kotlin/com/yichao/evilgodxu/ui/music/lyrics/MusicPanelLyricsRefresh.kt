@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
@@ -231,8 +233,7 @@ private fun LyricsRefreshContent(
                         Modifier
                             .width(112.dp)
                             .clickable { onCandidateSelected(candidate) },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Surface(shape = RoundedCornerShape(8.dp), border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
                             val coverUrl = candidate.coverUrl?.takeIf { it.isNotBlank() }
@@ -249,10 +250,20 @@ private fun LyricsRefreshContent(
                                 }
                             }
                         }
+                        Spacer(modifier = Modifier.height(1.dp))
                         Text(
                             text = candidate.title,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 11.sp,
+                            lineHeight = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = candidate.artist,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
