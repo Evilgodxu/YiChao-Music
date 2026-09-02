@@ -381,6 +381,7 @@ private fun MiniPlayerMarqueeText(
     }
     Box(
         modifier = modifier
+            .fillMaxWidth()
             .height(with(density) { layout.size.height.toDp() })
             .onSizeChanged { containerWidthPx = it.width.toFloat() }
             .drawWithContent {
