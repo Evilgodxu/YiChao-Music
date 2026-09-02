@@ -56,15 +56,20 @@ object MetadataEnricher {
         val plannedIds = tracks.filter { plansMetadataFor(it) }.map { it.id }
         bulkInFlight.addAll(plannedIds)
         try {
-            // 先加载本地封面
-            enrichLocalCovers(context, playbackState, tracks)
-            // 并行加载在线封面和歌词（两者互不依赖），合并后一次性更新
+            // 封面懒加载：逐一异步加载内嵌封面，当前曲目优先，避免批量提取阻塞主线程；
+            // 返回本阶段已获内嵌封面的曲目 id，供在线封面兜底跳过，避免在线封面覆盖内嵌封面
+            val embeddedCoveredIds = enrichLocalCoversProgressively(context, playbackState, tracks)
+            // 歌词智能获取：待封面加载完毕后触发（本地缓存命中直接读取，未命中提取内嵌歌词，
+            // 两者均缺失时最后在线匹配）；在线封面与歌词互不依赖，并行兜底
             val (coverUpdates, lyricUpdates) = coroutineScope {
-                async { enrichOnlineCovers(context, playbackState, tracks) } to
+                async { enrichOnlineCovers(context, playbackState, tracks, embeddedCoveredIds) } to
                     async { enrichLyrics(context, tracks) }
             }.let { (c, l) -> c.await() to l.await() }
 
-            val allUpdates = mergeCoverAndLyricUpdates(coverUpdates, lyricUpdates)
+            // 歌词更新基于扫描快照，合并时以当前状态为基准，保留懒加载阶段已写入的内嵌封面
+            val allUpdates = withContext(Dispatchers.Main) {
+                mergeCoverAndLyricUpdates(playbackState, coverUpdates, lyricUpdates)
+            }
             if (allUpdates.isEmpty()) return
             withContext(Dispatchers.Main) {
                 playbackState.batchUpdateTracks(allUpdates)
@@ -145,12 +150,12 @@ object MetadataEnricher {
         return updated
     }
 
-    /** 后台加载本地歌曲封面（从 MediaStore 提取），不阻塞主流程 */
-    private suspend fun enrichLocalCovers(
+    /** 封面懒加载：列表渲染后逐一异步加载内嵌封面，提取成功即回写，实现渐进显示 */
+    private suspend fun enrichLocalCoversProgressively(
         context: Context,
         playbackState: MusicPlaybackState,
         tracks: List<MusicTrack>,
-    ) {
+    ): Set<Long> {
         // 本地音频即使带自动匹配的在线封面也允许重试本地提取，修复在线封面文件缺失/损坏导致的永久在线匹配；
         // 纯在线歌曲（无本地文件）不参与本地提取，沿用在线封面
         // 已尝试且失败（无内嵌封面）或已具备有效封面缓存的歌曲跳过，仅处理真正缺失的
@@ -163,16 +168,31 @@ object MetadataEnricher {
             // 有可提取内嵌封面的本地音频源才尝试提取：本地文件路径或 MediaStore 本地文件（在线缓存歌）均纳入
             !track.coverFailed && !coverOwned && (track.path.isNotBlank() || isLocalFileUri(track.audioUri))
         }
-        if (needCover.isEmpty()) return
-        val updates = coroutineScope {
-            needCover.map { track ->
-                async(metadataDispatcher) { enrichLocalCover(context, track) }
-            }.awaitAll().filterNotNull()
+        if (needCover.isEmpty()) return emptySet()
+        // 当前播放曲目优先提取，保证首屏封面尽快就绪
+        val currentId = withContext(Dispatchers.Main) { playbackState.currentTrack?.id }
+        val ordered = needCover.sortedWith(compareBy { it.id != currentId })
+        val failed = mutableListOf<MusicTrack>()
+        val coveredIds = mutableSetOf<Long>()
+        for (track in ordered) {
+            val updated = withContext(metadataDispatcher) { enrichLocalCover(context, track) } ?: continue
+            if (updated.coverCachePath.isNotBlank()) {
+                coveredIds.add(track.id)
+                // 提取到封面：立即回写，列表渐进显示
+                withContext(Dispatchers.Main) {
+                    playbackState.batchUpdateTracks(listOf(updated))
+                }
+            } else {
+                // 无内嵌封面：收集失败标记，阶段末统一回写，避免逐首触发无意义重组
+                failed.add(updated)
+            }
         }
-        if (updates.isEmpty()) return
-        withContext(Dispatchers.Main) {
-            playbackState.batchUpdateTracks(updates)
+        if (failed.isNotEmpty()) {
+            withContext(Dispatchers.Main) {
+                playbackState.batchUpdateTracks(failed)
+            }
         }
+        return coveredIds
     }
 
     // 提取单曲内嵌/专辑封面写入本地缓存
@@ -209,10 +229,13 @@ object MetadataEnricher {
         context: Context,
         playbackState: MusicPlaybackState,
         tracks: List<MusicTrack>,
+        embeddedCoveredIds: Set<Long>,
     ): List<MusicTrack> {
         val needCover = tracks.filter { track ->
-            // 已尝试且失败的歌曲跳过，避免每次补全都重复网络匹配
-            !track.coverFailed &&
+            // 本阶段已提取到内嵌封面的曲目跳过在线匹配，避免在线封面覆盖内嵌封面；
+            // 已尝试且失败的歌曲同样跳过，避免每次补全都重复网络匹配
+            track.id !in embeddedCoveredIds &&
+                !track.coverFailed &&
                 (!MusicMetadataCache.isValid(track.coverCachePath) ||
                     !MusicMetadataCache.isHashKeyFileName(track.coverCachePath))
         }
@@ -339,17 +362,21 @@ object MetadataEnricher {
     private fun applyLyricOffset(lines: List<LyricLine>, offsetMs: Long): List<LyricLine> =
         if (offsetMs != 0L) MusicMetadataCache.shiftLyrics(lines, offsetMs) else lines
 
-    /** 合并封面和歌词的更新，确保同一首歌的字段不互相覆盖 */
+    /** 合并封面和歌词更新，确保同一首歌的字段不互相覆盖；
+     *  歌词更新基于扫描快照，合并时以当前状态为基准，保留懒加载阶段已写入的内嵌封面 */
     private fun mergeCoverAndLyricUpdates(
+        playbackState: MusicPlaybackState,
         coverUpdates: List<MusicTrack>,
         lyricUpdates: List<MusicTrack>
     ): List<MusicTrack> {
         val coverMap = coverUpdates.associateBy { it.id }
         val lyricMap = lyricUpdates.associateBy { it.id }
         val allIds = (coverMap.keys + lyricMap.keys).toSet()
+        val liveById = playbackState.playlist.associateBy { it.id }
         return allIds.mapNotNull { id ->
             val cover = coverMap[id]
             val lyric = lyricMap[id]
+            val live = liveById[id]
             when {
                 cover != null && lyric != null -> cover.copy(
                     lyricCachePath = lyric.lyricCachePath.ifEmpty { cover.lyricCachePath },
@@ -357,7 +384,14 @@ object MetadataEnricher {
                     lyricFailed = cover.lyricFailed || lyric.lyricFailed,
                 )
                 cover != null -> cover
-                lyric != null -> lyric
+                lyric != null -> {
+                    val base = live ?: lyric
+                    base.copy(
+                        lyricCachePath = lyric.lyricCachePath.ifEmpty { base.lyricCachePath },
+                        lyricLines = lyric.lyricLines.ifEmpty { base.lyricLines },
+                        lyricFailed = base.lyricFailed || lyric.lyricFailed,
+                    )
+                }
                 else -> null
             }
         }

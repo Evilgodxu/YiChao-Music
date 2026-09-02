@@ -124,11 +124,12 @@ class MusicPlaybackService : MediaSessionService() {
                     )
                     state.audioSignalPathTrackId = currentTrack?.id
                 }
-                // 解码头未给出比特率时（FLAC/VBR 常见），异步读取真实比特率并回填
+                // 解码头未给出比特率时（FLAC/VBR 常见），异步读取真实比特率并回填；
+                // 仅本地音频源读取文件元数据，在线曲目等缓存完成后由 refreshTrackFormatInfoFromLocal 补齐
                 if (state.audioSignalPathFormat?.bitrate == 0) {
                     val track = currentTrack
                     state.playbackScope.launch(Dispatchers.IO) {
-                        if (track != null && state.audioSignalPathTrackId == track.id) {
+                        if (track != null && track.isLocalAudioSource && state.audioSignalPathTrackId == track.id) {
                             TrackAudioInfoReader.readBitrateKbps(applicationContext, track)?.let { bitrate ->
                                 if (state.audioSignalPathFormat?.bitrate == 0) {
                                     state.audioSignalPathFormat = state.audioSignalPathFormat?.copy(bitrate = bitrate)

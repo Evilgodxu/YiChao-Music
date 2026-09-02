@@ -96,15 +96,13 @@ internal fun CurrentCover(
     }
 }
 
-// 封面加载顺序：本地缓存（内嵌/已匹配在线）→ 在线封面 → 占位符。
-// 本地音频源的内嵌封面由后台提取，提取完成前不直接回退在线封面，保证内嵌优先
+// 封面加载顺序：本地缓存（内嵌/已匹配在线）→ 占位符。
+// 本地音频源的内嵌封面由后台提取，提取完成前不直接回退在线封面，保证内嵌优先；
+// 在线曲目同样等封面缓存落盘后再展示，避免开始播放即请求在线封面地址
 private fun coverModel(track: MusicTrack?): Any? {
-    val coverFile = track?.coverCachePath
+    return track?.coverCachePath
         ?.takeIf { MusicMetadataCache.isValid(it) }
         ?.let { File(it) }
-    if (coverFile != null) return coverFile
-    if (track?.isLocalAudioSource == true) return null
-    return track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
 }
 
 @Composable

@@ -25,7 +25,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
@@ -37,7 +36,8 @@ import kotlinx.coroutines.withContext
 // 首页封面显示解码上限：与缓存保存上限对齐，避免超大图全尺寸进内存
 private const val DISPLAY_MAX_EDGE = 2048
 
-// 首页大封面：优先显示已应用的封面缓存文件（修改封面后即时重载），其次音频内嵌原图，最后在线原图
+// 首页大封面：优先显示已应用的封面缓存文件（修改封面后即时重载），其次音频内嵌原图；
+// 在线曲目等封面缓存落盘后再展示，避免开始播放即请求在线封面地址
 @Composable
 internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -70,7 +70,6 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
             }
         }
     }
-    val onlineUrl = track?.neteaseCoverUrl?.takeIf { it.isNotBlank() }
     when {
         cached != null -> Image(
             bitmap = cached!!,
@@ -83,14 +82,6 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
         embedded != null -> Image(
             bitmap = embedded!!,
             contentDescription = track?.title,
-            contentScale = ContentScale.Crop,
-            // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
-            filterQuality = FilterQuality.High,
-            modifier = modifier.background(Color.Black),
-        )
-        onlineUrl != null -> AsyncImage(
-            model = onlineUrl,
-            contentDescription = track.title,
             contentScale = ContentScale.Crop,
             // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
             filterQuality = FilterQuality.High,

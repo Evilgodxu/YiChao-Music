@@ -22,6 +22,8 @@ internal object MusicEmbeddedLyricReader {
     private const val MAX_MP3_TAG = 4 * 1024 * 1024
 
     suspend fun read(context: Context, track: MusicTrack): List<LyricLine> = withContext(Dispatchers.IO) {
+        // 在线播放歌曲不读取内嵌歌词（含已缓存为本地文件的在线歌曲），仅本地音频源解析
+        if (track.isOnlinePlay) return@withContext emptyList()
         val input = openInput(context, track) ?: return@withContext emptyList()
         try {
             input.use { stream ->

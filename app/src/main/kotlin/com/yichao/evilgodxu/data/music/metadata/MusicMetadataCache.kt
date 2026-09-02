@@ -244,8 +244,11 @@ internal object MusicMetadataCache {
     }
 
     // 解析本地导入的 LRC 文本（兼容逐字增强标签），供外部导入歌词时复用
-    fun parseLyricsText(text: String): List<LyricLine> =
-        parseEnhancedLrc(text).ifEmpty { parseJsonLyrics(text) }
+    fun parseLyricsText(text: String): List<LyricLine> {
+        // 空/空白文本直接返回空列表，避免进入 JSON 兜底解析抛空值异常
+        if (text.isBlank()) return emptyList()
+        return parseEnhancedLrc(text).ifEmpty { parseJsonLyrics(text) }
+    }
 
     // 整体平移歌词时间轴（手动微调用）：应用幂等，缓存文件保存的始终是原始时间戳
     fun shiftLyrics(lines: List<LyricLine>, deltaMs: Long): List<LyricLine> =
