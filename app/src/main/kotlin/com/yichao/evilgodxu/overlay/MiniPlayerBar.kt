@@ -106,7 +106,13 @@ internal fun MiniPlayerBar(
             if (playbackState.isPlaying) {
                 val now = System.currentTimeMillis()
                 val elapsed = if (lastSyncMs == 0L) 0L else (now - lastSyncMs).coerceAtLeast(0L)
-                lyricPosition = if (candidate >= lyricPosition) candidate else lyricPosition + elapsed
+                // 位置大幅回退视为单曲循环回卷/手动拖动：直接锚定到控制器位置，
+                // 避免回卷后按流逝时间继续递增，导致歌词定格在末行不再更新
+                lyricPosition = when {
+                    candidate >= lyricPosition -> candidate
+                    lyricPosition - candidate > MINI_LYRIC_SEEK_TOLERANCE_MS -> candidate
+                    else -> lyricPosition + elapsed
+                }
                 lastSyncMs = now
             } else {
                 lyricPosition = candidate
@@ -397,6 +403,8 @@ private fun MiniPlayerMarqueeText(
 
 // 歌词揭示平滑时长：行内推进无明显跳变
 private const val MINI_LYRIC_REVEAL_SMOOTH_MS = 60
+// 歌词位置回退容差：超过该值视为单曲循环回卷/手动拖动，直接锚定控制器位置
+private const val MINI_LYRIC_SEEK_TOLERANCE_MS = 1500L
 // 跑马灯滚动速度：长标题按此速度匀速平移
 private val MINI_TITLE_MARQUEE_SPEED = 24.dp
 // 跑马灯两端停顿时长：滚动前/后短暂停留便于阅读

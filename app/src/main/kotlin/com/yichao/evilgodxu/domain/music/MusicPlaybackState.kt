@@ -59,6 +59,10 @@ class MusicPlaybackState {
         private const val RECENT_MIN_PLAYS = 2
         // 播放期间周期性持久化间隔：保证冷启动/异常退出也能恢复当前曲目与进度
         private const val STATE_PERSIST_INTERVAL_MS = 3000L
+        // 单曲循环回卷判定：位置回退超过该值且曾越过曲目中部，视为一次完整播放
+        private const val LOOP_RESTART_MIN_JUMP_MS = 3000L
+        // 回卷检测与过渡回调记录的去重冷却：同一次循环只计入一次完整播放
+        private const val AUTO_COUNT_COOLDOWN_MS = 2000L
     }
 
     // 上次持久化播放状态的时刻，用于播放期间节流写入
@@ -146,6 +150,18 @@ class MusicPlaybackState {
             cleanupIdleOnlineTracks()
             // 再次从控制器校正当前曲目，确保 UI 与真实音频一致（在线曲目切换时尤其关键）
             syncPlaybackState()
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            // 手动拖动进度会触发 SEEK 类位置不连续：重置回卷检测基准，
+            // 避免把"拖回开头"误判为单曲循环完整播放
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                lastTickPosition = 0L
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -488,6 +504,13 @@ class MusicPlaybackState {
     private val recentPlayedKey = "music_recent_played_events"
     private val recentWindowMs: Long
         get() = RECENT_WINDOW_DAYS * 24L * 60 * 60 * 1000
+
+    // 单曲循环回卷检测状态：追踪上次 tick 的播放位置，位置大幅回退即一次完整播放
+    private var lastTickTrackId: Long? = null
+    private var lastTickPosition = 0L
+    // 最近一次完整播放记录时间与曲目，供回卷检测与过渡回调去重
+    private var lastAutoCountAtMs = 0L
+    private var lastAutoCountTrackId: Long? = null
 
     val recentPlayedIds: List<Long>
         get() {
@@ -1043,7 +1066,35 @@ class MusicPlaybackState {
                 lastStatePersistAt = now
                 persistState()
             }
+            // 单曲循环播完回卷时计入一次完整播放（不受 onMediaItemTransition 触发与否影响）
+            detectLoopRestart()
         }
+    }
+
+    // 单曲循环回卷检测：当前曲目播放位置从越过中部瞬间回退到开头即一次完整播放。
+    // Media3 部分配置下 REPEAT_MODE_ONE 不投递 REPEAT 过渡回调，此处作为兜底收录，
+    // 与过渡回调记录通过冷却去重，避免同一次循环计数两次
+    private fun detectLoopRestart() {
+        val track = currentTrack ?: return
+        if (duration <= 0L) return
+        val cur = currentPosition
+        val trackChanged = lastTickTrackId != track.id
+        lastTickTrackId = track.id
+        // 切歌后的首个 tick 仅建立基准，不判定
+        if (trackChanged || lastTickPosition < 0L) {
+            lastTickPosition = cur
+            return
+        }
+        val prev = lastTickPosition
+        lastTickPosition = cur
+        if (prev - cur < LOOP_RESTART_MIN_JUMP_MS || prev <= duration / 2) return
+        val now = System.currentTimeMillis()
+        val deDuplicated = lastAutoCountTrackId == track.id &&
+            now - lastAutoCountAtMs < AUTO_COUNT_COOLDOWN_MS
+        if (deDuplicated) return
+        lastAutoCountTrackId = track.id
+        lastAutoCountAtMs = now
+        recordPlayed(track.id)
     }
 
     private fun syncPlaybackPosition(controller: MediaController, isActive: Boolean) {
