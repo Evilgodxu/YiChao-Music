@@ -4,7 +4,7 @@
 
 # 忆潮音乐
 
-**一款现代化的 Android 音乐播放器,支持悬浮音乐面板、迷你播放器、歌单管理、多平台在线搜索与 USB DAC 输出。**
+**一款现代化的 Android 音乐播放器,支持悬浮音乐面板、迷你播放器、歌单管理、多平台在线搜索与播放变速。**
 
 [English](README.md) | **简体中文**
 
@@ -14,7 +14,7 @@
 ![AGP](https://img.shields.io/badge/AGP-9.3.2-blue)
 ![Gradle](https://img.shields.io/badge/Gradle-9.7.1-blue)
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.08.00-blue)
-![minSdk](https://img.shields.io/badge/minSdk-34-orange)
+![minSdk](https://img.shields.io/badge/minSdk-30-orange)
 ![targetSdk](https://img.shields.io/badge/targetSdk-37-orange)
 
 </div>
@@ -33,8 +33,8 @@
 - **歌词排版**:音乐面板 / 首页竖屏 / 首页横屏三场景独立调节歌词字号与显示行数(横屏另含 3D 强度),在「设置 → 排版」中调整
 - **封面管理**:内嵌封面、本地图片候选与在线封面搜索,新封面可写回音频文件
 - **元数据编辑**:重命名歌曲名 / 艺术家并写回文件标签,支持一键复制
-- **USB 音频独占**:自动检测 USB DAC / 声卡并启用独占路由,实时展示播放链路信息(音频格式、源 / 输出采样率、位深、声道、DSD 模式、路由、输出策略与设备)
-- **蓝牙耳机支持**:连接状态检测与会话级音量初始化
+- **音源格式显示**:在进度区展示当前播放音源的格式信息(容器格式、位深、采样率、码率)
+- **播放变速**:通过对话框实时调节播放速度(±0.1 步进,点击数值重置),由 AudioTrack 原生处理
 - **播放控制**:基于 Media3 媒体会话,支持通知栏 / 锁屏控制、播放模式(列表循环 / 单曲循环 / 随机)、收藏置顶、下一首播放与定时关闭(当前曲目播完即停)
 - **首页手势交互**:右滑呼出在线搜索、左滑呼出歌单面板,上下滑动切歌(可开关);沉浸式横屏模式,支持旋转碟片与自动隐藏的悬浮控制栏
 - **自适应布局**:基于 WindowSizeClass 的响应式界面
@@ -57,10 +57,10 @@
 | 语言 | Kotlin 2.4.10 |
 | UI | Jetpack Compose(BOM 2026.08.00)+ Material 3 |
 | 播放 | Media3 ExoPlayer 1.11.0 + MediaSessionService |
-| 导航 | AndroidX Navigation3 1.1.6(类型安全路由) |
+| 导航 | AndroidX Navigation3 1.1.7(类型安全路由) |
 | 依赖注入 | Koin 4.2.2 |
 | 持久化 | DataStore Preferences 1.2.1 |
-| 图片加载 | Coil 3.5.0 |
+| 图片加载 | Coil 3.6.1 |
 | 网络 | OkHttp 5.5.0 |
 | 序列化 | kotlinx.serialization 1.11.0 |
 | 自适应布局 | androidx.window 1.5.1、material3-adaptive 1.3.0 |
@@ -74,25 +74,27 @@
 ├── app/
 │   └── src/main/
 │       ├── kotlin/com/yichao/evilgodxu/
-│       │   ├── data/                    # 全局数据层(权限监控 / 设置仓库 / DataStore)
+│       │   ├── data/                    # 数据层
+│       │   │   ├── music/               #   曲库扫描 / 在线音源 / 元数据 / 代理音源
+│       │   │   │   ├── api/             #     在线音乐源(网易云 / QQ / 酷狗 / 酷我 / 咪咕)
+│       │   │   │   ├── metadata/        #     封面管理与元数据读写
+│       │   │   │   ├── model/           #     曲目数据模型
+│       │   │   │   └── proxy/           #     代理音源(导入 / 解析 / 引擎 / 存储)
+│       │   │   ├── permission/          #   权限与悬浮窗授权监控
+│       │   │   ├── repository/          #   设置仓库
+│       │   │   └── settings/            #   设置 DataStore 与歌词排版偏好
 │       │   ├── di/                      # Koin 模块
+│       │   ├── dialog/                  # 悬浮窗内对话框(搜索 / 重命名 / 定时 / 变速 / 设置 / 更新)
+│       │   ├── domain/music/            # 领域层(播放状态 / 下载 / 信号路径 / 工具)
 │       │   ├── log/                     # CrashLogManager
-│       │   ├── musicpanel/              # 悬浮面板 / 迷你播放器 / 播放核心
-│       │   │   ├── api/                 #   在线音乐源(网易云 / QQ / 酷狗 / 酷我 / 咪咕)
-│       │   │   ├── cover/               #   封面管理与元数据读写
-│       │   │   ├── hardware/            #   USB DAC / 蓝牙 / 播放链路
-│       │   │   ├── lyrics/              #   歌词解析与渲染
-│       │   │   ├── model/               #   曲库扫描与数据实体
-│       │   │   ├── player/              #   播放服务与播放状态
-│       │   │   ├── proxy/               #   代理音源(导入 / 解析 / 执行 / 存储)
-│       │   │   ├── ui/                  #   悬浮面板 UI
-│       │   │   └── view/                #   悬浮窗 / 迷你播放器视图管理
 │       │   ├── navigation/              # Navigation3 类型安全路由
+│       │   ├── overlay/                 # 悬浮窗 / 迷你播放器 UI 与视图管理(含权限流程)
 │       │   ├── screens/                 # 页面(首页 / 设置)
-│       │   │   ├── home/                #   首页播放器 + 权限流程 + 歌单
+│       │   │   ├── home/                #   首页播放器 + 权限流程 + 歌单 + 在线搜索
 │       │   │   └── settings/            #   外观 / 语言 / 播放 / 排版 / 代理音源 / 关于
+│       │   ├── service/                 # MediaSessionService 播放引擎
 │       │   ├── theme/                   # Material 3 配色与字体
-│       │   ├── ui/                      # 全局共享 UI(自适应布局 / 图标)
+│       │   ├── ui/                      # 全局共享 UI(自适应布局 / 图标 / 音乐面板组件)
 │       │   ├── update/                  # 检查更新与应用内更新
 │       │   ├── utils/localization/      # 应用内多语言管理
 │       │   ├── YiChaoActivity.kt
@@ -118,7 +120,7 @@
 - `{Screen}Assembly.kt` — 页面分区组装器,编排各分区
 - `{Name}Area.kt` — 语义单一、自包含的 UI 分区
 
-被两个及以上功能复用的代码上提至顶层(`data/`、`theme/`、`utils/`、`ui/`),仅单页使用的代码保留在页面模块内。`musicpanel/` 包按职责拆分为 `api` / `cover` / `hardware` / `lyrics` / `model` / `player` / `proxy` / `ui` / `view` 等子包:悬浮窗 UI(完整面板 + 迷你播放器)与播放引擎由 Media3 ExoPlayer + `MediaSessionService` 驱动,并通过窗口级状态持有者共享。
+被两个及以上功能复用的代码上提至顶层(`data/`、`theme/`、`utils/`、`ui/`),仅单页使用的代码保留在页面模块内。播放领域逻辑位于 `domain/music`(状态 / 下载 / 工具),底层由 `data/music` 层支撑,并通过窗口级 `MusicPanelStateHolder` 暴露给 UI;悬浮 UI(完整面板 + 迷你播放器)拆分为 `overlay/`(视图管理)与 `ui/music`(可组合项),实际播放由 `service/MusicPlaybackService`(Media3 ExoPlayer + `MediaSessionService`)驱动。
 
 ## 权限
 
@@ -126,12 +128,10 @@
 | --- | --- |
 | 悬浮窗 | 悬浮音乐面板与迷你播放器 |
 | 全部文件访问 | 导入与管理本地音乐文件 |
-| 音乐访问(`READ_MEDIA_AUDIO`,≤ API 32 使用 `READ_EXTERNAL_STORAGE`) | 读取设备曲库并播放 |
+| 音乐访问(`READ_MEDIA_AUDIO`) | 读取设备曲库并播放 |
 | 图片(`READ_MEDIA_IMAGES`) | 内嵌封面与本地封面候选 |
-| 蓝牙(`BLUETOOTH_CONNECT`) | 蓝牙耳机控制 |
-| 前台服务(`mediaPlayback`) | 后台播放 + 通知栏 / 锁屏控制 |
+| 前台服务(`mediaPlayback`、`FOREGROUND_SERVICE_MEDIA_PLAYBACK`) | 后台播放 + 通知栏 / 锁屏控制 |
 | 通知(`POST_NOTIFICATIONS`) | 版本更新下载完成通知(Android 13+) |
-| USB 主机(可选特性) | USB DAC 独占音频输出 |
 
 权限通过一个透明引导页链式申请,全部授予后自动关闭。
 

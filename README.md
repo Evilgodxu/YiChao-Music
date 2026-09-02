@@ -4,7 +4,7 @@
 
 # YiChao Music
 
-**A modern Android music player with a floating music panel, mini player, playlist management, multi-platform online search and USB DAC support.**
+**A modern Android music player with a floating music panel, mini player, playlist management, multi-platform online search and playback speed control.**
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -14,7 +14,7 @@
 ![AGP](https://img.shields.io/badge/AGP-9.3.2-blue)
 ![Gradle](https://img.shields.io/badge/Gradle-9.7.1-blue)
 ![Compose BOM](https://img.shields.io/badge/Compose%20BOM-2026.08.00-blue)
-![minSdk](https://img.shields.io/badge/minSdk-34-orange)
+![minSdk](https://img.shields.io/badge/minSdk-30-orange)
 ![targetSdk](https://img.shields.io/badge/targetSdk-37-orange)
 
 </div>
@@ -33,8 +33,8 @@
 - **Lyric typography** — per-scene font size and visible-line count for the music panel, home portrait and home landscape (with 3D intensity), adjustable in Typography settings
 - **Cover management** — embedded art, local image candidates and online cover search; the new cover can be written back into the audio file
 - **Metadata editing** — rename song title / artist, written back to the file tags, with one-tap copy
-- **USB audio exclusive output** — automatic detection of USB DACs / sound cards with exclusive-mode routing, plus a real-time audio signal path view (format, source/output sample rates, bit depth, channels, DSD mode, route, output strategy & device)
-- **Bluetooth headset support** — connection detection with per-session volume initialization
+- **Track format display** — shows the currently played source format in the progress area (container format, bit depth, sample rate, bitrate)
+- **Playback speed control** — real-time playback speed adjustment via a dialog (±0.1 steps, tap the value to reset), processed natively by AudioTrack
 - **Playback controls** — Media3 media session with notification & lock-screen controls, play modes (repeat all / repeat one / shuffle), favorites sorted to the top, play-next and a sleep timer (stop after current track)
 - **Home gestures** — swipe right for online search, swipe left for the playlist panel, and vertical swipes to switch tracks (toggleable); immersive landscape mode with a rotating disc and auto-hiding floating controls
 - **Adaptive layout** — responsive UI based on WindowSizeClass
@@ -57,10 +57,10 @@
 | Language | Kotlin 2.4.10 |
 | UI | Jetpack Compose (BOM 2026.08.00) + Material 3 |
 | Playback | Media3 ExoPlayer 1.11.0 + MediaSessionService |
-| Navigation | AndroidX Navigation3 1.1.6 (typed routes) |
+| Navigation | AndroidX Navigation3 1.1.7 (typed routes) |
 | DI | Koin 4.2.2 |
 | Persistence | DataStore Preferences 1.2.1 |
-| Image loading | Coil 3.5.0 |
+| Image loading | Coil 3.6.1 |
 | Network | OkHttp 5.5.0 |
 | Serialization | kotlinx.serialization 1.11.0 |
 | Adaptive layout | androidx.window 1.5.1, material3-adaptive 1.3.0 |
@@ -74,25 +74,27 @@
 ├── app/
 │   └── src/main/
 │       ├── kotlin/com/yichao/evilgodxu/
-│       │   ├── data/                    # Global data layer (permission monitor / settings repository / DataStore)
+│       │   ├── data/                    # Data layer
+│       │   │   ├── music/               #   Music scanning / online sources / metadata / proxy source
+│       │   │   │   ├── api/             #     Online music sources (Netease / QQ / Kugou / Kuwo / Migu)
+│       │   │   │   ├── metadata/        #     Cover management & metadata read/write
+│       │   │   │   ├── model/           #     Track data models
+│       │   │   │   └── proxy/           #     Proxy source (import / parse / engine / store)
+│       │   │   ├── permission/          #   Permission & overlay-grant monitors
+│       │   │   ├── repository/          #   Settings repository
+│       │   │   └── settings/            #   Settings DataStore & lyric layout preferences
 │       │   ├── di/                      # Koin modules
+│       │   ├── dialog/                  # Floating-panel dialogs (search / rename / timer / speed / settings / update)
+│       │   ├── domain/music/            # Domain layer (playback state / download / signal path / utils)
 │       │   ├── log/                     # CrashLogManager
-│       │   ├── musicpanel/              # Floating panel / mini player / playback core
-│       │   │   ├── api/                 #   Online music sources (Netease / QQ / Kugou / Kuwo / Migu)
-│       │   │   ├── cover/               #   Cover management & metadata read/write
-│       │   │   ├── hardware/            #   USB DAC / Bluetooth / audio signal path
-│       │   │   ├── lyrics/              #   Lyric parsing & rendering
-│       │   │   ├── model/               #   Music scanning & data models
-│       │   │   ├── player/              #   Playback service & playback state
-│       │   │   ├── proxy/               #   Proxy source (import / parse / engine / store)
-│       │   │   ├── ui/                  #   Floating panel UI
-│       │   │   └── view/                #   Overlay / mini player view managers
 │       │   ├── navigation/              # Navigation3 typed routes
+│       │   ├── overlay/                 # Floating panel / mini player UI & view managers (incl. permission flow)
 │       │   ├── screens/                 # Screens (home / settings)
-│       │   │   ├── home/                #   Home player + permission flow + playlists
+│       │   │   ├── home/                #   Home player + permission flow + playlists + online search
 │       │   │   └── settings/            #   Appearance / language / playback / typography / proxy source / about
+│       │   ├── service/                 # MediaSessionService playback engine
 │       │   ├── theme/                   # Material 3 color & typography
-│       │   ├── ui/                      # Shared UI (adaptive layout / icons)
+│       │   ├── ui/                      # Shared UI (adaptive layout / icons / music panel components)
 │       │   ├── update/                  # Version check & in-app update
 │       │   ├── utils/localization/      # In-app localization manager
 │       │   ├── YiChaoActivity.kt
@@ -118,7 +120,7 @@ Screens are organized with a **zone-based (assembly/area) pattern**:
 - `{Screen}Assembly.kt` — composes the areas of the screen
 - `{Name}Area.kt` — a self-contained UI zone with a single semantic responsibility
 
-Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The `musicpanel/` package is split into `api` / `cover` / `hardware` / `lyrics` / `model` / `player` / `proxy` / `ui` / `view` subpackages: the overlay UI (full panel + mini player) and the playback engine are driven by Media3 ExoPlayer + `MediaSessionService` and shared through a window-level state holder.
+Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The playback domain lives in `domain/music` (state, download, helpers) backed by the `data/music` layer and exposed to the UI through a window-level `MusicPanelStateHolder`; the floating UI (full panel + mini player) is split between `overlay/` (view managers) and `ui/music` (composables), while playback runs in `service/MusicPlaybackService` (Media3 ExoPlayer + `MediaSessionService`).
 
 ## Permissions
 
@@ -126,12 +128,10 @@ Code reused by two or more features is promoted to the top level (`data/`, `them
 | --- | --- |
 | Display over other apps | Floating music panel & mini player |
 | All files access | Import and manage local music files |
-| Music access (`READ_MEDIA_AUDIO`, ≤ API 32: `READ_EXTERNAL_STORAGE`) | Play tracks from the device library |
+| Music access (`READ_MEDIA_AUDIO`) | Play tracks from the device library |
 | Images (`READ_MEDIA_IMAGES`) | Embedded art & local cover candidates |
-| Bluetooth (`BLUETOOTH_CONNECT`) | Bluetooth headset control |
-| Foreground service (`mediaPlayback`) | Background playback with notification / lock-screen controls |
+| Foreground service (`mediaPlayback`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`) | Background playback with notification / lock-screen controls |
 | Notifications (`POST_NOTIFICATIONS`) | Update download completion notification (Android 13+) |
-| USB host (optional feature) | USB DAC exclusive audio output |
 
 Permissions are requested through a transparent onboarding activity that chains them one by one and closes automatically once all are granted.
 
