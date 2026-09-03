@@ -342,7 +342,7 @@ private suspend fun fetchSearchPage(
     } else {
         runCatching { sourceOf(playbackState.searchSource).search(query, page, SEARCH_PAGE_SIZE) }
             .getOrDefault(emptyList())
-    }.distinctBy { it.id }
+    }.distinctBy { it.source to it.id }
 }
 
 // 上拉加载下一页：优先消费代理全量缓冲，缓冲耗尽或内置平台再请求下一页
@@ -354,7 +354,11 @@ internal suspend fun loadMoreSearchResults(
     if (playbackState.searchResults.isEmpty()) return
     // 代理音源全量缓冲：本地切分追加，无需重复请求（不支持分页的代理每次返回相同结果）
     if (playbackState.searchPending.isNotEmpty()) {
-        val batch = playbackState.searchPending.take(SEARCH_PAGE_SIZE)
+        // 缓冲内仍可能与已加载条目重复，追加前按 source+id 去重
+        val existingKeys = playbackState.searchResults.map { it.source to it.id }.toMutableSet()
+        val batch = playbackState.searchPending.take(SEARCH_PAGE_SIZE).filter { item ->
+            existingKeys.add(item.source to item.id)
+        }
         playbackState.searchResults = playbackState.searchResults + batch
         playbackState.searchPending = playbackState.searchPending.drop(SEARCH_PAGE_SIZE)
         playbackState.searchPage++
@@ -372,8 +376,8 @@ internal suspend fun loadMoreSearchResults(
         val pageResults = fetchSearchPage(playbackState, context, query, page = nextPage)
         // 新搜索已取代本次加载时丢弃过期分页
         if (playbackState.searchLoadJob != currentCoroutineContext()[Job]) return
-        val existingIds = playbackState.searchResults.map { it.id }.toSet()
-        val newItems = pageResults.filter { it.id !in existingIds }
+        val existingKeys = playbackState.searchResults.map { it.source to it.id }.toSet()
+        val newItems = pageResults.filter { (it.source to it.id) !in existingKeys }
         if (newItems.isEmpty()) {
             // 本页无新增条目（全部与已加载重复）时视为已加载完全部结果，避免重复请求
             playbackState.hasMoreSearchResults = false
