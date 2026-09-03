@@ -2,10 +2,8 @@ package com.yichao.evilgodxu.overlay
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,7 +33,6 @@ import com.yichao.evilgodxu.data.settings.ThemeMode
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme
-import kotlinx.coroutines.delay
 
 @Composable
 internal fun MiniPlayerOverlay(
@@ -55,9 +52,13 @@ internal fun MiniPlayerOverlay(
     val barHeight = with(density) { barHeightPx.toDp() }
     val barWidth = with(density) { barWidthPx.toDp() }
 
-    // 左右滑动关闭：拖动时实时跟随手指，超过阈值后滑出屏幕再收起
+    // 左右滑动切歌：拖动时条跟随手指，抬手后回弹（切歌由手势侧直接触发，无滑出动画）
     var swipeOffset by remember { mutableStateOf(0f) }
-    var swipeDismissing by remember { mutableStateOf(false) }
+    val swipeTranslate by animateFloatAsState(
+        targetValue = swipeOffset,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "mini_player_swipe_offset"
+    )
 
     // 跟随应用主题：设置项优先，其次系统深色模式
     val settings by context.settingsFlow().collectAsStateWithLifecycle(initialValue = null)
@@ -144,10 +145,10 @@ internal fun MiniPlayerOverlay(
                         playlistExpanded = playlistExpanded,
                         onPlaylistExpandedChange = onPlaylistExpandedChange,
                         onExpandPanel = onExpandPanel,
-                        swipeDismissThreshold = barWidthPx / 2f,
+                        swipeTrackThreshold = barWidthPx / 2f,
                         onSwipeOffsetChange = { swipeOffset = it },
-                        onSwipeCommit = { swipeDismissing = true },
-                        onSwipeCancel = { swipeOffset = 0f }
+                        onSwipeCancel = { swipeOffset = 0f },
+                        onSwipeDown = onSwipeDismiss,
                     )
                     MiniPlaylistPanel(
                         playbackState = playbackState,
@@ -158,25 +159,6 @@ internal fun MiniPlayerOverlay(
                 }
             }
         } else {
-            // 拖动时跟随手指；确认关闭后向拖动方向滑出整个条宽，动画结束再触发收起
-            val swipeTranslate by animateFloatAsState(
-                targetValue = when {
-                    swipeDismissing -> if (swipeOffset > 0f) barWidthPx.toFloat() else -barWidthPx.toFloat()
-                    else -> swipeOffset
-                },
-                animationSpec = if (swipeDismissing) {
-                    tween(durationMillis = SWIPE_DISMISS_MS, easing = LinearEasing)
-                } else {
-                    spring(stiffness = Spring.StiffnessMediumLow)
-                },
-                label = "mini_player_swipe_offset"
-            )
-            LaunchedEffect(swipeDismissing) {
-                if (swipeDismissing) {
-                    delay(SWIPE_DISMISS_MS.toLong())
-                    onSwipeDismiss()
-                }
-            }
             Column(
                 modifier = Modifier
                     .width(barWidth)
@@ -195,10 +177,10 @@ internal fun MiniPlayerOverlay(
                     playlistExpanded = playlistExpanded,
                     onPlaylistExpandedChange = onPlaylistExpandedChange,
                     onExpandPanel = onExpandPanel,
-                    swipeDismissThreshold = barWidthPx / 2f,
+                    swipeTrackThreshold = barWidthPx / 2f,
                     onSwipeOffsetChange = { swipeOffset = it },
-                    onSwipeCommit = { swipeDismissing = true },
-                    onSwipeCancel = { swipeOffset = 0f }
+                    onSwipeCancel = { swipeOffset = 0f },
+                    onSwipeDown = onSwipeDismiss,
                 )
             }
         }

@@ -4,7 +4,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +34,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,10 +71,10 @@ internal fun MiniPlayerBar(
     playlistExpanded: Boolean,
     onPlaylistExpandedChange: (Boolean) -> Unit,
     onExpandPanel: () -> Unit,
-    swipeDismissThreshold: Float,
+    swipeTrackThreshold: Float,
     onSwipeOffsetChange: (Float) -> Unit,
-    onSwipeCommit: () -> Unit,
     onSwipeCancel: () -> Unit,
+    onSwipeDown: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -122,8 +125,8 @@ internal fun MiniPlayerBar(
         }
     }
 
-    // 左右滑动关闭：拖动时跟随手指，超过阈值后滑出（播放列表展开时不响应滑动）
-    var totalDx by remember { mutableStateOf(0f) }
+    // 手势交互：左右滑动切歌（右滑上一曲、左滑下一曲）；下滑隐藏播放器
+    val verticalSwipeThresholdPx = with(LocalDensity.current) { MINI_SWIPE_VERTICAL_THRESHOLD_DP.dp.toPx() }
 
     Row(
         modifier = Modifier
@@ -136,26 +139,56 @@ internal fun MiniPlayerBar(
                     }
                 }
             }
+            // 手势按首个越过触摸阈值的轴向锁定：横滑切歌与下滑隐藏互斥，斜滑不会同时触发
             .pointerInput(playlistExpanded) {
-                totalDx = 0f
-                detectHorizontalDragGestures(
-                    onDragStart = { totalDx = 0f },
-                    onDragEnd = {
-                        if (!playlistExpanded && kotlin.math.abs(totalDx) >= swipeDismissThreshold) {
-                            onSwipeCommit()
+                var totalDx = 0f
+                var totalDy = 0f
+                awaitEachGesture {
+                    // 0=未锁定, 1=水平(切歌), 2=垂直(下滑隐藏)
+                    var axis = 0
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val drag = awaitTouchSlopOrCancellation(down.id) { change, over ->
+                        axis = if (kotlin.math.abs(over.x) > kotlin.math.abs(over.y)) 1 else 2
+                        change.consume()
+                    } ?: return@awaitEachGesture
+                    drag.consume()
+                    // 只累计锁定轴向的位移，直到抬手或手势被取消
+                    var gestureEnded = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        val delta = change.position - change.previousPosition
+                        if (axis == 1) {
+                            totalDx += delta.x
+                            onSwipeOffsetChange(totalDx)
                         } else {
-                            onSwipeCancel()
+                            totalDy += delta.y
                         }
-                        totalDx = 0f
-                    },
-                    onDragCancel = {
-                        onSwipeCancel()
-                        totalDx = 0f
+                        change.consume()
+                        if (!change.pressed) {
+                            // 仅手指正常抬起才执行手势操作，手势被系统取消时不触发
+                            gestureEnded = event.type == PointerEventType.Release
+                            break
+                        }
                     }
-                ) { change, drag ->
-                    change.consume()
-                    totalDx += drag
-                    onSwipeOffsetChange(totalDx)
+                    if (gestureEnded && !playlistExpanded) {
+                        when (axis) {
+                            // 水平：右滑上一曲、左滑下一曲；直接切歌，无需滑出动画
+                            1 -> if (kotlin.math.abs(totalDx) >= swipeTrackThreshold) {
+                                val index = if (totalDx > 0f) {
+                                    playbackState.previousIndex()
+                                } else {
+                                    playbackState.nextIndex()
+                                }
+                                if (index >= 0) scope.launch { playTrackAt(context, playbackState, index) }
+                            }
+                            // 垂直：下滑隐藏播放器
+                            2 -> if (totalDy > verticalSwipeThresholdPx) onSwipeDown()
+                        }
+                    }
+                    onSwipeCancel()
+                    totalDx = 0f
+                    totalDy = 0f
                 }
             }
             .padding(horizontal = MINI_PADDING_H_DP.dp),

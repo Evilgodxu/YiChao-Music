@@ -148,9 +148,11 @@ class MusicPanelController(private val context: Context) {
         maybeShowMiniPlayer()
     }
 
-    // 应用回到前台：移除迷你播放器，避免遮挡应用界面
+    // 应用回到前台：重置临时隐藏状态并移除迷你播放器，避免遮挡应用界面
     fun onAppForegrounded() {
         appInForeground = true
+        // 重置滑动隐藏状态，此后进入后台播放即可重新唤起迷你播放器，无需重启应用
+        miniPlayerTemporarilyHidden = false
         // 外部触发后台播放冷启动时，先保留迷你播放器，不因本次瞬时前台而移除
         if (externalBackgroundPlaying) {
             externalBackgroundPlaying = false
