@@ -46,6 +46,7 @@ import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
+import com.yichao.evilgodxu.ui.music.scrollPlaylistTo
 import kotlinx.coroutines.launch
 
 @Composable
@@ -107,11 +108,20 @@ internal fun MiniPlaylistPanel(
                 )
             }
         }
-        // 展开缩放动画完成（scrollReady 自增）后再定位当前曲目；
-        // 此时缩放动画已结束，平滑滚动不会与展开动画叠加导致卡顿
-        LaunchedEffect(scrollReady, playbackState.currentTrack?.id) {
+        // 展开缩放动画完成（scrollReady 自增）后：始终将当前曲目滚动到列表居中位置；
+        // 此时缩放动画已结束，滚动不会与展开动画叠加导致卡顿
+        LaunchedEffect(scrollReady) {
             if (scrollReady > 0 && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
-                listState.animateScrollToItem(
+                listState.scrollPlaylistTo(
+                    playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1),
+                    forceCenter = true
+                )
+            }
+        }
+        // 切歌时定位：当前曲目不在可视区内才滚动到居中位置，避免反复滚动卡顿
+        LaunchedEffect(playbackState.currentTrack?.id) {
+            if (scrollReady > 0 && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+                listState.scrollPlaylistTo(
                     playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
                 )
             }

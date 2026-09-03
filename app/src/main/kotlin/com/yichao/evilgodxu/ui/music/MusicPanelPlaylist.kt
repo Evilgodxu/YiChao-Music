@@ -151,10 +151,19 @@ internal fun PlaylistOverlay(
                             )
                         }
                     }
-                    // 面板展开动画完成（playlistSettled）后再定位当前曲目；切歌时立即定位
-                    LaunchedEffect(playlistSettled, playbackState.currentTrack?.id) {
+                    // 面板展开动画完成后：始终将当前曲目滚动到列表居中位置
+                    LaunchedEffect(playlistSettled) {
                         if (playlistSettled && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
-                            listState.animateScrollToItem(
+                            listState.scrollPlaylistTo(
+                                playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1),
+                                forceCenter = true
+                            )
+                        }
+                    }
+                    // 切歌时定位：当前曲目不在可视区内才滚动到居中位置，避免反复滚动卡顿
+                    LaunchedEffect(playbackState.currentTrack?.id) {
+                        if (playlistSettled && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+                            listState.scrollPlaylistTo(
                                 playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
                             )
                         }
