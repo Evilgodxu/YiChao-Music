@@ -146,6 +146,9 @@ fun seekTo(state: MusicPlaybackState, positionMs: Long) {
 /**
  * 封面等元数据后台补全后刷新系统媒体面板的当前 MediaItem。
  * 仅当 artworkUri 变化时才替换，替换不中断播放。
+ * 替换沿用当前播放项的真实 URI：在线缓存完成后 track.audioUri 已指向本地文件，
+ * 但播放器此刻仍使用在线流；若用新 URI 替换，会把正在被重写（内嵌元数据）的缓存文件
+ * 接入播放，导致无声音与进度反复回退。保持播放源不变，仅刷新封面。
  */
 fun refreshCurrentMediaItem(state: MusicPlaybackState) {
     val context = state.appContext ?: return
@@ -155,8 +158,11 @@ fun refreshCurrentMediaItem(state: MusicPlaybackState) {
     if (index < 0) return
     state.playbackScope.launch {
         if (controller.mediaItemCount != state.playlist.size) return@launch
-        val newItem = toMediaItem(context, track)
-        if (controller.currentMediaItem?.mediaMetadata?.artworkUri != newItem.mediaMetadata.artworkUri) {
+        val current = controller.currentMediaItem ?: return@launch
+        val playingUri = current.localConfiguration?.uri ?: return@launch
+        // 封面刷新不切换播放源：沿用当前播放项的 URI，避免源被换成缓存文件
+        val newItem = toMediaItem(context, track.copy(audioUri = playingUri.toString()))
+        if (current.mediaMetadata.artworkUri != newItem.mediaMetadata.artworkUri) {
             controller.replaceMediaItem(index, newItem)
         }
     }
