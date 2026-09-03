@@ -29,9 +29,16 @@ object MetadataEnricher {
     private val bulkInFlight = ConcurrentHashMap.newKeySet<Long>()
     // 按需提取进行中的曲目 ID：列表快速滚动时同一曲目滚入滚出只执行一次
     private val onDemandInFlight = ConcurrentHashMap.newKeySet<Long>()
+    // 在线封面下载进行中的曲目 ID：封面就绪前由播放流程独占内嵌，
+    // 补全器在此期间跳过匹配，避免用标题匹配到的其它歌曲封面覆盖已下载的在线封面
+    private val onlineCoverInFlight = ConcurrentHashMap.newKeySet<Long>()
     // 封面/歌词后台提取的互斥锁：show / 刷新扫描 / 媒体变更 / 授权后扫描都会并发触发 enrich，
     // 不加锁会导致在线封面在本地封面尚未提交时抢先匹配，把有内嵌封面的歌永久变成在线封面
     private val enrichMutex = Mutex()
+
+    // 在线封面下载开始/结束登记：供补全器判断匹配是否会让位
+    internal fun markOnlineCoverInFlight(id: Long) = onlineCoverInFlight.add(id)
+    internal fun clearOnlineCoverInFlight(id: Long) = onlineCoverInFlight.remove(id)
 
     suspend fun enrichAndCleanup(context: Context, playbackState: MusicPlaybackState) =
         enrichMutex.withLock {
@@ -253,6 +260,9 @@ object MetadataEnricher {
         playbackState: MusicPlaybackState,
         track: MusicTrack,
     ): MusicTrack? = try {
+        // 在线封面仍在下载中的曲目跳过匹配：封面由播放流程独占内嵌，
+        // 此时介入可能把标题匹配到的其它歌曲封面写回缓存文件并覆盖在线封面原图
+        if (track.id in onlineCoverInFlight) return null
         var matchedId = track.neteaseId
         var matchedUrl = track.neteaseCoverUrl
         // 优先复用已保存的封面 URL 直连下载，避免缓存完成场景下重复网络匹配；

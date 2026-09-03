@@ -66,15 +66,34 @@ internal object MusicMetadataWriter {
     private fun writeCoverByUri(context: Context, uriString: String, coverBytes: ByteArray): Boolean =
         rewriteByUri(context, uriString) { bytes -> writeMetadata(bytes, null, null, null, coverBytes) }
 
-    // 就地重写 content URI 音频文件，非 content 协议不可写时返回 false
+    // 就地重写 content URI 音频文件，非 content 协议不可写时返回 false；
+    // 各失败分支均记录错误日志，便于定位“读取到不完整数据”导致的静默写入失败
     private fun rewriteByUri(context: Context, uriString: String, block: (ByteArray) -> WriteResult?): Boolean {
-        if (uriString.isBlank()) return false
+        if (uriString.isBlank()) {
+            CrashLogManager.logException("MusicMetadataWriter", "经 content URI 写入元数据跳过: URI 为空")
+            return false
+        }
         return try {
             val uri = Uri.parse(uriString)
-            if (uri.scheme != "content") return false
+            if (uri.scheme != "content") {
+                CrashLogManager.logException(
+                    "MusicMetadataWriter",
+                    "经 content URI 写入元数据跳过: 非 content 协议, scheme=${uri.scheme}",
+                )
+                return false
+            }
             val resolver = context.contentResolver
-            val source = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return false
-            val result = block(source) ?: return false
+            val source = resolver.openInputStream(uri)?.use { it.readBytes() } ?: run {
+                CrashLogManager.logException("MusicMetadataWriter", "经 content URI 写入元数据失败: 无法打开输入流, uri=$uriString")
+                return false
+            }
+            val result = block(source) ?: run {
+                CrashLogManager.logException(
+                    "MusicMetadataWriter",
+                    "经 content URI 写入元数据失败: 文件为空/损坏或格式无法识别, uri=$uriString, 大小=${source.size}, 头部=${hexPrefix(source)}",
+                )
+                return false
+            }
             // content URI 无法按可寻址文件流复制躯干，在线缓存文件通常较小，
             // 把头部与躯干拼回完整字节后一次写入
             val bytes = when (result) {
@@ -82,7 +101,11 @@ internal object MusicMetadataWriter {
                 is WriteResult.HeadAndTail -> result.head + source.copyOfRange(result.audioStart, source.size)
                 is WriteResult.HeadAndRange -> result.head + source.copyOfRange(result.bodyStart, result.bodyEnd) + result.tail
             }
-            resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } ?: return false
+            val output = resolver.openOutputStream(uri, "wt") ?: run {
+                CrashLogManager.logException("MusicMetadataWriter", "经 content URI 写入元数据失败: 无法打开输出流, uri=$uriString")
+                return false
+            }
+            output.use { it.write(bytes) }
             true
         } catch (e: Throwable) {
             CrashLogManager.logException("MusicMetadataWriter", "经 content URI 写入音频元数据失败", e)
@@ -113,10 +136,20 @@ internal object MusicMetadataWriter {
     }
 
     private fun write(context: Context, path: String, block: (ByteArray) -> WriteResult?): Boolean {
-        if (path.isBlank()) return false
+        if (path.isBlank()) {
+            CrashLogManager.logException("MusicMetadataWriter", "写入音频文件元数据跳过: 路径为空")
+            return false
+        }
         return try {
             val file = File(path)
-            val result = block(file.readBytes()) ?: return false
+            val bytes = file.readBytes()
+            val result = block(bytes) ?: run {
+                CrashLogManager.logException(
+                    "MusicMetadataWriter",
+                    "写入音频文件元数据失败: 文件为空/损坏或格式无法识别, 路径=$path, 大小=${bytes.size}, 头部=${hexPrefix(bytes)}",
+                )
+                return false
+            }
             val temporary = File(file.parentFile, ".${file.name}.${System.nanoTime()}.metadata.tmp")
             // 仅重写元数据头部时流式复制音频躯干，避免整个文件两次驻留内存
             when (result) {
@@ -830,6 +863,10 @@ internal object MusicMetadataWriter {
     private fun intBytesLE(v: Int) = byteArrayOf(v.toByte(), (v shr 8).toByte(), (v shr 16).toByte(), (v shr 24).toByte())
     private fun longBytesLE(v: Long) = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(v).array()
     private fun ByteArray.startsWith(value: String) = size >= value.length && String(this, 0, value.length, StandardCharsets.US_ASCII) == value
+
+    // 文件头字节的十六进制表示，写入失败日志用于判断读取到的数据是否完整
+    private fun hexPrefix(bytes: ByteArray, max: Int = 16): String =
+        bytes.take(max).joinToString("") { "%02x".format(it) }
 
     // 从输入流跳过 offset 字节后按块复制到输出流，避免整段数据驻留内存
     private fun copyRange(input: java.io.InputStream, offset: Int, output: java.io.OutputStream) =
