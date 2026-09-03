@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 internal fun MiniPlaylistPanel(
     playbackState: MusicPlaybackState,
     context: android.content.Context,
+    scrollReady: Int,
     onClose: () -> Unit,
 ) {
     val visibleCount = playbackState.playlist.size.coerceIn(0, MINI_PLAYLIST_MAX_VISIBLE_ROWS)
@@ -106,9 +107,10 @@ internal fun MiniPlaylistPanel(
                 )
             }
         }
-        // 滚动列表定位到当前播放曲目位置
-        LaunchedEffect(playbackState.currentTrack?.id) {
-            if (playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+        // 展开缩放动画完成（scrollReady 自增）后再定位当前曲目；
+        // 此时缩放动画已结束，平滑滚动不会与展开动画叠加导致卡顿
+        LaunchedEffect(scrollReady, playbackState.currentTrack?.id) {
+            if (scrollReady > 0 && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
                 listState.animateScrollToItem(
                     playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
                 )

@@ -49,6 +49,8 @@ class MiniPlayerViewManager(
 
     // 播放列表展开状态（Compose 状态 + 窗口布局共用）
     private val playlistExpanded = mutableStateOf(false)
+    // 视觉展开状态：收起动画播放期间保持展开内容与全屏窗口，动画结束才恢复紧凑
+    private val visualExpanded = mutableStateOf(false)
     private var statusBarHeight = getStatusBarHeight()
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -111,8 +113,10 @@ class MiniPlayerViewManager(
                     barHeightPx = barH,
                     barWidthPx = barWidthPx(),
                     playlistExpanded = playlistExpanded.value,
+                    visualExpanded = visualExpanded.value,
                     onPlaylistExpandedChange = { expanded -> setPlaylistExpanded(expanded) },
                     onLayoutChanged = { applyWindowLayout() },
+                    onCollapseAnimationEnd = { finalizeCollapse() },
                     onExpandPanel = onExpandPanel,
                     onSwipeDismiss = { temporaryDismiss() }
                 )
@@ -183,7 +187,7 @@ class MiniPlayerViewManager(
     private fun setPlaylistExpanded(expanded: Boolean) {
         if (playlistExpanded.value == expanded) return
         playlistExpanded.value = expanded
-        // 展开播放列表时移除 NOT_FOCUSABLE，使系统返回键可收起列表
+        // 展开/收起时切换窗口焦点：展开移除 NOT_FOCUSABLE，使系统返回键可收起列表
         val view = composeView
         val params = view?.layoutParams as? WindowManager.LayoutParams
         if (params != null) {
@@ -195,13 +199,22 @@ class MiniPlayerViewManager(
             // params 非空即 view 非空（params 由 view.layoutParams 派生），此处无需再断言
             runCatching { windowManager.updateViewLayout(view, params) }
         }
-        applyWindowLayout()
         if (expanded) {
+            // 展开：视觉状态同步切换并立即铺满窗口，卡片缩放动画由 Compose 侧播放
+            visualExpanded.value = true
             view?.let {
                 it.isFocusableInTouchMode = true
                 it.requestFocus()
             }
+            applyWindowLayout()
         }
+        // 收起：保留展开内容与全屏窗口以播放反向缩放动画，动画结束后由 finalizeCollapse 恢复紧凑
+    }
+
+    // 收起反向动画结束：切换到紧凑视觉状态并恢复窗口尺寸
+    private fun finalizeCollapse() {
+        visualExpanded.value = false
+        applyWindowLayout()
     }
 
     private fun collapsePlaylist() {
@@ -209,14 +222,14 @@ class MiniPlayerViewManager(
         setPlaylistExpanded(false)
     }
 
-    // 设置窗口尺寸与位置：展开时铺满屏幕，收起时恢复紧凑条（不做逐帧动画，避免卡顿）
+    // 设置窗口尺寸与位置：视觉展开时铺满屏幕，收起后恢复紧凑条（不做逐帧动画，避免卡顿）
     private fun applyWindowLayout() {
         val view = composeView ?: return
         val params = view.layoutParams as? WindowManager.LayoutParams ?: return
         val targetWidth: Int
         val targetHeight: Int
         val targetY: Int
-        if (playlistExpanded.value) {
+        if (visualExpanded.value) {
             targetWidth = WindowManager.LayoutParams.MATCH_PARENT
             targetHeight = WindowManager.LayoutParams.MATCH_PARENT
             targetY = 0

@@ -43,8 +43,10 @@ internal fun MiniPlayerOverlay(
     barHeightPx: Int,
     barWidthPx: Int,
     playlistExpanded: Boolean,
+    visualExpanded: Boolean,
     onPlaylistExpandedChange: (Boolean) -> Unit,
     onLayoutChanged: () -> Unit,
+    onCollapseAnimationEnd: () -> Unit,
     onExpandPanel: () -> Unit,
     onSwipeDismiss: () -> Unit,
 ) {
@@ -66,30 +68,51 @@ internal fun MiniPlayerOverlay(
         else -> isSystemDark
     }
     val colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme
+    // 展开缩放动画完成信号：每次展开动画结束自增，通知播放列表延迟定位当前曲目，
+    // 避免滚动动画与缩放动画叠加导致首帧卡顿
+    var playlistReady by remember { mutableStateOf(0) }
     // 卡片背景：收起时高透明透出下层内容，展开播放列表时降低透明度保证列表可读性
-    val cardBackground = if (playlistExpanded) {
+    // 跟随视觉展开状态：收起动画期间保持不透明，动画结束切回紧凑条后再恢复高透明
+    val cardBackground = if (visualExpanded) {
         Color(if (isDarkTheme) 0xFF161B22 else 0xFFF5F5F7).copy(alpha = 0.92f)
     } else {
         Color(if (isDarkTheme) 0xFF161B22 else 0xFFF5F5F7).copy(alpha = if (isDarkTheme) 0.55f else 0.60f)
     }
 
-    // 屏幕旋转时自动收起播放列表并重新布局
+    // 屏幕旋转时自动收起播放列表并重新布局；旋转时跳过收起缩放动画，直接恢复紧凑窗口
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     LaunchedEffect(configuration.orientation) {
-        if (playlistExpanded) onPlaylistExpandedChange(false)
+        if (playlistExpanded) {
+            onPlaylistExpandedChange(false)
+            onCollapseAnimationEnd()
+        }
         onLayoutChanged()
     }
 
     MaterialTheme(colorScheme = colorScheme) {
-        if (playlistExpanded) {
-            // 展开时窗口铺满屏幕，卡片以外区域点击即收起
+        if (visualExpanded) {
+            // 展开/收起缩放动画：进入组合时卡片从 0.85 放大到 1.0；收起时反向缩小后恢复紧凑窗口
             val cardScale = remember { Animatable(0.85f) }
-            LaunchedEffect(Unit) {
-                cardScale.animateTo(
-                    targetValue = 1f,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                )
+            LaunchedEffect(playlistExpanded) {
+                if (playlistExpanded) {
+                    // 重置展开就绪信号：本轮展开必须等缩放动画完成才允许列表定位当前曲目
+                    playlistReady = 0
+                    cardScale.snapTo(0.85f)
+                    cardScale.animateTo(
+                        targetValue = 1f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    )
+                    // 缩放动画结束：通知播放列表定位当前曲目，避免滚动动画与缩放叠加卡顿
+                    playlistReady++
+                } else {
+                    cardScale.animateTo(
+                        targetValue = 0.85f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    )
+                    onCollapseAnimationEnd()
+                }
             }
+            // 展开时窗口铺满屏幕，卡片以外区域点击即收起
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -129,6 +152,7 @@ internal fun MiniPlayerOverlay(
                     MiniPlaylistPanel(
                         playbackState = playbackState,
                         context = context,
+                        scrollReady = playlistReady,
                         onClose = { onPlaylistExpandedChange(false) }
                     )
                 }
