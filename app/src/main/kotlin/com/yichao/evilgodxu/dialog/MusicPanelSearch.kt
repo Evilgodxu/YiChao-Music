@@ -488,6 +488,10 @@ internal fun SearchResultsLazyList(
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     val listState = rememberLazyListState()
+    // 兜底去重：上游即使仍重复下发同一条目，渲染前按键过滤，杜绝 LazyColumn key 冲突
+    val uniqueResults = remember(playbackState.searchResults) {
+        playbackState.searchResults.distinctBy { it.source to it.id }
+    }
     // 累计的底部上拉距离，达到阈值松手后触发加载下一页
     var pullDistance by remember { mutableFloatStateOf(0f) }
     val loadThreshold = with(LocalDensity.current) { SEARCH_PULL_LOAD_THRESHOLD_DP.toPx() }
@@ -528,7 +532,7 @@ internal fun SearchResultsLazyList(
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         itemsIndexed(
-            items = playbackState.searchResults,
+            items = uniqueResults,
             // 聚合两种来源后 id 可能重复，key 需结合来源保证唯一
             key = { _, result -> "${result.source}-${result.id}" }
         ) { _, result ->

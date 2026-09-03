@@ -292,8 +292,10 @@ internal suspend fun performSearch(
             pageSize = PROXY_FETCH_COUNT,
         )
         if (proxyResults != null) {
-            playbackState.searchResults = proxyResults.take(SEARCH_PAGE_SIZE)
-            playbackState.searchPending = proxyResults.drop(SEARCH_PAGE_SIZE)
+            // 代理音源可能返回重复条目（同一首歌多种音质/hash 相同），按 source+id 去重防止列表 key 冲突
+            val deduped = proxyResults.distinctBy { it.source to it.id }
+            playbackState.searchResults = deduped.take(SEARCH_PAGE_SIZE)
+            playbackState.searchPending = deduped.drop(SEARCH_PAGE_SIZE)
             playbackState.searchPendingFull = proxyResults.size >= PROXY_FETCH_COUNT
             playbackState.hasMoreSearchResults =
                 playbackState.searchPending.isNotEmpty() || playbackState.searchPendingFull
@@ -301,7 +303,7 @@ internal suspend fun performSearch(
             // 内置平台按页请求，首屏一页
             val results = runCatching { sourceOf(playbackState.searchSource).search(query, 1, SEARCH_PAGE_SIZE) }
                 .getOrDefault(emptyList())
-            playbackState.searchResults = results
+            playbackState.searchResults = results.distinctBy { it.source to it.id }
             playbackState.hasMoreSearchResults = results.size >= SEARCH_PAGE_SIZE
         }
         playbackState.searchPage = 1
