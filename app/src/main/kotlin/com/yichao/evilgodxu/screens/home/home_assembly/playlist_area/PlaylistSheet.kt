@@ -77,6 +77,15 @@ internal fun PlaylistSheet(
     var showSwitcher by remember { mutableStateOf(false) }
     // 长按删除目标：非空时显示确认弹窗
     var deleteTrack by remember { mutableStateOf<MusicTrack?>(null) }
+    // 后台预取整个播放列表缩略图：曲目集合变化即触发，不等面板展开逐行懒加载，
+    // 展开时封面已就绪；幂等，已缓存/补全中/全量补全中的曲目自动跳过
+    val playlistTrackIds = remember(playbackState.playlist) { playbackState.playlist.map { it.id } }
+    LaunchedEffect(playlistTrackIds) {
+        val currentId = playbackState.currentTrack?.id
+        playbackState.playlist
+            .sortedBy { it.id != currentId }
+            .forEach { playbackState.requestMetadata(it) }
+    }
     Box(Modifier.fillMaxSize()) {
         // 遮罩，点击收起
         AnimatedVisibility(
