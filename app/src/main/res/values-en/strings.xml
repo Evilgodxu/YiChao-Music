@@ -248,6 +248,14 @@
     <string name="playlist_import_preparing">Syncing…</string>
     <string name="playlist_import_done">Sync done · %1$d added · %2$d existing · %3$d failed</string>
 
+    <!-- Library analysis -->
+    <string name="library_analysis_title">Library Analysis</string>
+    <string name="library_analysis_select_format">Find by format</string>
+    <string name="library_analysis_formats">%d formats</string>
+    <string name="library_analysis_empty">Library is empty</string>
+    <string name="library_analysis_other">Other</string>
+    <string name="library_analysis_online">Online</string>
+
     <!-- Update -->
     <string name="update_dialog_title">New version %s</string>
     <string name="update_dialog_description_alt">Download and install the new version?</string>

@@ -1,0 +1,405 @@
+package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
+
+import android.content.Context
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaylistSource
+import com.yichao.evilgodxu.domain.music.trackFormatCategory
+import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.icons.AppIcons
+import java.util.Locale
+import kotlin.math.roundToInt
+
+// 格式导航行高与可见行数：列表固定如此高度展示，超出滚动，避免对话框随格式数量拉伸
+private val FormatListRowHeight = 36.dp
+private const val FormatListVisibleRows = 3
+
+// 曲库分析对话框：长按首页播放列表按钮弹出，圆环统计格式占比，下方按格式定位歌单
+@Composable
+internal fun LibraryAnalysisSheet(
+    visible: Boolean,
+    playbackState: MusicPlaybackState,
+    onDismiss: () -> Unit,
+) {
+    if (!visible) return
+    val context = LocalContext.current
+    // 全量库统计：切换歌单时曲库范围不变，仅依赖全量库数据
+    val stats = remember(playbackState.libraryTracks) {
+        analyzeLibraryFormats(context, playbackState.libraryTracks)
+    }
+    val currentKey = playbackState.playlistSource?.key
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.library_analysis_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.library_analysis_formats, stats.size),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = AppIcons.Close,
+                        contentDescription = stringResource(R.string.home_player_close_playlist),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            if (stats.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.library_analysis_empty),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                // 圆环 + 图例：图例行点击切换到对应格式歌单
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier.size(140.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        SegmentedFormatRing(
+                            stats = stats,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            val total = stats.sumOf { it.count }
+                            Text(
+                                text = stringResource(R.string.music_panel_track_count, total),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = stringResource(R.string.library_analysis_formats, stats.size),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        stats.forEachIndexed { index, stat ->
+                            FormatStatRow(
+                                stat = stat,
+                                color = FORMAT_COLOR_PALETTE[index % FORMAT_COLOR_PALETTE.size],
+                                isCurrent = currentKey == formatSourceKey(stat.name),
+                                onClick = {
+                                    switchToFormat(context, playbackState, stat.name)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.library_analysis_select_format),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+                Spacer(Modifier.height(6.dp))
+                // 格式列表固定显示 3 条，超出滚动，避免对话框随格式数量拉伸
+                LazyColumn(
+                    modifier = Modifier
+                        .height(FormatListRowHeight * FormatListVisibleRows),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    itemsIndexed(stats, key = { _, stat -> stat.name }) { index, stat ->
+                        FormatNavRow(
+                            stat = stat,
+                            color = FORMAT_COLOR_PALETTE[index % FORMAT_COLOR_PALETTE.size],
+                            isCurrent = currentKey == formatSourceKey(stat.name),
+                            onClick = {
+                                switchToFormat(context, playbackState, stat.name)
+                                onDismiss()
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 切换播放列表为指定格式曲目，复用歌单切换（备份默认列表 + 播放首曲 + 补全元数据）
+private fun switchToFormat(
+    context: Context,
+    playbackState: MusicPlaybackState,
+    format: String,
+) {
+    val tracks = playbackState.libraryTracks.filter { trackFormatCategory(context, it) == format }
+    switchToPlaylistQueue(
+        context = context,
+        state = playbackState,
+        tracks = tracks,
+        source = PlaylistSource(formatSourceKey(format), format),
+    )
+}
+
+// 格式歌单来源 key：刷新后据此重建歌单
+private fun formatSourceKey(format: String): String = "smart:FORMAT:$format"
+
+// 单个格式的占比统计
+private data class FormatStat(
+    val name: String,
+    val count: Int,
+    val percent: Float,
+)
+
+// 统计曲库格式占比：按文件扩展名归类，取数量前 5 种，其余合并为「其他」
+private fun analyzeLibraryFormats(context: Context, tracks: List<MusicTrack>): List<FormatStat> {
+    val counts = linkedMapOf<String, Int>()
+    tracks.forEach { track ->
+        val key = trackFormatCategory(context, track)
+        counts[key] = (counts[key] ?: 0) + 1
+    }
+    val total = counts.values.sum()
+    if (total == 0) return emptyList()
+    val sorted = counts.entries.sortedByDescending { it.value }
+    val result = sorted.take(5).associate { it.key to it.value }.toMutableMap()
+    val restCount = sorted.drop(5).sumOf { it.value }
+    val otherName = context.getString(R.string.library_analysis_other)
+    if (restCount > 0 && otherName !in result) {
+        result[otherName] = restCount
+    }
+    return result.map { (name, count) ->
+        // 占比保留一位小数
+        FormatStat(name, count, (count * 1000f / total).roundToInt() / 10f)
+    }
+}
+
+// 分段圆环配色：前 5 档为可区分的色相，末档灰用于「其他」等兜底
+private val FORMAT_COLOR_PALETTE = listOf(
+    Color(0xFF4A6CF7),
+    Color(0xFF12B5A5),
+    Color(0xFFFFB020),
+    Color(0xFFE8636B),
+    Color(0xFFA371F7),
+    Color(0xFF9AA4B2),
+)
+
+// 分段圆环：按占比绘制带间距与圆角端点的圆弧，小占比段自动收紧间距
+@Composable
+private fun SegmentedFormatRing(
+    stats: List<FormatStat>,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * 0.13f
+        val ringSize = Size(size.minDimension, size.minDimension)
+        var startAngle = -90f
+        stats.forEachIndexed { index, stat ->
+            // 末段按剩余角度补齐，规避占比保留一位小数造成的累计偏差
+            val isLast = index == stats.lastIndex
+            val sweep = if (isLast) {
+                360f - (startAngle + 90f)
+            } else {
+                stat.percent / 100f * 360f
+            }
+            // 段间距随占比收敛：小段避免被间距吞掉
+            val gap = minOf(3f, sweep * 0.25f)
+            val drawSweep = (sweep - gap).coerceAtLeast(0f)
+            if (drawSweep > 0.3f) {
+                drawArc(
+                    color = FORMAT_COLOR_PALETTE[index % FORMAT_COLOR_PALETTE.size],
+                    startAngle = startAngle + gap / 2f,
+                    sweepAngle = drawSweep,
+                    useCenter = false,
+                    topLeft = Offset(0f, 0f),
+                    size = ringSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                )
+            }
+            startAngle += sweep
+        }
+    }
+}
+
+// 图例行：色点 + 名称/数量同一行，占比右对齐放数量下方，两行结构参考播放列表标题/副标题
+@Composable
+private fun FormatStatRow(
+    stat: FormatStat,
+    color: Color,
+    isCurrent: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                else Color.Transparent,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color, RoundedCornerShape(2.dp)),
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stat.name,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.music_panel_track_count, stat.count),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+            // 占比与上方数量下对齐
+            Row {
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = formatPercent(stat.percent),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                )
+            }
+        }
+    }
+}
+
+// 格式导航行：色点 + 格式名 + 进入箭头，点击切换到该格式歌单
+@Composable
+private fun FormatNavRow(
+    stat: FormatStat,
+    color: Color,
+    isCurrent: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                else Color.Transparent,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color, RoundedCornerShape(2.dp)),
+        )
+        Text(
+            text = stat.name,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp,
+            fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = AppIcons.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+// 百分比显示：整数不带小数，否则保留一位小数
+private fun formatPercent(percent: Float): String =
+    if (percent == percent.toInt().toFloat()) {
+        String.format(Locale.US, "%.0f%%", percent)
+    } else {
+        String.format(Locale.US, "%.1f%%", percent)
+    }

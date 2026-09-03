@@ -6,6 +6,7 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.normalizeTitle
 import com.yichao.evilgodxu.domain.music.PlaylistSource
+import com.yichao.evilgodxu.domain.music.trackFormatCategory
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -132,6 +133,10 @@ object PlaylistRefresher {
                 state.recentPlayedIds.mapNotNull { id -> library.find { it.id == id } }
             source.key == "smart:FAVORITE" ->
                 library.filter { it.id in state.likedIds }
+            source.key.startsWith("smart:FORMAT:") -> {
+                val format = source.key.removePrefix("smart:FORMAT:")
+                library.filter { trackFormatCategory(context, it) == format }
+            }
             source.key.startsWith("custom:") -> {
                 val playlistId = source.key.removePrefix("custom:").toLongOrNull()
                     ?: return emptyList()

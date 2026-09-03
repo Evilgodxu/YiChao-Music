@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 internal fun PlayerControls(
     playbackState: MusicPlaybackState,
     onPlaylistClick: () -> Unit,
+    onPlaylistLongClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -99,6 +100,7 @@ internal fun PlayerControls(
             icon = AppIcons.QueueMusic,
             contentDescription = stringResource(R.string.music_panel_playlist),
             onClick = onPlaylistClick,
+            onLongClick = onPlaylistLongClick,
         )
     }
     SpeedDialog(

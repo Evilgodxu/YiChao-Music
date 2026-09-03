@@ -248,6 +248,13 @@
     <string name="playlist_import_preparing">正在同步…</string>
     <string name="playlist_import_done">同步完成 · 新增 %1$d · 已存在 %2$d · 失败 %3$d</string>
 
+    <!-- 曲库分析 -->
+    <string name="library_analysis_title">曲库分析</string>
+    <string name="library_analysis_select_format">按格式定位</string>
+    <string name="library_analysis_formats">%d 种格式</string>
+    <string name="library_analysis_empty">曲库为空</string>
+    <string name="library_analysis_other">其他</string>
+    <string name="library_analysis_online">在线</string>
 
     <!-- 更新 -->
     <string name="update_dialog_title">发现新版本 %s</string>

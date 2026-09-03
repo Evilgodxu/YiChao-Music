@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.R
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
@@ -178,5 +179,40 @@ internal object TrackAudioInfoReader {
         if (read < size) return null
         val format = parse(bytes) ?: return null
         return format.takeIf { it.channels > 0 && it.bitDepth > 0 }
+    }
+}
+
+// 已知音频扩展名到展示名的映射
+private val FORMAT_EXTENSION_NAMES = mapOf(
+    "MP3" to "MP3",
+    "FLAC" to "FLAC",
+    "WAV" to "WAV",
+    "WAVE" to "WAV",
+    "AAC" to "AAC",
+    "M4A" to "M4A",
+    "MP4" to "M4A",
+    "OGG" to "OGG",
+    "OPUS" to "OPUS",
+    "APE" to "APE",
+    "ALAC" to "ALAC",
+    "WMA" to "WMA",
+    "AIFF" to "AIFF",
+    "AIF" to "AIFF",
+    "DSF" to "DSF",
+    "DFF" to "DFF",
+    "MID" to "MID",
+    "MIDI" to "MIDI",
+)
+
+// 曲库格式分类名：扩展名映射为规范名，未知取扩展名，纯在线流归「在线」，其余归「其他」；
+// 供曲库分析统计与按格式定位歌单共用，保证两处分类一致
+internal fun trackFormatCategory(context: Context, track: MusicTrack): String {
+    val extension = track.path.substringAfterLast('.', "").uppercase()
+    if (extension.isNotBlank()) return FORMAT_EXTENSION_NAMES[extension] ?: extension
+    val scheme = runCatching { Uri.parse(track.audioUri).scheme }.getOrNull()
+    return if (scheme == "http" || scheme == "https") {
+        context.getString(R.string.library_analysis_online)
+    } else {
+        context.getString(R.string.library_analysis_other)
     }
 }

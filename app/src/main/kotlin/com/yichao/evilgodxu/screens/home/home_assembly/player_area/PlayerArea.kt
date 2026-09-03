@@ -76,6 +76,7 @@ import com.yichao.evilgodxu.domain.music.searchCoverCandidates
 import com.yichao.evilgodxu.domain.music.searchLyricsCandidates
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.dialog.LosslessUpgradeDialog
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.LibraryAnalysisSheet
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSheet
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.applyLocalCover
@@ -107,9 +108,13 @@ fun PlayerArea(
 ) {
     val playbackState = MusicPanelStateHolder.state
     var playlistVisible by remember { mutableStateOf(false) }
+    // 曲库分析面板显隐：长按播放列表按钮打开
+    var analysisVisible by remember { mutableStateOf(false) }
 
-    // 播放列表展开时，系统返回键收起面板
-    BackHandler(enabled = playlistVisible) { playlistVisible = false }
+    // 播放列表与曲库分析展开时，系统返回键收起面板
+    BackHandler(enabled = playlistVisible || analysisVisible) {
+        if (analysisVisible) analysisVisible = false else playlistVisible = false
+    }
 
     // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
 
@@ -500,6 +505,7 @@ fun PlayerArea(
                 PlayerControls(
                     playbackState = playbackState,
                     onPlaylistClick = { playlistVisible = !playlistVisible },
+                    onPlaylistLongClick = { analysisVisible = true },
                 )
             }
         }
@@ -508,6 +514,12 @@ fun PlayerArea(
             visible = playlistVisible,
             playbackState = playbackState,
             onDismiss = { playlistVisible = false },
+        )
+
+        LibraryAnalysisSheet(
+            visible = analysisVisible,
+            playbackState = playbackState,
+            onDismiss = { analysisVisible = false },
         )
 
         RenameDialog(
