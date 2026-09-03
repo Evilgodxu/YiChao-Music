@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -55,7 +54,6 @@ internal fun MiniPlaylistPanel(
     context: android.content.Context,
     onClose: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val visibleCount = playbackState.playlist.size.coerceIn(0, MINI_PLAYLIST_MAX_VISIBLE_ROWS)
     val listState = rememberLazyListState()
 
@@ -99,7 +97,8 @@ internal fun MiniPlaylistPanel(
                     isPlaying = isActive && playbackState.isPlaying,
                     isQueued = playbackState.isInPlayNext(track.id),
                     onClick = {
-                        scope.launch { playTrackAt(context, playbackState, index) }
+                        // 使用应用级作用域：面板收起离开组合时，播放命令不会被协程取消
+                        playbackState.playbackScope.launch { playTrackAt(context, playbackState, index) }
                         onClose()
                     },
                     onFavoriteClick = { playbackState.toggleFavorite(track.id) },
