@@ -36,7 +36,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -51,6 +53,7 @@ import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun PlaylistOverlay(
@@ -69,6 +72,13 @@ internal fun PlaylistOverlay(
         label = "playlist"
     ) { show ->
         if (show) {
+            // 展开就绪：等面板进入动画完成后再定位当前曲目，避免滚动与展开动画叠加卡顿
+            var playlistSettled by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                playlistSettled = false
+                delay(PLAYLIST_EXPAND_ANIM_MS)
+                playlistSettled = true
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -141,8 +151,9 @@ internal fun PlaylistOverlay(
                             )
                         }
                     }
-                    LaunchedEffect(playbackState.currentTrack?.id) {
-                        if (playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+                    // 面板展开动画完成（playlistSettled）后再定位当前曲目；切歌时立即定位
+                    LaunchedEffect(playlistSettled, playbackState.currentTrack?.id) {
+                        if (playlistSettled && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
                             listState.animateScrollToItem(
                                 playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
                             )
@@ -262,3 +273,6 @@ internal fun PlaylistRow(
         )
     }
 }
+
+// 播放列表展开进入动画时长：等动画完成后才滚动定位当前曲目，避免动画叠加卡顿
+private const val PLAYLIST_EXPAND_ANIM_MS = 300L

@@ -38,9 +38,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +61,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.HeaderIconButton
 import com.yichao.evilgodxu.ui.music.PlaylistRow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // 播放列表面板：点击遮罩或关闭按钮收起
@@ -106,6 +112,13 @@ internal fun PlaylistSheet(
                     )
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
+                // 展开就绪：等面板滑入动画完成后再定位当前曲目，避免滚动与展开动画叠加卡顿
+                var playlistSettled by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    playlistSettled = false
+                    delay(PLAYLIST_EXPAND_ANIM_MS)
+                    playlistSettled = true
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -184,9 +197,36 @@ internal fun PlaylistSheet(
                     }
                 } else {
                     val listState = rememberLazyListState()
+                    // 滚动到顶部后继续下拉：累计下拉距离超过阈值即收起面板
+                    val density = LocalDensity.current
+                    val dismissOverscrollPx = with(density) { PLAYLIST_DISMISS_OVERSCROLL_DP.toPx() }
+                    val dismissNestedScroll = remember(listState) {
+                        object : NestedScrollConnection {
+                            private var overscrollAccum = 0f
+                            private var dismissed = false
+                            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                                if (dismissed || source != NestedScrollSource.UserInput) return Offset.Zero
+                                val dy = available.y
+                                val atTop = listState.firstVisibleItemIndex == 0 &&
+                                    listState.firstVisibleItemScrollOffset == 0
+                                if (dy > 0f && atTop) {
+                                    overscrollAccum += dy
+                                    if (overscrollAccum > dismissOverscrollPx) {
+                                        dismissed = true
+                                        onDismiss()
+                                    }
+                                } else {
+                                    overscrollAccum = 0f
+                                }
+                                return Offset.Zero
+                            }
+                        }
+                    }
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(dismissNestedScroll),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         itemsIndexed(
@@ -213,8 +253,9 @@ internal fun PlaylistSheet(
                             )
                         }
                     }
-                    LaunchedEffect(playbackState.currentTrack?.id) {
-                        if (playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+                    // 面板展开动画完成（playlistSettled）后再定位当前曲目；切歌时立即定位
+                    LaunchedEffect(playlistSettled, playbackState.currentTrack?.id) {
+                        if (playlistSettled && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
                             listState.animateScrollToItem(
                                 playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
                             )
@@ -241,3 +282,8 @@ internal fun PlaylistSheet(
         )
     }
 }
+
+// 播放列表展开进入动画时长：等动画完成后才滚动定位当前曲目，避免动画叠加卡顿
+private const val PLAYLIST_EXPAND_ANIM_MS = 300L
+// 列表顶部继续下拉的收起阈值：累计下拉超过该距离即收起面板
+private val PLAYLIST_DISMISS_OVERSCROLL_DP = 64.dp
