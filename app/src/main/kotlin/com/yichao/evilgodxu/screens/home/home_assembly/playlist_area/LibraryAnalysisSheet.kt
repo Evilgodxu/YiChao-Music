@@ -289,7 +289,7 @@ private fun SegmentedFormatRing(
     }
 }
 
-// 图例行：色点 + 名称/数量同一行，占比右对齐放数量下方，两行结构参考播放列表标题/副标题
+// 图例行：色点 + 格式名 + 数量，点击切换到对应格式歌单
 @Composable
 private fun FormatStatRow(
     stat: FormatStat,
@@ -315,44 +315,26 @@ private fun FormatStatRow(
                 .size(10.dp)
                 .background(color, RoundedCornerShape(2.dp)),
         )
-        Column(
+        Text(
+            text = stat.name,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 12.sp,
+            lineHeight = 15.sp,
+            fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stat.name,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 12.sp,
-                    lineHeight = 15.sp,
-                    fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.music_panel_track_count, stat.count),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    lineHeight = 15.sp,
-                )
-            }
-            // 占比与上方数量下对齐
-            Row {
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = formatPercent(stat.percent),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    lineHeight = 12.sp,
-                )
-            }
-        }
+        )
+        Text(
+            text = stringResource(R.string.music_panel_track_count, stat.count),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 15.sp,
+        )
     }
 }
 
-// 格式导航行：色点 + 格式名 + 进入箭头，点击切换到该格式歌单
+// 格式导航行：色点 + 格式名 + 占比 + 进入箭头，占比在箭头左侧，点击切换到该格式歌单
 @Composable
 private fun FormatNavRow(
     stat: FormatStat,
@@ -386,6 +368,11 @@ private fun FormatNavRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = formatPercent(stat.percent),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
         )
         Icon(
             imageVector = AppIcons.KeyboardArrowRight,
