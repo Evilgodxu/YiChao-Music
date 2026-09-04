@@ -9,6 +9,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -46,15 +50,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -85,6 +92,7 @@ internal fun PlaylistSheet(
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     // 歌单副标题点击后的快捷切换弹层
     var showSwitcher by remember { mutableStateOf(false) }
@@ -132,7 +140,9 @@ internal fun PlaylistSheet(
                         color = MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                     )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    // 键盘弹出时面板内容整体上移避开键盘，窗口与其他页面保持原位
+                    .imePadding(),
             ) {
                 // 展开就绪：等面板滑入动画完成后再定位当前曲目，避免滚动与展开动画叠加卡顿
                 var playlistSettled by remember { mutableStateOf(false) }
@@ -223,6 +233,8 @@ internal fun PlaylistSheet(
                     val isScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
                     // 列表内搜索关键词：仅过滤展示，不改变播放队列
                     var searchQuery by remember { mutableStateOf("") }
+                    // 搜索框聚焦状态：键盘展开期间用拦截层接住列表点击，仅收起键盘避免误触播放
+                    var searchFocused by remember { mutableStateOf(false) }
                     // 过滤后仍保留原队列索引：点击播放与定位需回填真实索引
                     // 索引仅来自当前 playlist 快照；playlist 收缩后布局期可能读到过期索引，须容忍缺失
                     val filteredIndices = remember(playbackState.playlist, searchQuery) {
@@ -322,11 +334,29 @@ internal fun PlaylistSheet(
                                 }
                             }
                         }
+                        // 键盘展开期间覆盖列表的拦截层：点击列表任意处仅收起键盘，阻断误触播放歌单行
+                        if (searchFocused) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(focusManager) {
+                                        awaitEachGesture {
+                                            awaitFirstDown(requireUnconsumed = false)
+                                            val up = waitForUpOrCancellation()
+                                            if (up != null) {
+                                                up.consume()
+                                                focusManager.clearFocus()
+                                            }
+                                        }
+                                    }
+                            )
+                        }
                         // 底部搜索框：随列表滚动自动显隐
                         PlaylistSearchOverlay(
                             isScrolling = isScrolling,
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
+                            onFocusChanged = { searchFocused = it },
                         )
                     }
                 }
@@ -362,6 +392,7 @@ private fun BoxScope.PlaylistSearchOverlay(
     isScrolling: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
 ) {
     AnimatedVisibility(
         visible = !isScrolling,
@@ -374,7 +405,11 @@ private fun BoxScope.PlaylistSearchOverlay(
         exit = fadeOut(animationSpec = tween(160)) +
             slideOutVertically(animationSpec = tween(160)) { it },
     ) {
-        PlaylistSearchBar(query = query, onQueryChange = onQueryChange)
+        PlaylistSearchBar(
+            query = query,
+            onQueryChange = onQueryChange,
+            onFocusChanged = onFocusChanged,
+        )
     }
 }
 
@@ -383,6 +418,7 @@ private fun BoxScope.PlaylistSearchOverlay(
 private fun PlaylistSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     Box(
@@ -414,7 +450,8 @@ private fun PlaylistSearchBar(
                 onValueChange = onQueryChange,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp),
+                    .padding(start = 8.dp)
+                    .onFocusChanged { onFocusChanged(it.isFocused) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
