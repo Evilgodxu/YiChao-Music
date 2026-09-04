@@ -255,6 +255,8 @@
     <string name="library_analysis_empty">曲库为空</string>
     <string name="library_analysis_other">其他</string>
     <string name="library_analysis_online">在线</string>
+    <string name="library_analysis_fake_lossless">假无损</string>
+    <string name="library_analysis_checking">正在校验…</string>
 
     <!-- 更新 -->
     <string name="update_dialog_title">发现新版本 %s</string>
