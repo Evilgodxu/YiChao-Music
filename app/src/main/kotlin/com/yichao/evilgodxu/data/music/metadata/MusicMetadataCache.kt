@@ -221,7 +221,7 @@ internal object MusicMetadataCache {
         null
     }
 
-    // 歌词按增强 LRC 文本序列化：标准 [mm:ss.xx] 行 + 行内 <mm:ss.xx> 逐字时间戳，翻译以 [tr][/tr] 追加
+    // 歌词按增强 LRC 文本序列化：标准 [mm:ss.xxx] 行 + 行内 <mm:ss.xxx> 逐字时间戳，翻译以 [tr][/tr] 追加
     internal fun encodeLyrics(lines: List<LyricLine>): String =
         lines.joinToString("\n") { line ->
             val timestamp = lrcTimestamp(line.timeMs)
@@ -262,12 +262,12 @@ internal object MusicMetadataCache {
     private fun lrcTimestamp(ms: Long): String {
         val minutes = ms / 60_000
         val seconds = ms % 60_000 / 1000
-        val hundredths = ms % 1000 / 10
-        return "%02d:%02d.%02d".format(minutes, seconds, hundredths)
+        val millis = ms % 1000
+        return "%02d:%02d.%03d".format(minutes, seconds, millis)
     }
 
-    // 增强 LRC 解析：兼容纯文本行、行内 <mm:ss.xx> 逐字标签与 [tr][/tr] 翻译块；
-    // 时间戳支持 [mm:ss(.xx)] 与长音频常用的小时制 [hh:mm:ss(.xx)]，位数不限（前导零可忽略）
+    // 增强 LRC 解析：兼容纯文本行、行内 <mm:ss.xxx> 逐字标签与 [tr][/tr] 翻译块；
+    // 时间戳支持 [mm:ss(.xxx)] 与长音频常用的小时制 [hh:mm:ss(.xxx)]，小数位 1~3 位均可，前导零可忽略
     private fun parseEnhancedLrc(lrc: String): List<LyricLine> {
         val linePattern = Regex("""\[(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?](.*)""")
         val wordPattern = Regex("""<(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
@@ -303,7 +303,7 @@ internal object MusicMetadataCache {
         return runCatching { parseJsonArray(text) }.getOrDefault(emptyList())
     }
 
-    // 标准 LRC 时间戳 [mm:ss] / [mm:ss.xx]（含小时制 [hh:mm:ss.xx]）；要求 [ 后紧跟数字，避免误判旧版 JSON 歌词（以 [{ 开头）
+    // 标准 LRC 时间戳 [mm:ss] / [mm:ss.xxx]（含小时制 [hh:mm:ss.xxx]）；要求 [ 后紧跟数字，避免误判旧版 JSON 歌词（以 [{ 开头）
     private val LRC_TIMESTAMP_PATTERN = Regex("""\[\d+:\d+(?::\d+)?(?:[.:]\d+)?]""")
     // 逐字增强 LRC 的区间箭头标记
     private const val LRC_WORD_ARROW = "→"
