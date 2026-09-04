@@ -173,8 +173,8 @@ internal fun LibraryAnalysisSheet(
                             FormatStat(
                                 key = FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY,
                                 name = stringResource(R.string.library_analysis_fake_lossless),
-                                count = fakeCount ?: 0,
-                                percent = ((fakeCount ?: 0) * 1000f / total).roundToInt() / 10f,
+                                count = fakeCount,
+                                percent = (fakeCount * 1000f / total).roundToInt() / 10f,
                             ),
                         )
                     }

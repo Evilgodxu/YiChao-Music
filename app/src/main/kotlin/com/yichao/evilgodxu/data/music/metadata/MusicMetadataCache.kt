@@ -266,17 +266,19 @@ internal object MusicMetadataCache {
         return "%02d:%02d.%02d".format(minutes, seconds, hundredths)
     }
 
-    // 增强 LRC 解析：兼容纯文本行、行内 <mm:ss.xx> 逐字标签与 [tr][/tr] 翻译块
+    // 增强 LRC 解析：兼容纯文本行、行内 <mm:ss.xx> 逐字标签与 [tr][/tr] 翻译块；
+    // 时间戳支持 [mm:ss(.xx)] 与长音频常用的小时制 [hh:mm:ss(.xx)]，位数不限（前导零可忽略）
     private fun parseEnhancedLrc(lrc: String): List<LyricLine> {
-        val linePattern = Regex("""\[(\d+):(\d+)(?:\.(\d+))?](.*)""")
+        val linePattern = Regex("""\[(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?](.*)""")
         val wordPattern = Regex("""<(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
         val transPattern = Regex("""\[tr](.*?)\[/tr]""")
         return lrc.lineSequence().mapNotNull { rawLine ->
             val match = linePattern.find(rawLine) ?: return@mapNotNull null
-            val timeMs = match.groupValues[1].toLong() * 60_000 +
-                match.groupValues[2].toLong() * 1000 +
-                match.groupValues[3].padEnd(3, '0').take(3).toLong()
-            val content = match.groupValues[4]
+            val timeMs = (match.groupValues[1].toLongOrNull() ?: 0L) * 3_600_000 +
+                match.groupValues[2].toLong() * 60_000 +
+                match.groupValues[3].toLong() * 1000 +
+                match.groupValues[4].padEnd(3, '0').take(3).toLong()
+            val content = match.groupValues[5]
             val translation = transPattern.find(content)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
             val cleanContent = transPattern.replace(content, "").trim()
             val words = wordPattern.findAll(cleanContent).map { word ->
@@ -293,8 +295,19 @@ internal object MusicMetadataCache {
         }.sortedBy { it.timeMs }.toList()
     }
 
-    // 旧版 JSON 缓存回退解析
+    // 旧版 JSON 缓存回退解析：命中 LRC 特征或强转失败时均返回空，不再抛异常
     private fun parseJsonLyrics(text: String): List<LyricLine> {
+        // 命中 LRC 特征（[mm:ss] 时间戳行或 → 逐字标记）时不视为 JSON，避免强转 JSONArray 抛异常
+        if (LRC_TIMESTAMP_PATTERN.containsMatchIn(text) || text.contains(LRC_WORD_ARROW)) return emptyList()
+        return runCatching { parseJsonArray(text) }.getOrDefault(emptyList())
+    }
+
+    // 标准 LRC 时间戳 [mm:ss] / [mm:ss.xx]（含小时制 [hh:mm:ss.xx]）；要求 [ 后紧跟数字，避免误判旧版 JSON 歌词（以 [{ 开头）
+    private val LRC_TIMESTAMP_PATTERN = Regex("""\[\d+:\d+(?::\d+)?(?:[.:]\d+)?]""")
+    // 逐字增强 LRC 的区间箭头标记
+    private const val LRC_WORD_ARROW = "→"
+
+    private fun parseJsonArray(text: String): List<LyricLine> {
         val array = JSONArray(text)
         return List(array.length()) { index ->
             val item = array.getJSONObject(index)

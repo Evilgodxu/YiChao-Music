@@ -176,14 +176,6 @@ internal object MusicEmbeddedLyricReader {
         if (length < 4 || offset + length > data.size) return null
         val encoding = data[offset].toInt() and 0xff
         val end = offset + length
-        // UTF-16 的字节序由帧数据起始处（描述符开头）的 BOM 决定，空字符为 00 00 与字节序无关
-        val littleEndian = if (encoding == 1 && offset + 6 <= end) {
-            when {
-                data[offset + 4] == 0xff.toByte() && data[offset + 5] == 0xfe.toByte() -> true
-                data[offset + 4] == 0xfe.toByte() && data[offset + 5] == 0xff.toByte() -> false
-                else -> true
-            }
-        } else null
         val terminator = if (encoding == 1 || encoding == 2) 2 else 1
         var p = offset + 4
         while (p + terminator <= end) {
@@ -192,15 +184,43 @@ internal object MusicEmbeddedLyricReader {
         }
         p += terminator
         if (p > end) return null
+        // UTF-16 文本起始处的 BOM 决定字节序（ID3v2 规范要求 UTF-16 字符串以 BOM 开头）
+        val littleEndian = if (encoding == 1 && p + 2 <= end) {
+            when {
+                data[p] == 0xff.toByte() && data[p + 1] == 0xfe.toByte() -> true
+                data[p] == 0xfe.toByte() && data[p + 1] == 0xff.toByte() -> false
+                else -> null
+            }
+        } else null
         return decodeText(data.copyOfRange(p, end), encoding, littleEndian)
     }
 
     // ID3v2 文本编码：0=ISO-8859-1、1=UTF-16(带 BOM)、2=UTF-16BE、3=UTF-8
     private fun decodeText(bytes: ByteArray, encoding: Int, littleEndian: Boolean?): String = when (encoding) {
         0 -> String(bytes, StandardCharsets.ISO_8859_1)
-        1 -> if (littleEndian == true) String(bytes, StandardCharsets.UTF_16LE) else String(bytes, StandardCharsets.UTF_16BE)
+        1 -> decodeUtf16(bytes, littleEndian)
         2 -> String(bytes, StandardCharsets.UTF_16BE)
         else -> String(bytes, StandardCharsets.UTF_8)
+    }
+
+    // UTF-16 解码：无 BOM 时按零字节奇偶分布推断字节序，并剥离解码产生的 BOM 字符
+    private fun decodeUtf16(bytes: ByteArray, littleEndian: Boolean?): String {
+        val little = littleEndian ?: inferUtf16Endianness(bytes)
+        val text = if (little) String(bytes, StandardCharsets.UTF_16LE) else String(bytes, StandardCharsets.UTF_16BE)
+        return text.removePrefix("\uFEFF")
+    }
+
+    // 推断 UTF-16 字节序：ASCII 字符的高位字节恒为零，统计偶数位（BE）与奇数位（LE）的零字节数
+    private fun inferUtf16Endianness(bytes: ByteArray): Boolean {
+        var littleScore = 0
+        var bigScore = 0
+        var index = 0
+        while (index + 1 < bytes.size) {
+            if (bytes[index] == 0.toByte()) bigScore++
+            if (bytes[index + 1] == 0.toByte()) littleScore++
+            index += 2
+        }
+        return littleScore > bigScore
     }
 
     // M4A：递归遍历 moov/udta/meta/ilst，取 ©lyr(或 lyr) 与 ----:LYRICS 自定义原子
