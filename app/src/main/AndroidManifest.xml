@@ -40,6 +40,7 @@
             android:name=".YiChaoActivity"
             android:launchMode="singleTask"
             android:configChanges="locale|layoutDirection|orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

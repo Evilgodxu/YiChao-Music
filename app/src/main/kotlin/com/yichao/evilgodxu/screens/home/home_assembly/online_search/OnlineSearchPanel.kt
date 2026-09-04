@@ -8,12 +8,16 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -40,10 +44,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -73,28 +80,61 @@ internal fun OnlineSearchPanel(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    Column(modifier = modifier) {
-        PanelHeader()
-        SearchInput(playbackState = playbackState, menuBackgroundColor = menuBackgroundColor, context = context, scope = scope)
-        if (playbackState.showSearchResults) {
-            SearchResultList(
+    val focusManager = LocalFocusManager.current
+    // 搜索输入框聚焦状态：键盘展开期间显示拦截层，点击面板空白处仅收起键盘并阻断透传
+    var searchInputFocused by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        // 拦截层置于内容之下：仅覆盖面板空白处，不抢占列表项/输入框等上层交互
+        if (searchInputFocused) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(focusManager) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            val up = waitForUpOrCancellation()
+                            if (up != null) {
+                                up.consume()
+                                focusManager.clearFocus()
+                            }
+                        }
+                    }
+            )
+        }
+        // imePadding 收紧面板底部：键盘弹出时仅压缩结果区，输入框保持原位不被整窗顶起
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
+            PanelHeader()
+            SearchInput(
                 playbackState = playbackState,
+                menuBackgroundColor = menuBackgroundColor,
                 context = context,
                 scope = scope,
+                onFocusChanged = { searchInputFocused = it },
             )
-        } else if (playbackState.searchHistory.isNotEmpty()) {
-            SearchHistoryList(
+            if (playbackState.showSearchResults) {
+                SearchResultList(
+                    playbackState = playbackState,
+                    context = context,
+                    scope = scope,
+                )
+            } else if (playbackState.searchHistory.isNotEmpty()) {
+                SearchHistoryList(
+                    playbackState = playbackState,
+                    context = context,
+                    scope = scope,
+                )
+            }
+            // 音质选择对话框（独立窗口，不参与面板布局）
+            QualitySelectDialog(
                 playbackState = playbackState,
                 context = context,
                 scope = scope,
             )
         }
-        // 音质选择对话框（独立窗口，不参与面板布局）
-        QualitySelectDialog(
-            playbackState = playbackState,
-            context = context,
-            scope = scope,
-        )
     }
 }
 
@@ -117,6 +157,7 @@ private fun SearchInput(
     menuBackgroundColor: Color,
     context: Context,
     scope: CoroutineScope,
+    onFocusChanged: (Boolean) -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     var sourceMenuExpanded by remember { mutableStateOf(false) }
@@ -201,7 +242,8 @@ private fun SearchInput(
                 onValueChange = { playbackState.searchQuery = it },
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 2.dp),
+                    .padding(start = 2.dp)
+                    .onFocusChanged { onFocusChanged(it.isFocused) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = Color.White,
