@@ -71,8 +71,8 @@ internal fun switchToPlaylistQueue(
     state.playlist = tracks
     state.playlistSource = source
     state.currentIndex = 0
-    // 用播放器全局作用域启动播放，避免弹层关闭取消协程导致首曲不播放
-    state.playbackScope.launch { playTrackAt(context, state, 0) }
+    // 仅加载新队列并暂停，不自动播放；在播放器全局作用域执行，避免弹层关闭取消协程导致队列未加载
+    state.playbackScope.launch { playTrackAt(context, state, 0, autoPlay = false) }
     state.persistPlaylist()
     // 切换歌单后后台补全新歌单缺失的封面/歌词，缓存已就绪的歌曲直接命中不重复加载
     state.playbackScope.launch { MetadataEnricher.enrichAndCleanup(context, state) }
