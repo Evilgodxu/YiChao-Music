@@ -3,11 +3,10 @@ package com.yichao.evilgodxu.data.music
 import android.content.Context
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.FAKE_LOSSLESS_KEY
+import com.yichao.evilgodxu.domain.music.FakeLosslessAnalyzer
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.normalizeTitle
 import com.yichao.evilgodxu.domain.music.PlaylistSource
-import com.yichao.evilgodxu.domain.music.TrackAudioInfoReader
 import com.yichao.evilgodxu.domain.music.trackFormatCategory
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import kotlinx.coroutines.Dispatchers
@@ -137,10 +136,14 @@ object PlaylistRefresher {
                 library.filter { it.id in state.likedIds }
             source.key.startsWith("smart:FORMAT:") -> {
                 val format = source.key.removePrefix("smart:FORMAT:")
-                // 假无损为识别类目：需读文件头做校验，放 IO 线程避免阻塞刷新协程
-                if (format == FAKE_LOSSLESS_KEY) {
+                // 假无损为识别类目：逐曲校验（缓存命中即瞬时返回），放 IO 线程避免阻塞刷新协程
+                if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
                     withContext(Dispatchers.IO) {
-                        library.filter { TrackAudioInfoReader.isSuspectedFakeLossless(context, it) }
+                        buildList {
+                            library.forEach {
+                                if (FakeLosslessAnalyzer.isSuspectedFakeLossless(context, it)) add(it)
+                            }
+                        }
                     }
                 } else {
                     library.filter { trackFormatCategory(context, it) == format }

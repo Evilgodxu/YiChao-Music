@@ -9,13 +9,9 @@ import com.yichao.evilgodxu.R
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
-import java.util.concurrent.ConcurrentHashMap
 
 // 本地音频格式信息读取：解码头未给出或冷启动未播放时，直接读文件元数据补齐
 internal object TrackAudioInfoReader {
-
-    // 假无损识别结果缓存：键含文件大小与时长，文件变化即失效；跨对话框/刷新复用避免重复读头
-    private val fakeLosslessCache = ConcurrentHashMap<String, Boolean>()
 
     // 读取真实比特率（kbps）：优先媒体元数据，其次按文件大小/时长估算平均比特率
     fun readBitrateKbps(context: Context, track: MusicTrack): Int? {
@@ -128,7 +124,7 @@ internal object TrackAudioInfoReader {
     }
 
     // 读取本地音频文件字节大小：文件路径优先，否则经 ContentResolver 打开
-    private fun readFileSize(context: Context, track: MusicTrack): Long? {
+    fun readFileSize(context: Context, track: MusicTrack): Long? {
         if (track.path.isNotBlank()) {
             val file = File(track.path)
             if (file.isFile) return file.length()
@@ -143,8 +139,9 @@ internal object TrackAudioInfoReader {
     }
 
     // 解析 FLAC STREAMINFO（fLaC + 块头 + 34 字节流信息）中的采样率、声道与位深。
-    // 位域规范：采样率 20 位 + 声道 3 位 + 位深 5 位 + 总采样 36 位
-    private fun readFlacContainerFormat(context: Context, track: MusicTrack): ContainerFormat? =
+    // 位域规范：采样率 20 位 + 声道 3 位 + 位深 5 位 + 总采样 36 位。
+    // 供假无损识别在 IO 线程解析头信息
+    fun readFlacContainerFormat(context: Context, track: MusicTrack): ContainerFormat? =
         readHeader(context, track, 42) { bytes ->
             if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(0x66, 0x4C, 0x61, 0x43))) return@readHeader null
             ContainerFormat(
@@ -198,38 +195,7 @@ internal object TrackAudioInfoReader {
         val format = parse(bytes) ?: return null
         return format.takeIf { it.sampleRate > 0 && it.channels > 0 && it.bitDepth > 0 }
     }
-
-    // 疑似假无损判定：仅校验声明为 FLAC 的本地文件。无损声明的真实性与文件压缩比相关：
-    // 真无损 FLAC 压缩率通常不低于理论 PCM 码率的 50%，而有损转码源（MP3/AAC 128~320kbps）
-    // 经无损封装后码率远低于无损下限（CD 品质 ≈700kbps），据此识别疑似伪无损文件。
-    // 逐次调用仅摸一次文件大小（stat），命中缓存即复用结果；文件大小/时长任一变化自动重识。
-    fun isSuspectedFakeLossless(context: Context, track: MusicTrack): Boolean {
-        if (track.path.substringAfterLast('.', "").uppercase() != "FLAC") return false
-        val sizeBytes = readFileSize(context, track) ?: return false
-        val cacheKey = "FLAC\u0000${track.path}\u0000$sizeBytes\u0000${track.duration}"
-        fakeLosslessCache[cacheKey]?.let { return it }
-        val result = computeFakeLossless(context, track, sizeBytes)
-        fakeLosslessCache[cacheKey] = result
-        return result
-    }
-
-    // 假无损核心判定：以文件实际码率对比理论 PCM 码率，低于阈值判为有损转码来源
-    private fun computeFakeLossless(context: Context, track: MusicTrack, sizeBytes: Long): Boolean {
-        val format = readFlacContainerFormat(context, track) ?: return false
-        if (format.sampleRate < 44100 || format.bitDepth < 16 || format.channels < 2) return false
-        val durationSec = track.duration / 1000
-        if (durationSec <= 0) return false
-        val actualKbps = (sizeBytes * 8 / durationSec / 1000).toInt().takeIf { it > 0 } ?: return false
-        val pcmKbps = format.sampleRate * format.channels * format.bitDepth / 1000f
-        return actualKbps < pcmKbps * FAKE_LOSSLESS_RATIO
-    }
 }
-
-// 假无损智能歌单过滤键：与本地化展示名解耦，保证序列化歌单 key 跨语言环境稳定
-internal const val FAKE_LOSSLESS_KEY = "fake-lossless"
-
-// 假无损判定压缩比阈值：实际码率低于理论 PCM 码率的该比值即视为有损转码来源
-private const val FAKE_LOSSLESS_RATIO = 0.42f
 
 // 已知音频扩展名到展示名的映射
 private val FORMAT_EXTENSION_NAMES = mapOf(

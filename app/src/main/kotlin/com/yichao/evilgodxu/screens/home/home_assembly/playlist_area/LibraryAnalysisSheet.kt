@@ -45,16 +45,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.FAKE_LOSSLESS_KEY
+import com.yichao.evilgodxu.domain.music.FakeLosslessAnalyzer
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaylistSource
-import com.yichao.evilgodxu.domain.music.TrackAudioInfoReader
 import com.yichao.evilgodxu.domain.music.trackFormatCategory
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // 格式导航行高与可见行数：列表固定如此高度展示，超出滚动，避免对话框随格式数量拉伸
@@ -74,12 +74,23 @@ internal fun LibraryAnalysisSheet(
     val stats = remember(playbackState.libraryTracks) {
         analyzeLibraryFormats(context, playbackState.libraryTracks)
     }
-    // 假无损校验结果：null 表示校验进行中，完成后按需补给「按格式定位」列表
+    // 假无损校验状态：progress 为 (已校验数, 总数) 显示进度；count 为校验结果，null 表示进行中
+    var checkingProgress by remember(playbackState.libraryTracks) { mutableStateOf<Pair<Int, Int>?>(null) }
     var fakeLosslessCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
     LaunchedEffect(playbackState.libraryTracks) {
-        fakeLosslessCount = withContext(Dispatchers.IO) {
-            playbackState.libraryTracks.count { TrackAudioInfoReader.isSuspectedFakeLossless(context, it) }
+        // 逐曲串行校验：非 FLAC 与缓存命中瞬时跳过，可疑文件才进入频谱解码；
+        // 协程随对话框关闭取消，解码器在分析器 finally 中释放
+        val tracks = playbackState.libraryTracks
+        var count = 0
+        checkingProgress = 0 to tracks.size
+        withContext(Dispatchers.IO) {
+            tracks.forEachIndexed { index, track ->
+                checkingProgress = index to tracks.size
+                if (FakeLosslessAnalyzer.isSuspectedFakeLossless(context, track)) count++
+            }
         }
+        checkingProgress = null
+        fakeLosslessCount = count
     }
     val currentKey = playbackState.playlistSource?.key
 
@@ -130,14 +141,14 @@ internal fun LibraryAnalysisSheet(
                 }
             } else {
                 val total = stats.sumOf { it.count }
-                // 假无损为识别算法的补充类目：校验中显示占位行，完成后仅在发现疑似文件时并入定位列表
+                // 假无损为识别算法的补充类目：仅在校验发现的疑似文件并入定位列表
                 val fakeCount = fakeLosslessCount
                 val hasFakeLossless = fakeCount != null && fakeCount > 0
                 val navStats = buildList {
                     if (hasFakeLossless) {
                         add(
                             FormatStat(
-                                key = FAKE_LOSSLESS_KEY,
+                                key = FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY,
                                 name = stringResource(R.string.library_analysis_fake_lossless),
                                 count = fakeCount ?: 0,
                                 percent = ((fakeCount ?: 0) * 1000f / total).roundToInt() / 10f,
@@ -192,13 +203,38 @@ internal fun LibraryAnalysisSheet(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.library_analysis_select_format),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.library_analysis_select_format),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    // 校验中在标题右侧提示（含逐曲进度），显隐不改变列表区高度
+                    val progress = checkingProgress
+                    when {
+                        progress != null -> Text(
+                            text = stringResource(
+                                R.string.library_analysis_check_progress,
+                                progress.first,
+                                progress.second,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                        )
+                        fakeLosslessCount == null -> Text(
+                            text = stringResource(R.string.library_analysis_checking),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 // 格式列表固定显示 3 条，超出滚动，避免对话框随格式数量拉伸
                 LazyColumn(
@@ -206,13 +242,10 @@ internal fun LibraryAnalysisSheet(
                         .height(FormatListRowHeight * FormatListVisibleRows),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    if (fakeLosslessCount == null) {
-                        item { FormatCheckingRow() }
-                    }
                     itemsIndexed(navStats, key = { _, stat -> stat.key }) { index, stat ->
                         FormatNavRow(
                             stat = stat,
-                            color = if (stat.key == FAKE_LOSSLESS_KEY) {
+                            color = if (stat.key == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
                                 FORMAT_COLOR_PALETTE[3]
                             } else {
                                 FORMAT_COLOR_PALETTE[
@@ -233,23 +266,31 @@ internal fun LibraryAnalysisSheet(
     }
 }
 
-// 切换播放列表为指定格式曲目，复用歌单切换（备份默认列表 + 播放首曲 + 补全元数据）
+// 切换播放列表为指定格式曲目（假无损按校验结果过滤，其余按格式分类过滤），
+// 复用歌单切换（备份默认列表 + 播放首曲 + 补全元数据）。
+// 在播放器全局作用域执行：假无损过滤需读文件（缓存命中即瞬时返回），且弹层关闭不取消切换
 private fun switchToFormat(
     context: Context,
     playbackState: MusicPlaybackState,
     stat: FormatStat,
 ) {
-    val tracks = playbackState.libraryTracks.filter {
-        // 假无损为识别类目：按校验结果过滤，其余按格式分类过滤
-        if (stat.key == FAKE_LOSSLESS_KEY) TrackAudioInfoReader.isSuspectedFakeLossless(context, it)
-        else trackFormatCategory(context, it) == stat.name
+    playbackState.playbackScope.launch {
+        val tracks = playbackState.libraryTracks.filter { track ->
+            if (stat.key == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
+                withContext(Dispatchers.IO) {
+                    FakeLosslessAnalyzer.isSuspectedFakeLossless(context, track)
+                }
+            } else {
+                trackFormatCategory(context, track) == stat.name
+            }
+        }
+        switchToPlaylistQueue(
+            context = context,
+            state = playbackState,
+            tracks = tracks,
+            source = PlaylistSource(formatSourceKey(stat.key), stat.name),
+        )
     }
-    switchToPlaylistQueue(
-        context = context,
-        state = playbackState,
-        tracks = tracks,
-        source = PlaylistSource(formatSourceKey(stat.key), stat.name),
-    )
 }
 
 // 格式歌单来源 key：刷新后据此重建歌单
@@ -422,32 +463,6 @@ private fun FormatNavRow(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-// 假无损校验占位行：校验期间显示在定位列表顶部，完成后由假无损条目替换或直接消失，几何与导航行一致避免跳动
-@Composable
-private fun FormatCheckingRow() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(FORMAT_COLOR_PALETTE[5], RoundedCornerShape(2.dp)),
-        )
-        Text(
-            text = stringResource(R.string.library_analysis_checking),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
         )
     }
 }
