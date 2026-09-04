@@ -57,7 +57,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 格式导航行高与可见行数：列表固定如此高度展示，超出滚动，避免对话框随格式数量拉伸
+// 格式导航行高与可见行数：列表项超出可见行数时固定该高度滚动，避免对话框随格式数量拉伸
 private val FormatListRowHeight = 30.dp
 private const val FormatListVisibleRows = 3
 
@@ -238,29 +238,41 @@ internal fun LibraryAnalysisSheet(
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                // 格式列表固定显示 3 条，超出滚动，避免对话框随格式数量拉伸
-                LazyColumn(
-                    modifier = Modifier
-                        .height(FormatListRowHeight * FormatListVisibleRows),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    itemsIndexed(navStats, key = { _, stat -> stat.key }) { index, stat ->
-                        FormatNavRow(
-                            stat = stat,
-                            color = if (stat.key == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
-                                FORMAT_COLOR_PALETTE[3]
-                            } else {
-                                FORMAT_COLOR_PALETTE[
-                                    (if (hasFakeLossless) index - 1 else index) %
-                                        FORMAT_COLOR_PALETTE.size
-                                ]
-                            },
-                            isCurrent = currentKey == formatSourceKey(stat.key),
-                            onClick = {
-                                switchToFormat(context, playbackState, stat)
-                                onDismiss()
-                            },
-                        )
+                // 格式列表不超过可见行数时按内容完整展示（不滚动），超出才固定高度滚动，
+                // 避免仅有 3 条时仍出现滚动条
+                if (navStats.size <= FormatListVisibleRows) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        navStats.forEachIndexed { index, stat ->
+                            FormatNavRowItem(
+                                index = index,
+                                stat = stat,
+                                hasFakeLossless = hasFakeLossless,
+                                isCurrent = currentKey == formatSourceKey(stat.key),
+                                onClick = {
+                                    switchToFormat(context, playbackState, stat)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .height(FormatListRowHeight * FormatListVisibleRows),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        itemsIndexed(navStats, key = { _, stat -> stat.key }) { index, stat ->
+                            FormatNavRowItem(
+                                index = index,
+                                stat = stat,
+                                hasFakeLossless = hasFakeLossless,
+                                isCurrent = currentKey == formatSourceKey(stat.key),
+                                onClick = {
+                                    switchToFormat(context, playbackState, stat)
+                                    onDismiss()
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -418,6 +430,29 @@ private fun FormatStatRow(
             lineHeight = 15.sp,
         )
     }
+}
+
+// 格式导航项：统一配色规则，供普通 Column 与滚动 LazyColumn 两处复用
+@Composable
+private fun FormatNavRowItem(
+    index: Int,
+    stat: FormatStat,
+    hasFakeLossless: Boolean,
+    isCurrent: Boolean,
+    onClick: () -> Unit,
+) {
+    FormatNavRow(
+        stat = stat,
+        color = if (stat.key == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
+            FORMAT_COLOR_PALETTE[3]
+        } else {
+            FORMAT_COLOR_PALETTE[
+                (if (hasFakeLossless) index - 1 else index) % FORMAT_COLOR_PALETTE.size
+            ]
+        },
+        isCurrent = isCurrent,
+        onClick = onClick,
+    )
 }
 
 // 格式导航行：色点 + 格式名 + 占比 + 进入箭头，占比在箭头左侧，点击切换到该格式歌单
