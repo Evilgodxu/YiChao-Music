@@ -6,23 +6,34 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.log.CrashLogManager
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.log10
 import kotlin.math.sin
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 // 假无损识别器：两级判定，逐曲串行，契合资源受限设备整库校验。
 // ① 轻量预筛：扩展名 + FLAC 容器头 + 码率压缩比，压缩比正常的直接认定真无损（免解码）；
 // ② 频谱截止分析：仅对可疑文件用 MediaCodec 稀疏窗口解码 3 段，FFT 求平均功率谱，
 //    检出奈奎斯特以下的「砖墙式」截止 + 死区即判为有损转码来源（isflac 同源判据）。
-// 结果带缓存（键含文件大小与时长），进度由调用方逐曲驱动，协程取消即时释放解码器。
+// 结果带持久化缓存（键含文件大小与时长），重启后直接复用；仅对新增/变更文件增量解码，
+// 进度由调用方逐曲驱动，协程取消即时释放解码器。
 internal object FakeLosslessAnalyzer {
 
     // 假无损智能歌单过滤键：与本地化展示名解耦，保证序列化歌单 key 跨语言环境稳定
@@ -30,6 +41,21 @@ internal object FakeLosslessAnalyzer {
 
     // 识别结果缓存：键含文件大小与时长，文件变化即失效；跨对话框/刷新复用避免重复解码
     private val resultCache = ConcurrentHashMap<String, Boolean>()
+
+    // 持久化缓存文件（应用私有目录）：JSON key/value 平铺，全量库可重建，临时文件原子重命名落盘
+    private const val CACHE_FILE = "fake_lossless_cache.json"
+    // 批量增量校验期间每分析多少首新增文件落盘一次，收窄中断导致的缓存丢失窗口
+    private const val CACHE_PERSIST_INTERVAL = 20
+    // 单曲校验路径的落盘去抖窗口：合并密集写入，避免逐曲全量重写
+    private const val CACHE_PERSIST_DEBOUNCE_MS = 800L
+
+    // 进程内缓存状态：加载仅一次，落盘串行互斥，单曲写入去抖合并
+    @Volatile
+    private var cacheLoaded = false
+    private val cacheLoadMutex = Mutex()
+    private val persistMutex = Mutex()
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val persistScheduled = AtomicBoolean(false)
 
     // 压缩比直判阈值：真无损 CD 典型 0.50~0.65，达到该值视为真无损，跳过频谱分析
     private const val GENUINE_RATIO = 0.60f
@@ -57,22 +83,157 @@ internal object FakeLosslessAnalyzer {
     fun isFlacCandidate(track: MusicTrack): Boolean =
         track.path.substringAfterLast('.', "").uppercase() == "FLAC"
 
-    // 判定入口：非 FLAC 或无法读取大小直接排除；缓存命中直接复用
+    // 缓存键：路径 + 文件大小 + 时长齐备，文件内容变化即失效
+    internal fun cacheKey(track: MusicTrack, sizeBytes: Long): String =
+        "FLAC\u0000${track.path}\u0000$sizeBytes\u0000${track.duration}"
+
+    // 判定入口：非 FLAC 或无法读取大小直接排除；缓存命中直接复用（含重启前持久化结果）
     suspend fun isSuspectedFakeLossless(context: Context, track: MusicTrack): Boolean {
         if (!isFlacCandidate(track)) return false
+        ensureCacheLoaded(context)
         val sizeBytes = TrackAudioInfoReader.readFileSize(context, track) ?: return false
-        val cacheKey = "FLAC\u0000${track.path}\u0000$sizeBytes\u0000${track.duration}"
-        resultCache[cacheKey]?.let { return it }
+        val key = cacheKey(track, sizeBytes)
+        resultCache[key]?.let { return it }
         val result = withContext(Dispatchers.IO) { analyze(context, track, sizeBytes) }
-        resultCache[cacheKey] = result
-        return result
+        // 无法判定的结果不缓存：本次按非假无损保守处理，下次可重新进入频谱分析
+        if (result != null) {
+            resultCache[key] = result
+            schedulePersist(context)
+        }
+        return result ?: false
     }
 
-    private suspend fun analyze(context: Context, track: MusicTrack, sizeBytes: Long): Boolean {
-        val format = TrackAudioInfoReader.readFlacContainerFormat(context, track) ?: return false
+    // 批量增量校验（曲库分析对话框入口）：按缓存键划分「已校验旧文件 / 待校验新文件」，
+    // 仅对新增或内容变更的文件逐曲解码，缓存命中的旧文件直接复用持久化结果；
+    // onProgress 以新增文件数为基数回传进度（全部命中时瞬时完成）；
+    // 周期落盘收窄中断丢失窗口，结束清理已删除文件的残留条目并最终落盘
+    suspend fun analyzeLibraryIncremental(
+        context: Context,
+        tracks: List<MusicTrack>,
+        onProgress: suspend (checked: Int, total: Int) -> Unit,
+    ): Int {
+        ensureCacheLoaded(context)
+        return withContext(Dispatchers.IO) io@{
+            val pending = mutableListOf<Pair<MusicTrack, Long>>()
+            val keepKeys = HashSet<String>()
+            var count = 0
+            tracks.forEach { track ->
+                if (!isFlacCandidate(track)) return@forEach
+                val sizeBytes = TrackAudioInfoReader.readFileSize(context, track) ?: return@forEach
+                val key = cacheKey(track, sizeBytes)
+                keepKeys.add(key)
+                val cached = resultCache[key]
+                if (cached != null) {
+                    if (cached) count++
+                } else {
+                    pending.add(track to sizeBytes)
+                }
+            }
+            if (pending.isEmpty()) {
+                // 无新增文件：仅当存在已删除文件的残留条目时清理，避免无谓写盘
+                if (resultCache.size > keepKeys.size) {
+                    withContext(NonCancellable) {
+                        resultCache.keys.removeAll { key -> key !in keepKeys }
+                        flushCache(context)
+                    }
+                }
+                return@io count
+            }
+            onProgress(0, pending.size)
+            var checked = 0
+            try {
+                pending.forEach { (track, sizeBytes) ->
+                    checked++
+                    onProgress(checked, pending.size)
+                    val key = cacheKey(track, sizeBytes)
+                    val result = analyze(context, track, sizeBytes)
+                    // 无法判定的结果不缓存：下次打开对话框重新校验，避免瞬时失败固化
+                    if (result != null) {
+                        resultCache[key] = result
+                        if (result) count++
+                    }
+                    if (checked % CACHE_PERSIST_INTERVAL == 0) flushCache(context)
+                }
+            } finally {
+                // 对话框中途关闭取消协程时也落盘已完成结果，避免已分析结果随进程退出丢失
+                withContext(NonCancellable) {
+                    if (resultCache.size > keepKeys.size) {
+                        resultCache.keys.removeAll { key -> key !in keepKeys }
+                    }
+                    flushCache(context)
+                }
+            }
+            count
+        }
+    }
+
+    // 首用时从私有目录加载持久化缓存，进程内仅加载一次
+    private suspend fun ensureCacheLoaded(context: Context) {
+        if (cacheLoaded) return
+        cacheLoadMutex.withLock {
+            if (cacheLoaded) return
+            withContext(Dispatchers.IO) { loadCache(context) }
+            cacheLoaded = true
+        }
+    }
+
+    // 读取持久化缓存：文件缺失或损坏视为空缓存，逐条容错不影响整体
+    private fun loadCache(context: Context) {
+        val file = cacheFile(context)
+        if (!file.isFile) return
+        runCatching {
+            val obj = JSONObject(file.readText())
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                runCatching { resultCache[key] = obj.getBoolean(key) }
+            }
+        }
+    }
+
+    // 立即落盘（批量校验结束/周期触发），与去抖写共用互斥锁防并发交织
+    private suspend fun flushCache(context: Context) {
+        persistMutex.withLock {
+            withContext(Dispatchers.IO) { writeCache(context) }
+        }
+    }
+
+    private fun cacheFile(context: Context): File = File(context.filesDir, CACHE_FILE)
+
+    // 全量快照写盘：先写临时文件再原子重命名，避免进程中断残留半截 JSON
+    private fun writeCache(context: Context) {
+        runCatching {
+            val file = cacheFile(context)
+            file.parentFile?.mkdirs()
+            val tmp = File(file.parentFile, "$CACHE_FILE.tmp")
+            val content = JSONObject().apply {
+                resultCache.forEach { (key, value) -> put(key, value) }
+            }.toString()
+            tmp.writeText(content)
+            if (!tmp.renameTo(file)) {
+                tmp.delete()
+                file.writeText(content)
+            }
+        }
+    }
+
+    // 单曲校验结果异步落盘：去抖合并密集写入，任一时刻仅排一个写任务
+    private fun schedulePersist(context: Context) {
+        if (!persistScheduled.compareAndSet(false, true)) return
+        persistScope.launch {
+            delay(CACHE_PERSIST_DEBOUNCE_MS)
+            persistScheduled.set(false)
+            flushCache(context.applicationContext)
+        }
+    }
+
+    // 单曲判定：两级判定均走全；返回 null 表示无法判定（容器头不可读/时长无效），
+    // 调用方不得缓存，避免瞬态失败被固化后永久跳过更准确的频谱分析
+    private suspend fun analyze(context: Context, track: MusicTrack, sizeBytes: Long): Boolean? {
+        val format = TrackAudioInfoReader.readFlacContainerFormat(context, track) ?: return null
         if (format.sampleRate < 44100 || format.bitDepth < 16 || format.channels < 2) return false
         val durationSec = track.duration / 1000
-        if (durationSec <= 0 || sizeBytes <= 0) return false
+        if (durationSec <= 0 || sizeBytes <= 0) return null
         val pcmKbps = format.sampleRate * format.channels * format.bitDepth / 1000f
         val ratio = (sizeBytes * 8 / durationSec / 1000) / pcmKbps
         if (ratio >= GENUINE_RATIO) return false

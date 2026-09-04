@@ -78,21 +78,16 @@ internal fun LibraryAnalysisSheet(
     var checkingProgress by remember(playbackState.libraryTracks) { mutableStateOf<Pair<Int, Int>?>(null) }
     var fakeLosslessCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
     LaunchedEffect(playbackState.libraryTracks) {
-        // 假无损仅涉及 FLAC：复用格式分析的分类结果，只对 FLAC 子集逐曲校验，
-        // 进度以 FLAC 数为基数；非 FLAC 曲目不进入校验流程
-        val flacTracks = playbackState.libraryTracks.filter { FakeLosslessAnalyzer.isFlacCandidate(it) }
-        var count = 0
-        if (flacTracks.isNotEmpty()) {
-            checkingProgress = 0 to flacTracks.size
-            withContext(Dispatchers.IO) {
-                flacTracks.forEachIndexed { index, track ->
-                    checkingProgress = index to flacTracks.size
-                    if (FakeLosslessAnalyzer.isSuspectedFakeLossless(context, track)) count++
-                }
-            }
-            checkingProgress = null
-        }
-        fakeLosslessCount = count
+        // 增量校验：缓存命中的旧文件直接复用持久化结果，仅对新增/变更文件解码分析；
+        // 进度以新增文件数为基数，全部命中（重复打开/重启后）瞬时完成
+        fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
+            context = context,
+            tracks = playbackState.libraryTracks,
+            onProgress = { checked, total ->
+                if (total > 0) checkingProgress = checked to total
+            },
+        )
+        checkingProgress = null
     }
     val currentKey = playbackState.playlistSource?.key
 

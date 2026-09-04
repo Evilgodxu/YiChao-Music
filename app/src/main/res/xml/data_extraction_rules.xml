@@ -5,10 +5,9 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- 假无损检测结果缓存：派生数据可重建，不参与云端备份 -->
+        <exclude domain="file" path="fake_lossless_cache.json"/>
+        <exclude domain="file" path="fake_lossless_cache.json.tmp"/>
     </cloud-backup>
     <!--
     <device-transfer>
