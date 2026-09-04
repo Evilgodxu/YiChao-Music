@@ -29,9 +29,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 // 假无损识别器：两级判定，逐曲串行，契合资源受限设备整库校验。
-// ① 轻量预筛：扩展名 + FLAC 容器头 + 码率压缩比，压缩比正常的直接认定真无损（免解码）；
-// ② 频谱截止分析：仅对可疑文件用 MediaCodec 稀疏窗口解码 3 段，FFT 求平均功率谱，
-//    检出奈奎斯特以下的「砖墙式」截止 + 死区即判为有损转码来源（isflac 同源判据）。
+// ① 轻量预筛：扩展名 + FLAC 容器头，仅排除非 FLAC 与超低规格（<44.1kHz/<16bit/<2ch）文件；
+//    不设码率压缩比/头部规格免检路径——伪造文件可借量化噪声/上采样令码率虚高，
+//    头部参数亦不可信，任何候选文件都不得绕过频谱判定；
+// ② 频谱截止分析：全部候选 FLAC 用 MediaCodec 稀疏窗口解码 3 段（每窗 4 秒），FFT 求平均
+//    功率谱，检出奈奎斯特以下的「砖墙式」截止 + 死区即判为有损转码来源（isflac 同源判据）。
+//    探测逐曲串行执行，整库校验按曲目逐个完成，稀疏解码对低端设备仅产生一次性可控开销。
 // 结果带持久化缓存（键含文件大小与时长），重启后直接复用；仅对新增/变更文件增量解码，
 // 进度由调用方逐曲驱动，协程取消即时释放解码器。
 internal object FakeLosslessAnalyzer {
@@ -57,12 +60,6 @@ internal object FakeLosslessAnalyzer {
     private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val persistScheduled = AtomicBoolean(false)
 
-    // 压缩比直判阈值：真无损 CD 典型 0.50~0.65，达到该值视为真无损，跳过频谱分析
-    private const val GENUINE_RATIO = 0.60f
-
-    // 解码不可用时的回退阈值：回到社区公认的无损下限，保守保护真无损文件
-    private const val FALLBACK_RATIO = 0.40f
-
     // 频谱分析参数：4096 点 FFT（44.1k 下约 10.8Hz/桶），每探测窗 4 秒，3 窗覆盖全曲
     private const val FFT_SIZE = 4096
     private const val PROBE_DURATION_US = 4_000_000L
@@ -71,8 +68,18 @@ internal object FakeLosslessAnalyzer {
 
     // MediaCodec 输出 PCM 编码值（KEY_PCM_ENCODING 取值，兼容各 API 层级）
     private const val PCM_16BIT = 2
+    private const val PCM_8BIT = 3
     private const val PCM_FLOAT = 4
+    private const val PCM_24BIT_PACKED = 21
     private const val PCM_32BIT = 22
+
+    // PCM 编码对应的单样本字节宽：未知编码回退 16 位，避免按错误步长读取解交织
+    private fun pcmBytesPerSample(pcmEncoding: Int): Int = when (pcmEncoding) {
+        PCM_8BIT -> 1
+        PCM_24BIT_PACKED -> 3
+        PCM_FLOAT, PCM_32BIT -> 4
+        else -> 2
+    }
 
     // Hann 窗：预计算避免逐帧重复求余弦
     private val hannWindow = FloatArray(FFT_SIZE) { i ->
@@ -101,6 +108,16 @@ internal object FakeLosslessAnalyzer {
             schedulePersist(context)
         }
         return result ?: false
+    }
+
+    // 清除全部校验缓存（内存 + 落盘）：识别策略升级或用户主动刷新时用于强制全量重新分析，
+    // 避免旧版本判定结果（如放宽标准时的「真无损」）被持久化缓存复用而漏掉假无损。
+    // 与落盘写共用互斥锁：清空后的写任务只会落当前（新）快照，旧条目无复活路径
+    suspend fun resetCache(context: Context) {
+        persistMutex.withLock {
+            resultCache.clear()
+            withContext(Dispatchers.IO) { runCatching { cacheFile(context).delete() } }
+        }
     }
 
     // 批量增量校验（曲库分析对话框入口）：按缓存键划分「已校验旧文件 / 待校验新文件」，
@@ -231,15 +248,12 @@ internal object FakeLosslessAnalyzer {
     // 调用方不得缓存，避免瞬态失败被固化后永久跳过更准确的频谱分析
     private suspend fun analyze(context: Context, track: MusicTrack, sizeBytes: Long): Boolean? {
         val format = TrackAudioInfoReader.readFlacContainerFormat(context, track) ?: return null
+        // 超低规格（<44.1kHz/<16bit/<2ch）非假无损伪装目标，且带宽受限天然带高频截止，直接排除
         if (format.sampleRate < 44100 || format.bitDepth < 16 || format.channels < 2) return false
-        val durationSec = track.duration / 1000
-        if (durationSec <= 0 || sizeBytes <= 0) return null
-        val pcmKbps = format.sampleRate * format.channels * format.bitDepth / 1000f
-        val ratio = (sizeBytes * 8 / durationSec / 1000) / pcmKbps
-        if (ratio >= GENUINE_RATIO) return false
-        // 可疑带：频谱判定；null 表示解码不可用，回退码率口径
-        val spectral = detectSpectralCutoff(track, format.sampleRate, format.channels)
-        return spectral ?: (ratio < FALLBACK_RATIO)
+        if (track.duration <= 0 || sizeBytes <= 0) return null
+        // 频谱分析为强制判定环节：头部规格与码率压缩比不提供免检放行（伪造文件可借量化噪声/
+        // 上采样令码率虚高，码率判据会失真）；null 表示解码不可用，调用方不缓存，下次校验重试
+        return detectSpectralCutoff(track, format.sampleRate, format.channels)
     }
 
     // 频谱截止检测：MediaExtractor 定位 + MediaCodec 解码稀疏窗口，Welch 平均功率谱。
@@ -329,8 +343,9 @@ internal object FakeLosslessAnalyzer {
             // 取出输出：累加本窗 PCM 的功率谱
             when (val outIndex = decoder.dequeueOutputBuffer(info, CODEC_TIMEOUT_US)) {
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    // 24bit FLAC 在部分设备按 24bit/32bit 输出，字节宽必须跟随编码而非固定 16 位
                     pcmEncoding = decoder.outputFormat.getInteger(MediaFormat.KEY_PCM_ENCODING, PCM_16BIT)
-                    bytesPerSample = if (pcmEncoding == PCM_FLOAT || pcmEncoding == PCM_32BIT) 4 else 2
+                    bytesPerSample = pcmBytesPerSample(pcmEncoding)
                 }
                 MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                 else -> if (outIndex >= 0) {
@@ -341,7 +356,7 @@ internal object FakeLosslessAnalyzer {
                     } else {
                         blocks += consumePcm(
                             outputBuffer, info.offset, info.size,
-                            channels, bytesPerSample, powerSum, scratchRe, scratchIm,
+                            channels, pcmEncoding, powerSum, scratchRe, scratchIm,
                         )
                         decodedFrames += info.size / (channels * bytesPerSample).coerceAtLeast(1)
                         decoder.releaseOutputBuffer(outIndex, false)
@@ -353,17 +368,19 @@ internal object FakeLosslessAnalyzer {
         return blocks
     }
 
-    // PCM 字节流转为单声道浮点并做 Welch 帧累加，返回本缓冲贡献的 FFT 块数
+    // PCM 字节流转为单声道浮点并做 Welch 帧累加，返回本缓冲贡献的 FFT 块数。
+    // 按编码区分样本解释方式：24bit 打包为 3 字节有符号小端，32bit 为有符号整型（非浮点）
     private fun consumePcm(
         buffer: ByteBuffer,
         offset: Int,
         size: Int,
         channels: Int,
-        bytesPerSample: Int,
+        pcmEncoding: Int,
         powerSum: FloatArray,
         scratchRe: FloatArray,
         scratchIm: FloatArray,
     ): Int {
+        val bytesPerSample = pcmBytesPerSample(pcmEncoding)
         val frames = size / (channels * bytesPerSample).coerceAtLeast(1)
         if (frames <= 0) return 0
         val mono = FloatArray(frames)
@@ -373,8 +390,16 @@ internal object FakeLosslessAnalyzer {
         for (i in 0 until frames) {
             var acc = 0f
             for (c in 0 until channels) {
-                acc += when (bytesPerSample) {
-                    4 -> view.getFloat(cursor)
+                acc += when (pcmEncoding) {
+                    PCM_FLOAT -> view.getFloat(cursor)
+                    PCM_32BIT -> view.getInt(cursor) / 2147483648f
+                    PCM_24BIT_PACKED -> {
+                        val b0 = view.get(cursor).toInt() and 0xFF
+                        val b1 = view.get(cursor + 1).toInt() and 0xFF
+                        val b2 = view.get(cursor + 2).toInt() and 0xFF
+                        (((b2 shl 24) or (b1 shl 16) or (b0 shl 8)) shr 8) / 8388608f
+                    }
+                    PCM_8BIT -> ((view.get(cursor).toInt() and 0xFF) - 128) / 128f
                     else -> view.getShort(cursor).toFloat() / 32768f
                 }
                 cursor += bytesPerSample

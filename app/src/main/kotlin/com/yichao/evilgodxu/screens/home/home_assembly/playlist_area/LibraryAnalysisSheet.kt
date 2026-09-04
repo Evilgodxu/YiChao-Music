@@ -77,17 +77,30 @@ internal fun LibraryAnalysisSheet(
     // 假无损校验状态：progress 为 (已校验数, 总数) 显示进度；count 为校验结果，null 表示进行中
     var checkingProgress by remember(playbackState.libraryTracks) { mutableStateOf<Pair<Int, Int>?>(null) }
     var fakeLosslessCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
-    LaunchedEffect(playbackState.libraryTracks) {
+    // 手动刷新触发计数：>0 时先清空缓存（旧版本判定结果不可复用）再全量重新分析；
+    // 与 libraryTracks 同生命周期，曲库变化或对话框重开时归零，恢复缓存命中的增量校验
+    var refreshTick by remember(playbackState.libraryTracks) { mutableStateOf(0) }
+    // 分析进行中标记：驱动刷新按钮防抖（置灰不可点），分析完成前阻断重复触发
+    var analyzing by remember(playbackState.libraryTracks) { mutableStateOf(true) }
+    LaunchedEffect(playbackState.libraryTracks, refreshTick) {
         // 增量校验：缓存命中的旧文件直接复用持久化结果，仅对新增/变更文件解码分析；
-        // 进度以新增文件数为基数，全部命中（重复打开/重启后）瞬时完成
-        fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
-            context = context,
-            tracks = playbackState.libraryTracks,
-            onProgress = { checked, total ->
-                if (total > 0) checkingProgress = checked to total
-            },
-        )
-        checkingProgress = null
+        // 刷新路径先 resetCache 清空旧判定，强制全部文件重新解码；进度以新增文件数为基数
+        analyzing = true
+        fakeLosslessCount = null
+        try {
+            if (refreshTick > 0) FakeLosslessAnalyzer.resetCache(context)
+            fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
+                context = context,
+                tracks = playbackState.libraryTracks,
+                onProgress = { checked, total ->
+                    if (total > 0) checkingProgress = checked to total
+                },
+            )
+        } finally {
+            // 完成或被取消/异常都复位，避免按钮永久禁用或进度残留
+            analyzing = false
+            checkingProgress = null
+        }
     }
     val currentKey = playbackState.playlistSource?.key
 
@@ -116,6 +129,19 @@ internal fun LibraryAnalysisSheet(
                     fontSize = 12.sp,
                 )
                 Spacer(Modifier.weight(1f))
+                // 刷新：清空校验缓存后全量重新分析，规避识别策略更新后旧缓存复用导致假无损被放行；
+                // 分析进行中置灰不可点，防手抖/重复触发
+                IconButton(
+                    onClick = { refreshTick++ },
+                    enabled = !analyzing,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Refresh,
+                        contentDescription = stringResource(R.string.library_analysis_refresh),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
                 IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                     Icon(
                         imageVector = AppIcons.Close,

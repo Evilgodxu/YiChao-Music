@@ -150,7 +150,9 @@ internal object TrackAudioInfoReader {
                     ((bytes[19].toInt() and 0xFF) shl 4) or
                     ((bytes[20].toInt() and 0xF0) ushr 4),
                 channels = ((bytes[20].toInt() and 0x0E) ushr 1) + 1,
-                bitDepth = ((bytes[20].toInt() and 0x01) shl 4) or ((bytes[21].toInt() and 0xF0) ushr 4) + 1,
+                // 位深 5 位域（20 位 bit0 + 21 位高 4 位）先拼合再加 1：加 1 需作用于整个 5 位值，
+                // 否则 32bit（5 位域=31）会被低 4 位进位吞掉高位而误读为 16bit
+                bitDepth = (((bytes[20].toInt() and 0x01) shl 4) or ((bytes[21].toInt() and 0xF0) ushr 4)) + 1,
             )
         }
 

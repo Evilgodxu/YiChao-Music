@@ -247,6 +247,10 @@
     <string name="playlist_import_progress">正在同步 %1$d/%2$d · %3$s</string>
     <string name="playlist_import_preparing">正在同步…</string>
     <string name="playlist_import_done">同步完成 · 新增 %1$d · 已存在 %2$d · 失败 %3$d</string>
+    <string name="playlist_search_placeholder">搜索播放列表</string>
+    <string name="playlist_search_no_results">未找到匹配歌曲</string>
+    <string name="playlist_scroll_to_top">滚动至顶部</string>
+    <string name="playlist_locate_current">定位当前播放</string>
 
     <!-- 曲库分析 -->
     <string name="library_analysis_title">曲库分析</string>
@@ -258,6 +262,7 @@
     <string name="library_analysis_fake_lossless">假无损</string>
     <string name="library_analysis_checking">正在校验…</string>
     <string name="library_analysis_check_progress">正在校验 %1$d/%2$d</string>
+    <string name="library_analysis_refresh">重新分析</string>
 
     <!-- 更新 -->
     <string name="update_dialog_title">发现新版本 %s</string>
