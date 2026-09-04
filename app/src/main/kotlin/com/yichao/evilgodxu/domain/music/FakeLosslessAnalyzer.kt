@@ -37,6 +37,8 @@ import org.json.JSONObject
 //    功率谱，检出奈奎斯特以下的「砖墙式」截止 + 死区即判为有损转码来源（isflac 同源判据）。
 //    探测逐曲串行执行，整库校验按曲目逐个完成，稀疏解码对低端设备仅产生一次性可控开销。
 // 结果带持久化缓存（键含文件大小与时长），重启后直接复用；仅对新增/变更文件增量解码，
+// 无法判定（解码不可用/时长无效）的结果同样入缓存为 false，避免同批文件每次重开反复分析，
+// 识别策略升级后由调用方「刷新」清空缓存强制全量重新校验；
 // 进度由调用方逐曲驱动，协程取消即时释放解码器。
 internal object FakeLosslessAnalyzer {
 
@@ -103,11 +105,10 @@ internal object FakeLosslessAnalyzer {
         val key = cacheKey(track, sizeBytes)
         resultCache[key]?.let { return it }
         val result = withContext(Dispatchers.IO) { analyze(context, track, sizeBytes) }
-        // 无法判定的结果不缓存：本次按非假无损保守处理，下次可重新进入频谱分析
-        if (result != null) {
-            resultCache[key] = result
-            schedulePersist(context)
-        }
+        // 无法判定的结果也缓存为 false：避免歌单过滤时对未判定文件重复做昂贵的频谱分析，
+        // 导致假无损歌单切换看似无响应；识别策略升级后由「刷新」清空缓存强制重新校验
+        resultCache[key] = result ?: false
+        schedulePersist(context)
         return result ?: false
     }
 
@@ -165,11 +166,10 @@ internal object FakeLosslessAnalyzer {
                     onProgress(checked, pending.size)
                     val key = cacheKey(track, sizeBytes)
                     val result = analyze(context, track, sizeBytes)
-                    // 无法判定的结果不缓存：下次打开对话框重新校验，避免瞬时失败固化
-                    if (result != null) {
-                        resultCache[key] = result
-                        if (result) count++
-                    }
+                    // 无法判定的结果也缓存为 false：避免同批文件每次重开对话框都重新分析；
+                    // 识别策略升级后由「刷新」清空缓存强制全量重新校验
+                    resultCache[key] = result ?: false
+                    if (result == true) count++
                     if (checked % CACHE_PERSIST_INTERVAL == 0) flushCache(context)
                 }
             } finally {
@@ -245,16 +245,19 @@ internal object FakeLosslessAnalyzer {
         }
     }
 
-    // 单曲判定：两级判定均走全；返回 null 表示无法判定（容器头不可读/时长无效），
-    // 调用方不得缓存，避免瞬态失败被固化后永久跳过更准确的频谱分析
+    // 单曲判定：返回 null 表示无法判定（时长/大小无效或解码整体不可用），调用方缓存为 false。
+    // 容器头不可读（如带 ID3v2 前置标签的 FLAC）不直接放弃：MediaExtractor 仍可定位音频流，
+    // 交由频谱分析以提取器格式参数兜底；仅低规格参数明确时才直接排除
     private suspend fun analyze(context: Context, track: MusicTrack, sizeBytes: Long): Boolean? {
-        val format = TrackAudioInfoReader.readFlacContainerFormat(context, track) ?: return null
-        // 超低规格（<44.1kHz/<16bit/<2ch）非假无损伪装目标，且带宽受限天然带高频截止，直接排除
-        if (format.sampleRate < 44100 || format.bitDepth < 16 || format.channels < 2) return false
         if (track.duration <= 0 || sizeBytes <= 0) return null
+        val format = TrackAudioInfoReader.readFlacContainerFormat(context, track)
+        // 超低规格（<44.1kHz/<16bit/<2ch）非假无损伪装目标，且带宽受限天然带高频截止，直接排除
+        if (format != null && (format.sampleRate < 44100 || format.bitDepth < 16 || format.channels < 2)) {
+            return false
+        }
         // 频谱分析为强制判定环节：头部规格与码率压缩比不提供免检放行（伪造文件可借量化噪声/
-        // 上采样令码率虚高，码率判据会失真）；null 表示解码不可用，调用方不缓存，下次校验重试
-        return detectSpectralCutoff(track, format.sampleRate, format.channels)
+        // 上采样令码率虚高，码率判据会失真）；null 表示解码不可用
+        return detectSpectralCutoff(track, format?.sampleRate ?: 0, format?.channels ?: 0)
     }
 
     // 频谱截止检测：MediaExtractor 定位 + MediaCodec 解码稀疏窗口，Welch 平均功率谱。
