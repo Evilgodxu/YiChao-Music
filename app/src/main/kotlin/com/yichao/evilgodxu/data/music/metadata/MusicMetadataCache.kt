@@ -270,7 +270,7 @@ internal object MusicMetadataCache {
     // 时间戳支持 [mm:ss(.xx)] 与长音频常用的小时制 [hh:mm:ss(.xx)]，位数不限（前导零可忽略）
     private fun parseEnhancedLrc(lrc: String): List<LyricLine> {
         val linePattern = Regex("""\[(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?](.*)""")
-        val wordPattern = Regex("""<(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
+        val wordPattern = Regex("""<(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
         val transPattern = Regex("""\[tr](.*?)\[/tr]""")
         return lrc.lineSequence().mapNotNull { rawLine ->
             val match = linePattern.find(rawLine) ?: return@mapNotNull null
@@ -283,11 +283,12 @@ internal object MusicMetadataCache {
             val cleanContent = transPattern.replace(content, "").trim()
             val words = wordPattern.findAll(cleanContent).map { word ->
                 LyricWord(
-                    startMs = word.groupValues[1].toLong() * 60_000 +
-                        word.groupValues[2].toLong() * 1000 +
-                        word.groupValues[3].padEnd(3, '0').take(3).toLong(),
+                    startMs = (word.groupValues[1].toLongOrNull() ?: 0L) * 3_600_000 +
+                        word.groupValues[2].toLong() * 60_000 +
+                        word.groupValues[3].toLong() * 1000 +
+                        word.groupValues[4].padEnd(3, '0').take(3).toLong(),
                     durationMs = 0L,
-                    text = word.groupValues[4]
+                    text = word.groupValues[5]
                 )
             }.filter { it.text.isNotEmpty() }.toList()
             val text = if (words.isNotEmpty()) words.joinToString("") { it.text } else cleanContent.trim()
