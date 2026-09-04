@@ -251,6 +251,21 @@ internal fun PlaylistSheet(
                     // 滚动到顶部后继续下拉：累计下拉距离超过阈值即收起面板
                     val density = LocalDensity.current
                     val dismissOverscrollPx = with(density) { PLAYLIST_DISMISS_OVERSCROLL_DP.toPx() }
+                    // 搜索框在列表底部占用的高度：最后一项底缘进入该区域即视为滚到底部
+                    val searchBarRegionPx = with(density) { PLAYLIST_SEARCH_BAR_REGION_DP.toPx() }
+                    // 滚到底部判定：最后一项已到达列表底部（底缘进入搜索框遮挡区）；
+                    // 列表不足一屏时最后一项不会触底，搜索框保持常驻
+                    val atBottom by remember {
+                        derivedStateOf {
+                            val layout = listState.layoutInfo
+                            val last = layout.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+                            last.index == layout.totalItemsCount - 1 &&
+                                last.offset + last.size >= layout.viewportEndOffset - searchBarRegionPx
+                        }
+                    }
+                    // 搜索框显隐：列表滚动中或滚到底部时隐藏，避免遮挡底部曲目；
+                    // 输入/聚焦期间常驻，切歌触发的自动滚动不中断输入
+                    val searchHidden = (isScrolling || atBottom) && !searchFocused && searchQuery.isBlank()
                     val dismissNestedScroll = remember(listState) {
                         object : NestedScrollConnection {
                             private var overscrollAccum = 0f
@@ -351,9 +366,9 @@ internal fun PlaylistSheet(
                                     }
                             )
                         }
-                        // 底部搜索框：随列表滚动自动显隐
+                        // 底部搜索框：滚到底部或滚动中隐藏，避免遮挡底部曲目；输入中常驻
                         PlaylistSearchOverlay(
-                            isScrolling = isScrolling,
+                            hidden = searchHidden,
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
                             onFocusChanged = { searchFocused = it },
@@ -385,17 +400,19 @@ internal fun PlaylistSheet(
 private const val PLAYLIST_EXPAND_ANIM_MS = 300L
 // 列表顶部继续下拉的收起阈值：累计下拉超过该距离即收起面板
 private val PLAYLIST_DISMISS_OVERSCROLL_DP = 64.dp
+// 搜索框在列表底部占用的区域高度：最后一项底缘进入该区域即判定为滚到底部
+private val PLAYLIST_SEARCH_BAR_REGION_DP = 54.dp
 
-// 播放列表底部搜索框：列表滚动时自动隐藏
+// 播放列表底部搜索框：列表滚到底部或滚动中隐藏，输入/聚焦期间常驻
 @Composable
 private fun BoxScope.PlaylistSearchOverlay(
-    isScrolling: Boolean,
+    hidden: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
     onFocusChanged: (Boolean) -> Unit,
 ) {
     AnimatedVisibility(
-        visible = !isScrolling,
+        visible = !hidden,
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
