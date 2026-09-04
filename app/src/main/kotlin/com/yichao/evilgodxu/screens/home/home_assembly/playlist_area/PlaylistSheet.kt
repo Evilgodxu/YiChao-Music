@@ -224,12 +224,13 @@ internal fun PlaylistSheet(
                     // 列表内搜索关键词：仅过滤展示，不改变播放队列
                     var searchQuery by remember { mutableStateOf("") }
                     // 过滤后仍保留原队列索引：点击播放与定位需回填真实索引
+                    // 索引仅来自当前 playlist 快照；playlist 收缩后布局期可能读到过期索引，须容忍缺失
                     val filteredIndices = remember(playbackState.playlist, searchQuery) {
                         if (searchQuery.isBlank()) {
                             playbackState.playlist.indices.toList()
                         } else {
                             playbackState.playlist.indices.filter { index ->
-                                val track = playbackState.playlist[index]
+                                val track = playbackState.playlist.getOrNull(index) ?: return@filter false
                                 track.title.contains(searchQuery, ignoreCase = true) ||
                                     track.artist.contains(searchQuery, ignoreCase = true)
                             }
@@ -279,9 +280,9 @@ internal fun PlaylistSheet(
                             ) {
                                 itemsIndexed(
                                     items = filteredIndices,
-                                    key = { _, index -> playbackState.playlist[index].audioUri },
+                                    key = { _, index -> playbackState.playlist.getOrNull(index)?.id ?: -1L },
                                 ) { _, index ->
-                                    val track = playbackState.playlist[index]
+                                    val track = playbackState.playlist.getOrNull(index) ?: return@itemsIndexed
                                     val isActive = index == playbackState.currentIndex
                                     PlaylistRow(
                                         track = track,
