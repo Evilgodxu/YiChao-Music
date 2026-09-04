@@ -398,6 +398,7 @@ private fun BoxScope.PlaylistFloatingActions(
                 onClick = onScrollToTop,
                 modifier = Modifier
                     .size(40.dp)
+                    .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.18f), CircleShape),
             ) {
                 Icon(
@@ -411,6 +412,7 @@ private fun BoxScope.PlaylistFloatingActions(
                 onClick = onLocateCurrent,
                 modifier = Modifier
                     .size(40.dp)
+                    .clip(CircleShape)
                     .background(
                         Color.White.copy(alpha = if (canLocate) 0.18f else 0.07f),
                         CircleShape,
