@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.domain.music.AiMusicAnalyzer
 import com.yichao.evilgodxu.domain.music.FakeLosslessAnalyzer
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaylistSource
@@ -77,6 +78,8 @@ internal fun LibraryAnalysisSheet(
     // 假无损校验状态：progress 为 (已校验数, 总数) 显示进度；count 为校验结果，null 表示进行中
     var checkingProgress by remember(playbackState.libraryTracks) { mutableStateOf<Pair<Int, Int>?>(null) }
     var fakeLosslessCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
+    // AI 音乐识别状态：与假无损同语义，两者共用同一进度显示（识别阶段各自回传）
+    var aiMusicCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
     // 手动刷新触发计数：>0 时先清空缓存（旧版本判定结果不可复用）再全量重新分析；
     // 与 libraryTracks 同生命周期，曲库变化或对话框重开时归零，恢复缓存命中的增量校验
     var refreshTick by remember(playbackState.libraryTracks) { mutableStateOf(0) }
@@ -87,9 +90,20 @@ internal fun LibraryAnalysisSheet(
         // 刷新路径先 resetCache 清空旧判定，强制全部文件重新解码；进度以新增文件数为基数
         analyzing = true
         fakeLosslessCount = null
+        aiMusicCount = null
         try {
-            if (refreshTick > 0) FakeLosslessAnalyzer.resetCache(context)
+            if (refreshTick > 0) {
+                FakeLosslessAnalyzer.resetCache(context)
+                AiMusicAnalyzer.resetCache(context)
+            }
             fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
+                context = context,
+                tracks = playbackState.libraryTracks,
+                onProgress = { checked, total ->
+                    if (total > 0) checkingProgress = checked to total
+                },
+            )
+            aiMusicCount = AiMusicAnalyzer.analyzeLibraryIncremental(
                 context = context,
                 tracks = playbackState.libraryTracks,
                 onProgress = { checked, total ->
@@ -164,9 +178,12 @@ internal fun LibraryAnalysisSheet(
                 }
             } else {
                 val total = stats.sumOf { it.count }
-                // 假无损为识别算法的补充类目：仅在校验发现的疑似文件并入定位列表
+                // 假无损 / AI 音乐为识别算法的补充类目：仅在校验发现的疑似文件并入定位列表
                 val fakeCount = fakeLosslessCount
                 val hasFakeLossless = fakeCount != null && fakeCount > 0
+                val aiCount = aiMusicCount
+                val hasAiMusic = aiCount != null && aiCount > 0
+                val specialRowCount = (if (hasFakeLossless) 1 else 0) + (if (hasAiMusic) 1 else 0)
                 val navStats = buildList {
                     if (hasFakeLossless) {
                         add(
@@ -175,6 +192,16 @@ internal fun LibraryAnalysisSheet(
                                 name = stringResource(R.string.library_analysis_fake_lossless),
                                 count = fakeCount,
                                 percent = (fakeCount * 1000f / total).roundToInt() / 10f,
+                            ),
+                        )
+                    }
+                    if (hasAiMusic) {
+                        add(
+                            FormatStat(
+                                key = AiMusicAnalyzer.AI_MUSIC_KEY,
+                                name = stringResource(R.string.library_analysis_ai_music),
+                                count = aiCount,
+                                percent = (aiCount * 1000f / total).roundToInt() / 10f,
                             ),
                         )
                     }
@@ -267,7 +294,7 @@ internal fun LibraryAnalysisSheet(
                             FormatNavRowItem(
                                 index = index,
                                 stat = stat,
-                                hasFakeLossless = hasFakeLossless,
+                                specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
                                     switchToFormat(context, playbackState, stat)
@@ -286,7 +313,7 @@ internal fun LibraryAnalysisSheet(
                             FormatNavRowItem(
                                 index = index,
                                 stat = stat,
-                                hasFakeLossless = hasFakeLossless,
+                                specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
                                     switchToFormat(context, playbackState, stat)
@@ -301,9 +328,9 @@ internal fun LibraryAnalysisSheet(
     }
 }
 
-// 切换播放列表为指定格式曲目（假无损按校验结果过滤，其余按格式分类过滤），
+// 切换播放列表为指定格式/识别类目曲目（假无损、AI 音乐按校验结果过滤，其余按格式分类过滤），
 // 复用歌单切换（备份默认列表 + 加载首曲不自动播放 + 补全元数据）。
-// 在播放器全局作用域执行：假无损过滤需读文件（缓存命中即瞬时返回），且弹层关闭不取消切换
+// 在播放器全局作用域执行：识别类目过滤需读文件（缓存命中即瞬时返回），且弹层关闭不取消切换
 private fun switchToFormat(
     context: Context,
     playbackState: MusicPlaybackState,
@@ -311,12 +338,14 @@ private fun switchToFormat(
 ) {
     playbackState.playbackScope.launch {
         val tracks = playbackState.libraryTracks.filter { track ->
-            if (stat.key == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
-                withContext(Dispatchers.IO) {
+            when (stat.key) {
+                FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY -> withContext(Dispatchers.IO) {
                     FakeLosslessAnalyzer.isSuspectedFakeLossless(context, track)
                 }
-            } else {
-                trackFormatCategory(context, track) == stat.name
+                AiMusicAnalyzer.AI_MUSIC_KEY -> withContext(Dispatchers.IO) {
+                    AiMusicAnalyzer.isSuspectedAiMusic(context, track)
+                }
+                else -> trackFormatCategory(context, track) == stat.name
             }
         }
         switchToPlaylistQueue(
@@ -331,7 +360,7 @@ private fun switchToFormat(
 // 格式歌单来源 key：刷新后据此重建歌单
 private fun formatSourceKey(key: String): String = "smart:FORMAT:$key"
 
-// 单个格式的占比统计；key 为稳定标识（格式名或假无损键），name 为展示名
+// 单个格式的占比统计；key 为稳定标识（格式名或识别类目键），name 为展示名
 private data class FormatStat(
     val key: String,
     val name: String,
@@ -453,22 +482,24 @@ private fun FormatStatRow(
     }
 }
 
-// 格式导航项：统一配色规则，供普通 Column 与滚动 LazyColumn 两处复用
+// 格式导航项：统一配色规则，供普通 Column 与滚动 LazyColumn 两处复用；
+// specialRowCount 为前置识别类目数（假无损/AI 音乐），用于普通格式行色板索引回退
 @Composable
 private fun FormatNavRowItem(
     index: Int,
     stat: FormatStat,
-    hasFakeLossless: Boolean,
+    specialRowCount: Int,
     isCurrent: Boolean,
     onClick: () -> Unit,
 ) {
     FormatNavRow(
         stat = stat,
-        color = if (stat.key == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
-            FORMAT_COLOR_PALETTE[3]
-        } else {
-            FORMAT_COLOR_PALETTE[
-                (if (hasFakeLossless) index - 1 else index) % FORMAT_COLOR_PALETTE.size
+        color = when (stat.key) {
+            FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY -> FORMAT_COLOR_PALETTE[3]
+            AiMusicAnalyzer.AI_MUSIC_KEY -> FORMAT_COLOR_PALETTE[4]
+            // 普通格式行减去前置识别类目数后映射色板，保证与头部统计区的颜色一致
+            else -> FORMAT_COLOR_PALETTE[
+                (index - specialRowCount).coerceAtLeast(0) % FORMAT_COLOR_PALETTE.size
             ]
         },
         isCurrent = isCurrent,

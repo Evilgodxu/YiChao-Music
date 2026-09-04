@@ -1,0 +1,349 @@
+package com.yichao.evilgodxu.domain.music
+
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.log.CrashLogManager
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.coroutines.coroutineContext
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+
+// 稀疏窗口解码工具：假无损与 AI 音乐识别共享的 MediaCodec 解码 + 平均功率谱管线。
+// 对候选音频轨解码 3 段探测窗（每窗 4 秒）并 Welch 累计：同一份解码产出平均功率谱
+// （供砖墙/升频/谐波梳判定）与立体声相关性（供 AI 合成痕迹判定），避免两识别器重复解码。
+// 探测逐曲串行执行，对低端设备仅产生一次性可控开销；协程取消即时释放解码器。
+internal object SpectralDecoder {
+
+    // 频谱分析参数：4096 点 FFT（44.1k 下约 10.8Hz/桶），每探测窗 4 秒，3 窗覆盖全曲
+    const val FFT_SIZE = 4096
+    private const val PROBE_DURATION_US = 4_000_000L
+    private val PROBE_POSITIONS = floatArrayOf(0.15f, 0.45f, 0.75f)
+    private const val CODEC_TIMEOUT_US = 10_000L
+
+    // 立体声相关性高通滤波系数：约 250Hz 截止，剔除低频单声道主导的干扰
+    private const val STEREO_HP_ALPHA = 0.97f
+
+    // MediaCodec 输出 PCM 编码值（KEY_PCM_ENCODING 取值，兼容各 API 层级）
+    private const val PCM_16BIT = 2
+    private const val PCM_8BIT = 3
+    private const val PCM_FLOAT = 4
+    private const val PCM_24BIT_PACKED = 21
+    private const val PCM_32BIT = 22
+
+    // 解码摘要：平均功率谱与判据所需全部参数，两识别器在其上提取各自特征
+    data class DecodeSummary(
+        val powerSum: FloatArray,
+        val blocks: Int,
+        val sampleRate: Int,
+        val channels: Int,
+        // 高通后左右声道长时间相关性；样本不足或声道非立体声时为 0（无证据）
+        val stereoCorrelation: Float,
+        val stereoCorrSamples: Long,
+    )
+
+    // PCM 编码对应的单样本字节宽：未知编码回退 16 位，避免按错误步长读取解交织
+    private fun pcmBytesPerSample(pcmEncoding: Int): Int = when (pcmEncoding) {
+        PCM_8BIT -> 1
+        PCM_24BIT_PACKED -> 3
+        PCM_FLOAT, PCM_32BIT -> 4
+        else -> 2
+    }
+
+    // Hann 窗：预计算避免逐帧重复求余弦
+    private val hannWindow = FloatArray(FFT_SIZE) { i ->
+        0.5f - 0.5f * cos(2f * PI.toFloat() * i / (FFT_SIZE - 1))
+    }
+
+    // 解码候选音频轨并累计平均功率谱与立体声相关性。
+    // expectedMime 非空时仅解码该 mime（假无损限定 FLAC）；为空时取首个可解码音频轨（AI 识别全格式）。
+    // fallbackSampleRate/FallbackChannels 供提取器未给全参数时回退容器头解析值
+    suspend fun decodeTrack(
+        track: MusicTrack,
+        expectedMime: String?,
+        fallbackSampleRate: Int = 0,
+        fallbackChannels: Int = 0,
+    ): DecodeSummary? {
+        val extractor = MediaExtractor()
+        var decoder: MediaCodec? = null
+        return try {
+            extractor.setDataSource(track.path)
+            var trackIndex = -1
+            for (i in 0 until extractor.trackCount) {
+                val mime = extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME).orEmpty()
+                val matched = if (expectedMime != null) mime == expectedMime else mime.startsWith("audio/")
+                if (matched) {
+                    trackIndex = i
+                    break
+                }
+            }
+            if (trackIndex < 0) return null
+            val mediaFormat = extractor.getTrackFormat(trackIndex)
+            extractor.selectTrack(trackIndex)
+            val mime = mediaFormat.getString(MediaFormat.KEY_MIME) ?: return null
+            // 提取器未给出采样率/声道时回退容器头解析值
+            val sr = mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE, fallbackSampleRate)
+            val ch = mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT, fallbackChannels)
+            if (sr <= 0 || ch <= 0) return null
+
+            decoder = MediaCodec.createDecoderByType(mime)
+            decoder.configure(mediaFormat, null, null, 0)
+            decoder.start()
+
+            val powerSum = FloatArray(FFT_SIZE / 2 + 1)
+            val scratchRe = FloatArray(FFT_SIZE)
+            val scratchIm = FloatArray(FFT_SIZE)
+            val stereo = StereoAccumulator()
+            var blocks = 0
+            val durationUs = track.duration * 1000L
+            for (pos in PROBE_POSITIONS) {
+                decoder.flush()
+                extractor.seekTo((durationUs * pos).toLong(), MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+                blocks += decodeProbe(decoder, extractor, sr, ch, powerSum, scratchRe, scratchIm, stereo)
+            }
+            if (blocks <= 0) return null
+            val correlation = if (ch == 2) stereo.correlation() else 0f
+            DecodeSummary(
+                powerSum = powerSum,
+                blocks = blocks,
+                sampleRate = sr,
+                channels = ch,
+                stereoCorrelation = correlation,
+                stereoCorrSamples = stereo.samples,
+            )
+        } catch (e: CancellationException) {
+            // 协程取消（如关闭对话框）属正常流程：不记日志，重新抛出
+            throw e
+        } catch (e: Exception) {
+            CrashLogManager.logException("SpectralDecoder", "频谱解码失败", e)
+            null
+        } finally {
+            runCatching { decoder?.stop() }
+            runCatching { decoder?.release() }
+            runCatching { extractor.release() }
+        }
+    }
+
+    // 泵送一个探测窗的解码：PCM 转单声道后 Welch 累加功率谱，逐采样喂入立体声相关性，返回 FFT 块数
+    private suspend fun decodeProbe(
+        decoder: MediaCodec,
+        extractor: MediaExtractor,
+        sampleRate: Int,
+        channels: Int,
+        powerSum: FloatArray,
+        scratchRe: FloatArray,
+        scratchIm: FloatArray,
+        stereo: StereoAccumulator,
+    ): Int {
+        val info = MediaCodec.BufferInfo()
+        var pcmEncoding = PCM_16BIT
+        var bytesPerSample = 2
+        val targetFrames = sampleRate * PROBE_DURATION_US / 1_000_000
+        var decodedFrames = 0
+        var extractorEos = false
+        var outputEos = false
+        var blocks = 0
+        while (!outputEos && decodedFrames < targetFrames) {
+            // 校验进行中保持可取消：关闭对话框即中止，解码器由外层 finally 释放
+            coroutineContext.ensureActive()
+            // 喂入输入：连读提取器样本直至本窗目标时长
+            if (!extractorEos) {
+                val inIndex = decoder.dequeueInputBuffer(CODEC_TIMEOUT_US)
+                if (inIndex >= 0) {
+                    val sampleSize = extractor.sampleSize
+                    if (sampleSize < 0) {
+                        decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        extractorEos = true
+                    } else {
+                        val inputBuffer = decoder.getInputBuffer(inIndex)!!
+                        val size = extractor.readSampleData(inputBuffer, 0)
+                        decoder.queueInputBuffer(inIndex, 0, size, extractor.sampleTime, 0)
+                        extractor.advance()
+                    }
+                }
+            }
+            // 取出输出：累加本窗 PCM 的功率谱与立体声相关性
+            when (val outIndex = decoder.dequeueOutputBuffer(info, CODEC_TIMEOUT_US)) {
+                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    // 24bit FLAC 在部分设备按 24bit/32bit 输出，字节宽必须跟随编码而非固定 16 位
+                    pcmEncoding = decoder.outputFormat.getInteger(MediaFormat.KEY_PCM_ENCODING, PCM_16BIT)
+                    bytesPerSample = pcmBytesPerSample(pcmEncoding)
+                }
+                MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                else -> if (outIndex >= 0) {
+                    val outputBuffer = decoder.getOutputBuffer(outIndex) ?: return blocks
+                    val isConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                    if (isConfig || info.size <= 0) {
+                        decoder.releaseOutputBuffer(outIndex, false)
+                    } else {
+                        blocks += consumePcm(
+                            outputBuffer, info.offset, info.size,
+                            channels, pcmEncoding, powerSum, scratchRe, scratchIm, stereo,
+                        )
+                        decodedFrames += info.size / (channels * bytesPerSample).coerceAtLeast(1)
+                        decoder.releaseOutputBuffer(outIndex, false)
+                    }
+                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputEos = true
+                }
+            }
+        }
+        return blocks
+    }
+
+    // PCM 字节流转为单声道浮点并做 Welch 帧累加，帧内逐通路喂入立体声相关性，返回本缓冲贡献的 FFT 块数。
+    // 按编码区分样本解释方式：24bit 打包为 3 字节有符号小端，32bit 为有符号整型（非浮点）
+    private fun consumePcm(
+        buffer: ByteBuffer,
+        offset: Int,
+        size: Int,
+        channels: Int,
+        pcmEncoding: Int,
+        powerSum: FloatArray,
+        scratchRe: FloatArray,
+        scratchIm: FloatArray,
+        stereo: StereoAccumulator,
+    ): Int {
+        val bytesPerSample = pcmBytesPerSample(pcmEncoding)
+        val frames = size / (channels * bytesPerSample).coerceAtLeast(1)
+        if (frames <= 0) return 0
+        val mono = FloatArray(frames)
+        val view = buffer.duplicate()
+        view.order(ByteOrder.LITTLE_ENDIAN)
+        var cursor = offset
+        for (i in 0 until frames) {
+            var acc = 0f
+            var left = 0f
+            var right = 0f
+            for (c in 0 until channels) {
+                val sample = when (pcmEncoding) {
+                    PCM_FLOAT -> view.getFloat(cursor)
+                    PCM_32BIT -> view.getInt(cursor) / 2147483648f
+                    PCM_24BIT_PACKED -> {
+                        val b0 = view.get(cursor).toInt() and 0xFF
+                        val b1 = view.get(cursor + 1).toInt() and 0xFF
+                        val b2 = view.get(cursor + 2).toInt() and 0xFF
+                        (((b2 shl 24) or (b1 shl 16) or (b0 shl 8)) shr 8) / 8388608f
+                    }
+                    PCM_8BIT -> ((view.get(cursor).toInt() and 0xFF) - 128) / 128f
+                    else -> view.getShort(cursor).toFloat() / 32768f
+                }
+                cursor += bytesPerSample
+                if (c == 0) left = sample else if (c == 1) right = sample
+                acc += sample
+            }
+            mono[i] = acc / channels
+            if (channels == 2) stereo.feed(left, right)
+        }
+        // 50% 重叠滑动窗：最大限度利用每个探测窗，稳定噪声底估计
+        val step = FFT_SIZE / 2
+        var blocks = 0
+        var start = 0
+        while (start + FFT_SIZE <= frames) {
+            for (i in 0 until FFT_SIZE) {
+                scratchRe[i] = mono[start + i] * hannWindow[i]
+                scratchIm[i] = 0f
+            }
+            fftPower(scratchRe, scratchIm, powerSum)
+            blocks++
+            start += step
+        }
+        return blocks
+    }
+
+    // 迭代基 2 快速傅里叶变换并累加功率谱（仅 0..n/2 半谱）
+    private fun fftPower(re: FloatArray, im: FloatArray, powerSum: FloatArray) {
+        val n = re.size
+        // 位反转重排
+        var j = 0
+        for (i in 1 until n) {
+            var bit = n shr 1
+            while (j and bit != 0) {
+                j = j xor bit
+                bit = bit shr 1
+            }
+            j = j xor bit
+            if (i < j) {
+                re[i] = re[j].also { re[j] = re[i] }
+                im[i] = im[j].also { im[j] = im[i] }
+            }
+        }
+        // 蝶形运算
+        var len = 2
+        while (len <= n) {
+            val angle = 2f * PI.toFloat() / len
+            val wStepRe = cos(angle)
+            val wStepIm = -sin(angle)
+            var i = 0
+            while (i < n) {
+                var wRe = 1f
+                var wIm = 0f
+                val half = len shr 1
+                for (k in 0 until half) {
+                    val uRe = re[i + k]
+                    val uIm = im[i + k]
+                    val tRe = re[i + k + half] * wRe - im[i + k + half] * wIm
+                    val tIm = re[i + k + half] * wIm + im[i + k + half] * wRe
+                    re[i + k] = uRe + tRe
+                    im[i + k] = uIm + tIm
+                    re[i + k + half] = uRe - tRe
+                    im[i + k + half] = uIm - tIm
+                    val nextRe = wRe * wStepRe - wIm * wStepIm
+                    wIm = wRe * wStepIm + wIm * wStepRe
+                    wRe = nextRe
+                }
+                i += len
+            }
+            len = len shl 1
+        }
+        val half = n / 2
+        for (i in 0..half) {
+            powerSum[i] += re[i] * re[i] + im[i] * im[i]
+        }
+    }
+
+    // 立体声相关性累计：约 250Hz 高通（直流阻塞）后逐采样累积一/二阶矩，积分时长覆盖全部探测窗，
+    // 消除低频单声道主导，聚焦中高频的去相关程度
+    private class StereoAccumulator {
+        private var prevX = 0f
+        private var prevY = 0f
+        private var hpX = 0f
+        private var hpY = 0f
+        private var sumX = 0.0
+        private var sumY = 0.0
+        private var sumXX = 0.0
+        private var sumYY = 0.0
+        private var sumXY = 0.0
+        var samples = 0L
+            private set
+
+        fun feed(x: Float, y: Float) {
+            hpX = STEREO_HP_ALPHA * (hpX + x - prevX)
+            prevX = x
+            hpY = STEREO_HP_ALPHA * (hpY + y - prevY)
+            prevY = y
+            sumX += hpX
+            sumY += hpY
+            sumXX += hpX * hpX
+            sumYY += hpY * hpY
+            sumXY += hpX * hpY
+            samples++
+        }
+
+        fun correlation(): Float {
+            // 时长过短统计不可靠时返回 0（无证据），由调用方跳过该征象
+            if (samples < 4096) return 0f
+            val n = samples.toDouble()
+            val dx = sumXX - sumX * sumX / n
+            val dy = sumYY - sumY * sumY / n
+            val denom = sqrt(dx * dy)
+            if (denom <= 0.0) return 0f
+            return ((sumXY - sumX * sumY / n) / denom).toFloat()
+        }
+    }
+}

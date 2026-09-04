@@ -257,6 +257,7 @@
     <string name="library_analysis_empty">Library is empty</string>
     <string name="library_analysis_other">Other</string>
     <string name="library_analysis_online">Online</string>
+    <string name="library_analysis_ai_music">AI Music</string>
     <string name="library_analysis_refresh">Re-analyze</string>
 
     <!-- Update -->

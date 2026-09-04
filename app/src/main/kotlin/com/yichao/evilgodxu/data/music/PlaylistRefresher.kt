@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.data.music
 import android.content.Context
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.domain.music.AiMusicAnalyzer
 import com.yichao.evilgodxu.domain.music.FakeLosslessAnalyzer
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.normalizeTitle
@@ -136,12 +137,19 @@ object PlaylistRefresher {
                 library.filter { it.id in state.likedIds }
             source.key.startsWith("smart:FORMAT:") -> {
                 val format = source.key.removePrefix("smart:FORMAT:")
-                // 假无损为识别类目：逐曲校验（缓存命中即瞬时返回），放 IO 线程避免阻塞刷新协程
-                if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
+                // 假无损 / AI 音乐为识别类目：逐曲校验（缓存命中即瞬时返回），放 IO 线程避免阻塞刷新协程
+                if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY ||
+                    format == AiMusicAnalyzer.AI_MUSIC_KEY
+                ) {
                     withContext(Dispatchers.IO) {
                         buildList {
-                            library.forEach {
-                                if (FakeLosslessAnalyzer.isSuspectedFakeLossless(context, it)) add(it)
+                            library.forEach { track ->
+                                val hit = if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
+                                    FakeLosslessAnalyzer.isSuspectedFakeLossless(context, track)
+                                } else {
+                                    AiMusicAnalyzer.isSuspectedAiMusic(context, track)
+                                }
+                                if (hit) add(track)
                             }
                         }
                     }
