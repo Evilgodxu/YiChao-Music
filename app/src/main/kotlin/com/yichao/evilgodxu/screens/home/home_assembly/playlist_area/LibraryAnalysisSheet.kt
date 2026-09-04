@@ -53,7 +53,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 // 格式导航行高与可见行数：列表固定如此高度展示，超出滚动，避免对话框随格式数量拉伸
-private val FormatListRowHeight = 36.dp
+private val FormatListRowHeight = 30.dp
 private const val FormatListVisibleRows = 3
 
 // 曲库分析对话框：长按首页播放列表按钮弹出，圆环统计格式占比，下方按格式定位歌单
@@ -148,7 +148,7 @@ internal fun LibraryAnalysisSheet(
                     Spacer(Modifier.width(16.dp))
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         stats.forEachIndexed { index, stat ->
                             FormatStatRow(
@@ -306,7 +306,7 @@ private fun FormatStatRow(
                 else Color.Transparent,
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -351,7 +351,7 @@ private fun FormatNavRow(
                 else Color.Transparent,
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

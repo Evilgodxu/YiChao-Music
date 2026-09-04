@@ -132,14 +132,8 @@ internal fun MiniPlayerBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(barHeight)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        if (awaitPointerEvent().changes.any { it.pressed }) resetAutoHide()
-                    }
-                }
-            }
-            // 手势按首个越过触摸阈值的轴向锁定：横滑切歌与下滑隐藏互斥，斜滑不会同时触发
+            // 手势按首个越过触摸阈值的轴向锁定：横滑切歌与下滑隐藏互斥，斜滑不会同时触发；
+            // 仅未越过阈值的轻点还原控制栏，滑动切歌/下滑隐藏属于滑动手势，不触发控制栏显隐
             .pointerInput(playlistExpanded) {
                 var totalDx = 0f
                 var totalDy = 0f
@@ -150,7 +144,12 @@ internal fun MiniPlayerBar(
                     val drag = awaitTouchSlopOrCancellation(down.id) { change, over ->
                         axis = if (kotlin.math.abs(over.x) > kotlin.math.abs(over.y)) 1 else 2
                         change.consume()
-                    } ?: return@awaitEachGesture
+                    }
+                    if (drag == null) {
+                        // 未越过触摸阈值（含点击控制按钮被消费）：视为轻点，还原控制栏并顺延自动隐藏计时
+                        if (!playlistExpanded) resetAutoHide()
+                        return@awaitEachGesture
+                    }
                     drag.consume()
                     // 只累计锁定轴向的位移，直到抬手或手势被取消
                     var gestureEnded = false
