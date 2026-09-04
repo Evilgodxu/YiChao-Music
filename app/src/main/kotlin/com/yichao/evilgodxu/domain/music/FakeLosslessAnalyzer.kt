@@ -16,6 +16,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.log10
 import kotlin.math.sin
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -293,6 +294,9 @@ internal object FakeLosslessAnalyzer {
                 blocks += decodeProbe(decoder, extractor, sr, ch, powerSum, scratchRe, scratchIm)
             }
             if (blocks <= 0) null else detectCliff(powerSum, blocks, sr)
+        } catch (e: CancellationException) {
+            // 协程取消（如关闭对话框）属正常流程：不记日志，重新抛出交由调用方 finally 落盘
+            throw e
         } catch (e: Exception) {
             CrashLogManager.logException("FakeLosslessAnalyzer", "频谱分析失败", e)
             null
