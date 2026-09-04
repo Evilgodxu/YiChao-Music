@@ -321,27 +321,11 @@ internal fun PlaylistSheet(
                                 }
                             }
                         }
-                        // 右侧悬浮按钮与底部搜索框：随列表滚动自动显隐
-                        PlaylistFloatingActions(
+                        // 底部搜索框：随列表滚动自动显隐
+                        PlaylistSearchOverlay(
                             isScrolling = isScrolling,
                             query = searchQuery,
-                            canLocate = playbackState.currentIndex in playbackState.playlist.indices,
                             onQueryChange = { searchQuery = it },
-                            onScrollToTop = {
-                                scope.launch { listState.animateScrollToItem(0) }
-                            },
-                            onLocateCurrent = {
-                                scope.launch {
-                                    // 搜索过滤时先清空关键词恢复完整列表，等待重排后再定位避免索引错位
-                                    if (searchQuery.isNotBlank()) {
-                                        searchQuery = ""
-                                        delay(FILTER_CLEAR_TO_LOCATE_MS)
-                                    }
-                                    if (playbackState.currentIndex in playbackState.playlist.indices) {
-                                        listState.scrollPlaylistTo(playbackState.currentIndex, forceCenter = true)
-                                    }
-                                }
-                            },
                         )
                     }
                 }
@@ -370,63 +354,14 @@ internal fun PlaylistSheet(
 private const val PLAYLIST_EXPAND_ANIM_MS = 300L
 // 列表顶部继续下拉的收起阈值：累计下拉超过该距离即收起面板
 private val PLAYLIST_DISMISS_OVERSCROLL_DP = 64.dp
-// 搜索过滤状态清空后等待列表重排再定位的时间
-private const val FILTER_CLEAR_TO_LOCATE_MS = 60L
 
-// 播放列表悬浮操作区：右侧置顶/定位按钮与底部搜索框；列表滚动时自动隐藏
+// 播放列表底部搜索框：列表滚动时自动隐藏
 @Composable
-private fun BoxScope.PlaylistFloatingActions(
+private fun BoxScope.PlaylistSearchOverlay(
     isScrolling: Boolean,
     query: String,
-    canLocate: Boolean,
     onQueryChange: (String) -> Unit,
-    onScrollToTop: () -> Unit,
-    onLocateCurrent: () -> Unit,
 ) {
-    AnimatedVisibility(
-        visible = !isScrolling,
-        modifier = Modifier
-            .align(Alignment.CenterEnd)
-            .padding(end = 10.dp),
-        enter = fadeIn(animationSpec = tween(160)) +
-            slideInVertically(animationSpec = tween(160)) { it / 3 },
-        exit = fadeOut(animationSpec = tween(160)) +
-            slideOutVertically(animationSpec = tween(160)) { it / 3 },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton(
-                onClick = onScrollToTop,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.18f), CircleShape),
-            ) {
-                Icon(
-                    imageVector = AppIcons.KeyboardArrowUp,
-                    contentDescription = stringResource(R.string.playlist_scroll_to_top),
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            IconButton(
-                onClick = onLocateCurrent,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Color.White.copy(alpha = if (canLocate) 0.18f else 0.07f),
-                        CircleShape,
-                    ),
-            ) {
-                Icon(
-                    imageVector = AppIcons.MyLocation,
-                    contentDescription = stringResource(R.string.playlist_locate_current),
-                    tint = Color.White.copy(alpha = if (canLocate) 1f else 0.35f),
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        }
-    }
     AnimatedVisibility(
         visible = !isScrolling,
         modifier = Modifier

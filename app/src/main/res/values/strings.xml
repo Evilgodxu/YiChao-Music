@@ -249,8 +249,6 @@
     <string name="playlist_import_done">同步完成 · 新增 %1$d · 已存在 %2$d · 失败 %3$d</string>
     <string name="playlist_search_placeholder">搜索播放列表</string>
     <string name="playlist_search_no_results">未找到匹配歌曲</string>
-    <string name="playlist_scroll_to_top">滚动至顶部</string>
-    <string name="playlist_locate_current">定位当前播放</string>
 
     <!-- 曲库分析 -->
     <string name="library_analysis_title">曲库分析</string>

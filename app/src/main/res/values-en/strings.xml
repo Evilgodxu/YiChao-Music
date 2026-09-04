@@ -249,8 +249,6 @@
     <string name="playlist_import_done">Sync done · %1$d added · %2$d existing · %3$d failed</string>
     <string name="playlist_search_placeholder">Search playlist</string>
     <string name="playlist_search_no_results">No matching songs</string>
-    <string name="playlist_scroll_to_top">Scroll to top</string>
-    <string name="playlist_locate_current">Locate current track</string>
 
     <!-- Library analysis -->
     <string name="library_analysis_title">Library Analysis</string>
