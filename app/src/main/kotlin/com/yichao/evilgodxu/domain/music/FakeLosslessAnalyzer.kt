@@ -53,9 +53,13 @@ internal object FakeLosslessAnalyzer {
         0.5f - 0.5f * cos(2f * PI.toFloat() * i / (FFT_SIZE - 1))
     }
 
+    // 是否为可校验的 FLAC 文件：扩展名口径，与曲库分析的 FLAC 格式类目一致
+    fun isFlacCandidate(track: MusicTrack): Boolean =
+        track.path.substringAfterLast('.', "").uppercase() == "FLAC"
+
     // 判定入口：非 FLAC 或无法读取大小直接排除；缓存命中直接复用
     suspend fun isSuspectedFakeLossless(context: Context, track: MusicTrack): Boolean {
-        if (track.path.substringAfterLast('.', "").uppercase() != "FLAC") return false
+        if (!isFlacCandidate(track)) return false
         val sizeBytes = TrackAudioInfoReader.readFileSize(context, track) ?: return false
         val cacheKey = "FLAC\u0000${track.path}\u0000$sizeBytes\u0000${track.duration}"
         resultCache[cacheKey]?.let { return it }
