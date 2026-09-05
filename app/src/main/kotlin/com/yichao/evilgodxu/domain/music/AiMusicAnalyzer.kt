@@ -5,7 +5,6 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import kotlin.math.log10
 import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 // AI 音乐识别器：规则启发式多征象从严判定，针对神经声码器/合成链路的统计痕迹，
@@ -21,11 +20,8 @@ internal object AiMusicAnalyzer {
     // AI 音乐智能歌单过滤键：与本地化展示名解耦，保证序列化歌单 key 跨语言环境稳定
     const val AI_MUSIC_KEY = "ai-music"
 
-    // 识别结果缓存：键含文件大小与时长，文件变化即失效；跨对话框/刷新复用避免重复解码
-    private val cache = TrackVerdictCache("ai_music_cache.json")
-
-    // 批量增量校验期间每分析多少首新增文件落盘一次，收窄中断导致的缓存丢失窗口
-    private const val CACHE_PERSIST_INTERVAL = 20
+    // 识别结果缓存：键含文件大小与时长，文件变化即失效；供合并批量分析共享复用
+    internal val cache = TrackVerdictCache("ai_music_cache.json")
 
     // ---- 征象阈值（识别策略升级时经「刷新」清缓存强制全量重扫后生效）----
     // 征象①：中高频左右声道相关性下界
@@ -65,62 +61,10 @@ internal object AiMusicAnalyzer {
     // 清除全部校验缓存（内存 + 落盘）：识别策略升级或用户主动刷新时用于强制全量重新分析
     suspend fun resetCache(context: Context) = cache.reset(context)
 
-    // 批量增量校验（曲库分析对话框入口）：语义与假无损识别一致，仅对新增/变更文件解码；
-    // 结束清理已删除文件的残留条目并落盘
-    suspend fun analyzeLibraryIncremental(
-        context: Context,
-        tracks: List<MusicTrack>,
-        onProgress: suspend (checked: Int, total: Int) -> Unit,
-    ): Int {
-        cache.awaitLoaded(context)
-        return withContext(Dispatchers.IO) io@{
-            val pending = mutableListOf<Pair<MusicTrack, Long>>()
-            val keepKeys = HashSet<String>()
-            var count = 0
-            tracks.forEach { track ->
-                if (!isDecodableCandidate(track)) return@forEach
-                val sizeBytes = TrackAudioInfoReader.readFileSize(context, track) ?: return@forEach
-                val key = cacheKey(track, sizeBytes)
-                keepKeys.add(key)
-                val cached = cache.get(key)
-                if (cached != null) {
-                    if (cached) count++
-                } else {
-                    pending.add(track to sizeBytes)
-                }
-            }
-            if (pending.isEmpty()) {
-                if (cache.map.size > keepKeys.size) {
-                    withContext(NonCancellable) {
-                        cache.map.keys.removeAll { key -> key !in keepKeys }
-                        cache.flush(context)
-                    }
-                }
-                return@io count
-            }
-            onProgress(0, pending.size)
-            var checked = 0
-            try {
-                pending.forEach { (track, sizeBytes) ->
-                    checked++
-                    onProgress(checked, pending.size)
-                    val key = cacheKey(track, sizeBytes)
-                    val result = analyze(track, sizeBytes)
-                    cache.map[key] = result ?: false
-                    if (result == true) count++
-                    if (checked % CACHE_PERSIST_INTERVAL == 0) cache.flush(context)
-                }
-            } finally {
-                withContext(NonCancellable) {
-                    if (cache.map.size > keepKeys.size) {
-                        cache.map.keys.removeAll { key -> key !in keepKeys }
-                    }
-                    cache.flush(context)
-                }
-            }
-            count
-        }
-    }
+    // 解码摘要判定：多征象从严合成，供合并批量分析（analyzeLibraryCombined）复用已解码摘要，
+    // 避免对同一文件与假无损识别各自解码
+    internal fun verdictFromSummary(summary: SpectralDecoder.DecodeSummary): Boolean =
+        detectAiSignals(summary)
 
     // 单曲判定：返回 null 表示无法判定（时长/大小无效或解码不可用），调用方缓存为 false
     private suspend fun analyze(track: MusicTrack, sizeBytes: Long): Boolean? {

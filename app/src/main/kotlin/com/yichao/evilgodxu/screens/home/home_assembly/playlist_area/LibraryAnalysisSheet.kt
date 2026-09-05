@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.AiMusicAnalyzer
+import com.yichao.evilgodxu.domain.music.analyzeLibraryCombined
 import com.yichao.evilgodxu.domain.music.FakeLosslessAnalyzer
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaylistSource
@@ -583,6 +584,7 @@ internal class LibraryAnalysisController(
         analysisJob = scope.launch {
             val job = coroutineContext[Job]
             analyzing = true
+            checkingProgress = null
             fakeLosslessCount = null
             aiMusicCount = null
             try {
@@ -590,22 +592,17 @@ internal class LibraryAnalysisController(
                     FakeLosslessAnalyzer.resetCache(context)
                     AiMusicAnalyzer.resetCache(context)
                 }
-                // 增量校验：缓存命中的旧文件直接复用持久化结果，仅对新增/变更文件解码分析；
-                // 进度以新增文件数为基数，假无损与 AI 识别共用同一进度显示
-                fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
+                // 合并单次遍历：每文件只解码一次，同时产出假无损与 AI 判定；
+                // 进度以本批需解码文件数为基数连续递增
+                val result = analyzeLibraryCombined(
                     context = context,
                     tracks = tracks,
                     onProgress = { checked, total ->
                         if (total > 0) checkingProgress = checked to total
                     },
                 )
-                aiMusicCount = AiMusicAnalyzer.analyzeLibraryIncremental(
-                    context = context,
-                    tracks = tracks,
-                    onProgress = { checked, total ->
-                        if (total > 0) checkingProgress = checked to total
-                    },
-                )
+                fakeLosslessCount = result.fakeLosslessCount
+                aiMusicCount = result.aiMusicCount
             } finally {
                 // 仅当仍是当前任务时复位，避免被新一轮任务抢先覆盖状态
                 if (analysisJob === job) {
