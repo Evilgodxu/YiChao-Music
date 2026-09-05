@@ -30,6 +30,12 @@ internal object SpectralDecoder {
     // 立体声相关性高通滤波系数：约 250Hz 截止，剔除低频单声道主导的干扰
     private const val STEREO_HP_ALPHA = 0.97f
 
+    // 升频死区探带：44.1k 源奈奎斯特（22050Hz）上方的窄带区间，逐 FFT 块记录带内总功率，
+    // 供假无损判定死区动态——真实母带内容随乐句起伏，重采样死区为常量；
+    // 采样率不足以容纳探带（如 44.1k 原生文件）时不启用
+    private const val PROBE_LO_HZ = 22150f
+    private const val PROBE_HI_HZ = 22850f
+
     // MediaCodec 输出 PCM 编码值（KEY_PCM_ENCODING 取值，兼容各 API 层级）
     private const val PCM_16BIT = 2
     private const val PCM_8BIT = 3
@@ -46,6 +52,8 @@ internal object SpectralDecoder {
         // 高通后左右声道长时间相关性；样本不足或声道非立体声时为 0（无证据）
         val stereoCorrelation: Float,
         val stereoCorrSamples: Long,
+        // 升频死区探带逐帧功率：44.1k 源奈奎斯特上方窄带；采样率不足以容纳时不适用（空数组）
+        val probe22050: FloatArray = FloatArray(0),
     )
 
     // PCM 编码对应的单样本字节宽：未知编码回退 16 位，避免按错误步长读取解交织
@@ -100,12 +108,17 @@ internal object SpectralDecoder {
             val scratchRe = FloatArray(FFT_SIZE)
             val scratchIm = FloatArray(FFT_SIZE)
             val stereo = StereoAccumulator()
+            // 升频死区探带：逐 FFT 块记录 44.1k 源奈奎斯特上方窄带总功率
+            val probe = ProbeAccumulator(PROBE_LO_HZ, PROBE_HI_HZ, sr)
+            val probes = listOf(probe)
             var blocks = 0
             val durationUs = track.duration * 1000L
             for (pos in PROBE_POSITIONS) {
                 decoder.flush()
                 extractor.seekTo((durationUs * pos).toLong(), MediaExtractor.SEEK_TO_CLOSEST_SYNC)
-                blocks += decodeProbe(decoder, extractor, sr, ch, powerSum, scratchRe, scratchIm, stereo)
+                blocks += decodeProbe(
+                    decoder, extractor, sr, ch, powerSum, scratchRe, scratchIm, stereo, probes,
+                )
             }
             if (blocks <= 0) return null
             val correlation = if (ch == 2) stereo.correlation() else 0f
@@ -116,6 +129,7 @@ internal object SpectralDecoder {
                 channels = ch,
                 stereoCorrelation = correlation,
                 stereoCorrSamples = stereo.samples,
+                probe22050 = probe.snapshot(),
             )
         } catch (e: CancellationException) {
             // 协程取消（如关闭对话框）属正常流程：不记日志，重新抛出
@@ -140,6 +154,7 @@ internal object SpectralDecoder {
         scratchRe: FloatArray,
         scratchIm: FloatArray,
         stereo: StereoAccumulator,
+        probes: List<ProbeAccumulator>,
     ): Int {
         val info = MediaCodec.BufferInfo()
         var pcmEncoding = PCM_16BIT
@@ -184,7 +199,7 @@ internal object SpectralDecoder {
                     } else {
                         blocks += consumePcm(
                             outputBuffer, info.offset, info.size,
-                            channels, pcmEncoding, powerSum, scratchRe, scratchIm, stereo,
+                            channels, pcmEncoding, powerSum, scratchRe, scratchIm, stereo, probes,
                         )
                         decodedFrames += info.size / (channels * bytesPerSample).coerceAtLeast(1)
                         decoder.releaseOutputBuffer(outIndex, false)
@@ -208,6 +223,7 @@ internal object SpectralDecoder {
         scratchRe: FloatArray,
         scratchIm: FloatArray,
         stereo: StereoAccumulator,
+        probes: List<ProbeAccumulator>,
     ): Int {
         val bytesPerSample = pcmBytesPerSample(pcmEncoding)
         val frames = size / (channels * bytesPerSample).coerceAtLeast(1)
@@ -250,10 +266,39 @@ internal object SpectralDecoder {
                 scratchIm[i] = 0f
             }
             fftPower(scratchRe, scratchIm, powerSum)
+            // 探带功率在同一 FFT 块频谱上顺带累计，零额外 FFT
+            for (p in probes) p.addBlock(scratchRe, scratchIm)
             blocks++
             start += step
         }
         return blocks
+    }
+
+    // 升频死区探带累加器：逐 FFT 块记录指定窄带（源奈奎斯特上方）的总功率。
+    // 采样率不足以容纳探带（bin 超出奈奎斯特）时不启用；snapshot 返回逐帧功率数组
+    private class ProbeAccumulator(
+        loHz: Float,
+        hiHz: Float,
+        sampleRate: Int,
+    ) {
+        private val binHz = sampleRate.toFloat() / FFT_SIZE
+        private val loBin = (loHz / binHz).toInt().coerceAtLeast(0)
+        private val hiBin = (hiHz / binHz).toInt()
+        private val n = FFT_SIZE / 2
+        private val enabled = loBin <= hiBin && hiBin <= n
+        private val powers = ArrayList<Float>(512)
+
+        fun addBlock(re: FloatArray, im: FloatArray) {
+            if (!enabled) return
+            var acc = 0f
+            for (i in loBin..hiBin) acc += re[i] * re[i] + im[i] * im[i]
+            powers.add(acc)
+        }
+
+        fun snapshot(): FloatArray {
+            if (!enabled || powers.isEmpty()) return FloatArray(0)
+            return FloatArray(powers.size) { powers[it] }
+        }
     }
 
     // 迭代基 2 快速傅里叶变换并累加功率谱（仅 0..n/2 半谱）

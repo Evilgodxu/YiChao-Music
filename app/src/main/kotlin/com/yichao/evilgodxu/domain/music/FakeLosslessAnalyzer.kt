@@ -11,13 +11,13 @@ import kotlinx.coroutines.withContext
 //    不设码率压缩比/头部规格免检路径——伪造文件可借量化噪声/上采样令码率虚高，
 //    头部参数亦不可信，任何候选文件都不得绕过频谱判定；
 // ② 频谱判定：全部候选 FLAC 用共享 SpectralDecoder 稀疏窗口解码 3 段（每窗 4 秒），FFT 求平均
-//    功率谱，两条互补判据任一命中即判为可疑：
-//    a) 砖墙主判据：奈奎斯特以下「砖墙式」截止 + 平坦死区，表征有损转码来源；
-//       CD 级硬墙为避免误伤自然限带（老录音/窄母带），再经去相关性与转码特征
-//       （编码器截止网格 / 高频掩蔽空洞）两级佐证确认，佐证不足则放行（宁漏勿误）；
-//    b) 升频锚点判据：截止恰为源采样率奈奎斯特（22.05k/24k）且其上方整体空虚平坦，
-//       覆盖升频假无损——廉价重采样在锚点上方留下的斜坡过渡带会令 a) 漏判，
-//       而真高解析度在 22.05k 上下存在自然连续内容，不会被 b) 误伤。
+//    功率谱，三条物理证据路径分离判定：
+//    a) 升频判据：内容真实截止落在某源采样率奈奎斯特保护带内 + 过渡带具砖墙陡峭度 +
+//       44.1k 源奈奎斯特上方逐帧能量恒定（死区），三者齐备判升频假无损；
+//       ——不预设墙在固定频率，48k 原生母带自然滚降（截止超出保护带或过渡带平缓）不受误伤；
+//    b) 砖墙判据：CD 级硬截止 + 平坦死区表征有损转码，老录音/窄母带等自然限带
+//       经去相关性与转码特征（编码器截止网格 / 高频掩蔽空洞）两级佐证区分，佐证不足放行；
+//    c) 高解析：非升频的硬墙视为自然滚降，直接放行，避免把母带高频滚降误判为转码。
 // 结果持久化缓存与批量增量校验复用 TrackVerdictCache；
 // 进度由调用方逐曲驱动，协程取消即时释放解码器。
 internal object FakeLosslessAnalyzer {
@@ -46,6 +46,28 @@ internal object FakeLosslessAnalyzer {
     private const val HOLE_DEPTH_DB = 10f
     private const val HOLE_MAX_HALF_WIDTH_HZ = 300f
     private const val HOLE_MIN_COUNT = 3
+
+    // 稳健噪声底：取靠近奈奎斯特区间的中位数（而非全局最小值），避免真文件 dither 噪底
+    // 与升频数字零死区之间 68dB 级别的基准漂移；宽区间内频带自身动态小，中位数即噪底中心
+    private const val FLOOR_LO_RATIO = 0.97f
+    private const val FLOOR_HI_RATIO = 0.995f
+
+    // 内容截止与过渡带宽度：升频判据的物理量，与电平、采样率、FFT 尺寸无关。
+    // 截止 = 高于底噪 3dB 的最高频率；过渡带宽度 = 相对底噪从 20dB 降到 3dB 的频宽，
+    // 重采样砖墙极陡（实测 70–117Hz），自然滚降平缓（实测 598Hz+）
+    private const val CUT_ABOVE_FLOOR_DB = 3f
+    private const val WALL_REF_DB = 20f
+
+    // 升频判据：候选源采样率的奈奎斯特。重采样保护带使真实墙总落在源奈奎斯特略下方，
+    // 从不恰好等于它；过渡带须具砖墙陡峭度；源奈奎斯特上方探带的逐帧能量须恒定（死区）
+    private val UPSAMPLE_SRC_NYQUIST_HZ = floatArrayOf(22050f, 24000f, 44100f)
+    private const val GUARD_LOW_HZ = 900f
+    private const val GUARD_HIGH_HZ = 200f
+    private const val MAX_WALL_WIDTH_HZ = 400f
+    // 升频死区逐帧动态上界：真实内容随乐句起伏（实测 >45dB），重采样死区恒定（<2dB）
+    private const val MIN_DEADZONE_DYN_DB = 10f
+    // 死区动态统计所需最少帧数，不足视为无证据
+    private const val MIN_DEADZONE_FRAMES = 16
 
     // 是否为可校验的 FLAC 文件：扩展名口径，与曲库分析的 FLAC 格式类目一致
     fun isFlacCandidate(track: MusicTrack): Boolean =
@@ -107,38 +129,42 @@ internal object FakeLosslessAnalyzer {
         return detectFakeSignals(summary)
     }
 
-    // 假无损合成判定。两条主判据按文件规格分流，CD 级硬墙用三证据合成区分转码与自然限带：
-    // ① CD 级（44.1k/48k）：砖墙命中即未升频的直接转码。但老录音/窄母带等
-    //    自然限带也可能撞出硬墙，需依次排除：
+    // 假无损合成判定。三条路径按物理证据分离：
+    // ① 升频：内容截止落在某个源采样率奈奎斯特保护带内 + 过渡带具砖墙陡峭度 +
+    //    44.1k 源奈奎斯特上方逐帧能量恒定（死区），三条件齐备判升频假无损。
+    //    完全基于物理量，不预设墙在固定频率——48k 原生母带内容自然滚降
+    //    （截止超出保护带或过渡带平缓）不会被误伤，44.1k→48k 升频可被正确捕获。
+    //    死区动态共用 22050 上方探带：44.1k 源升频的死区恒定；对 48k/96k 源升频，
+    //    探带若落在真母带内容区则动态大而放行（内容无损、仅采样率虚标的升采样不混入假无损）。
+    // ② 砖墙转码（CD 级 44.1k/48k）：硬截止 + 平坦死区表征有损转码，
+    //    但老录音/窄母带等自然限带也可能撞出硬墙，需依次排除：
     //    a) 左右声道明确去相关（≤0.55）→ 自然限带，放行；
     //    b) 无去相关证据时，须有转码专属佐证才判真——截止落在编码器特征频率网格
     //       （16k/17.5k/18.5k/20k，MP3/AAC 预设位置）或高频存在 ≥3 个掩蔽空洞；
     //    c) 两者皆无 → 更可能是自然限带（抗混叠/母带低通硬切），放行（宁漏勿误）。
-    // ② 高解析（≥88.2k）：不存在「自然限带」豁免，因为真实高解析录音不会在
-    //    22.05k/24k（CD 奈奎斯特）处凭空出现 ≥35dB 硬切 + 上方死区。
-    //    墙体未软化 → 砖墙命中，直接判真；
-    //    墙体被重采样软化 → 砖墙未命中，转升频锚点判据抓「源奈奎斯特残留墙 + 上方死区」。
-    // 因此升频假无损无论重采样好坏，都会被 ①/② 之一抓住——硬墙归砖墙，软墙归锚点。
-    // 唯一漏报面：CD 源本身 20k 以上几乎没有内容时，升频后左带也无能量可作落差，
-    // 两条判据都无从下手，频谱上与真高解析无法区分，属信息论极限（所有工具共有）
+    // ③ 高解析（≥88.2k）：不再无条件判真——内容截止落入对应源奈奎斯特保护带
+    //    且死区恒定的升频一定在 ① 命中；其余硬墙形态（真正的原生高解析录音，
+    //    内容在某一自然频率滚降）直接放行，避免把母带高频滚降误判为转码。
     private fun detectFakeSignals(s: SpectralDecoder.DecodeSummary): Boolean {
         val stats = computeSpectralStats(s.powerSum, s.blocks, s.sampleRate) ?: return false
-        // ① 砖墙：先抓「未升频转码」与「硬墙升频」，再按规格做防误判分流
+        // ① 升频：物理证据独立判定，命中即假无损，不依赖砖墙命中与否
+        if (detectUpsample(stats, s.probe22050)) return true
+        // ② ③ 砖墙：先抓「未升频转码」，再按规格做防误判分流
         val cutoffHz = detectCliff(stats)
         if (cutoffHz != null) {
-            // 高解析文件的砖墙命中是升频残留证据，直接判真
-            if (stats.sampleRate > 48000) return true
+            // 高解析：非升频的硬墙视为自然滚降，放行（升频已在 ① 捕获）
+            if (stats.sampleRate > 48000) return false
             // CD 级：去相关内容撞出硬墙更可能来自自然限带，放行
             val hasStereoEvidence = s.channels == 2 && s.stereoCorrSamples >= STEREO_MIN_SAMPLES
             if (hasStereoEvidence && s.stereoCorrelation <= STEREO_CORR_AGAINST_MAX) return false
             // 无去相关证据：须有转码专属佐证（特征网格截止或高频掩蔽空洞）才判真
             return isCodecGridCutoff(stats, cutoffHz) || detectTranscodeHoles(stats)
         }
-        // ② 升频锚点：砖墙未命中时抓「软墙升频」，高解析源才启用，不受相关性影响
-        return detectUpsampledAnchorWall(stats)
+        return false
     }
 
-    // 频谱统计中间量：砖墙与升频锚点判据共享的相对峰值分贝谱、区间均值前缀和、噪声底与频率刻度
+    // 频谱统计中间量：砖墙/升频判据共享的相对峰值分贝谱、区间均值前缀和、稳健噪声底、
+    // 频率刻度，以及内容截止与过渡带宽度（截至相对底噪的物理量）
     private class SpectralStats(
         val db: FloatArray,
         val prefix: FloatArray,
@@ -147,6 +173,8 @@ internal object FakeLosslessAnalyzer {
         val nyquist: Float,
         val n: Int,
         val sampleRate: Int,
+        val contentCutHz: Float,
+        val wallWidthHz: Float,
     )
 
     // 平均功率谱转相对峰值分贝谱并提取共享统计；整体动态过小返回 null（无判定能力）
@@ -157,7 +185,6 @@ internal object FakeLosslessAnalyzer {
     ): SpectralStats? {
         val n = SpectralDecoder.FFT_SIZE / 2
         val db = FloatArray(n + 1)
-        // 噪声底取高半区最小值：转码死区即落在该电平，真无损高区有真实内容故恒高于此
         for (i in 0..n) {
             db[i] = 10f * log10((powerSum[i] / blocks + 1e-12f).toDouble()).toFloat()
         }
@@ -169,12 +196,36 @@ internal object FakeLosslessAnalyzer {
         for (i in 0..n) prefix[i + 1] = prefix[i] + db[i]
         val binHz = sampleRate.toFloat() / SpectralDecoder.FFT_SIZE
         val nyquist = sampleRate / 2f
-        val floorStart = (0.5f * nyquist / binHz).toInt().coerceIn(0, n)
-        var floor = db[floorStart]
-        for (i in floorStart + 1..n) if (db[i] < floor) floor = db[i]
+        // 稳健噪声底：靠近奈奎斯特区间（0.97–0.995·nyq）的中位数。
+        // 该区间不含音乐主体但含 dither/量化噪底，中位数对偶发尖刺不敏感，跨文件基准稳定
+        val loBin = (FLOOR_LO_RATIO * nyquist / binHz).toInt().coerceIn(0, n)
+        val hiBin = (FLOOR_HI_RATIO * nyquist / binHz).toInt().coerceIn(loBin, n)
+        val seg = db.copyOfRange(loBin, hiBin + 1)
+        seg.sort()
+        val floor = seg[seg.size / 2]
         // 整体动态过小则无法判定
         if (-floor < 40f) return null
-        return SpectralStats(db, prefix, floor, binHz, nyquist, n, sampleRate)
+        // 内容截止：高于底噪 3dB 的最高频率
+        var cutBin = -1
+        for (i in n downTo 0) {
+            if (db[i] - floor > CUT_ABOVE_FLOOR_DB) {
+                cutBin = i
+                break
+            }
+        }
+        val contentCutHz = if (cutBin > 0) cutBin * binHz else 0f
+        // 过渡带宽度：相对底噪从 20dB 降到 3dB 的频宽；无 20dB 段视为极宽（自然滚降）
+        var w20 = -1
+        if (cutBin > 0) {
+            for (i in cutBin downTo 0) {
+                if (db[i] - floor > WALL_REF_DB) {
+                    w20 = i
+                    break
+                }
+            }
+        }
+        val wallWidthHz = if (w20 >= 0 && cutBin > w20) (cutBin - w20) * binHz else Float.MAX_VALUE
+        return SpectralStats(db, prefix, floor, binHz, nyquist, n, sampleRate, contentCutHz, wallWidthHz)
     }
 
     // 砖墙截止判定：找显著下降沿 + 上方死区平坦且明显低于奈奎斯特，
@@ -282,53 +333,45 @@ internal object FakeLosslessAnalyzer {
         return count >= HOLE_MIN_COUNT
     }
 
-    // 升频假无损锚点判据：真高解析度在 22.05k/24k 上下有自然连续内容，
-    // 升频文件则在源采样率奈奎斯特处残留墙体，其上方整体空虚平坦——
-    // 即使廉价重采样将墙体软化为斜坡，锚点上方仍无真实八度内容可比。
-    // 原生采样率文件（如 44.1k 本身）该位置无可用死区，自动豁免免误伤
-    private fun detectUpsampledAnchorWall(st: SpectralStats): Boolean {
-        // 前缀和区间均值：与砖墙判据同套路，O(1) 查询
-        fun mean(from: Int, to: Int): Float =
-            ((st.prefix[to + 1] - st.prefix[from]) / (to - from + 1).toFloat())
-        // 候选锚点集：常见源采样率的奈奎斯特（CD 22.05k / 48k 源 24k），
-        // 仅在文件采样率高于锚点时启用，避免对原生规格误判
-        val anchors = when {
-            st.sampleRate >= 88200 -> floatArrayOf(22050f, 24000f)
-            st.sampleRate == 48000 -> floatArrayOf(22050f)
-            else -> FloatArray(0)
-        }
-        for (anchorHz in anchors) {
-            // 锚点需深入奈奎斯特以下且留足死区宽度（≥800Hz）供判定
-            if (anchorHz + 800f > st.nyquist) continue
-            val anchorBin = (anchorHz / st.binHz).toInt()
-            val leftFrom = (anchorBin - (2200f / st.binHz).toInt()).coerceAtLeast(1)
-            val leftTo = (anchorBin - (300f / st.binHz).toInt()).coerceAtLeast(1)
-            if (leftTo <= leftFrom) continue
-            val rightFrom = (anchorBin + (300f / st.binHz).toInt()).coerceAtMost(st.n)
-            val rightTo = (anchorBin + (3400f / st.binHz).toInt()).coerceAtMost(st.n)
-            if (rightTo <= rightFrom) continue
-            val leftAvg = mean(leftFrom, leftTo)
-            val rightAvg = mean(rightFrom, rightTo)
-            var rightMax = st.db[rightFrom]
-            var rightMin = rightMax
-            for (i in rightFrom..rightTo) {
-                if (st.db[i] > rightMax) rightMax = st.db[i]
-                if (st.db[i] < rightMin) rightMin = st.db[i]
-            }
-            // 墙体：锚点两侧落差 ≥20dB，上方空虚平坦（均值贴近整体噪声底、
-            // 极差 ≤14dB、且深于 -45dB 相对峰值），构成升频独有指纹。
-            // 峰值约束：右侧任一个 bin 不得高于噪声底 20dB——真实录音即使均值低，
-            // 也常在上方残留零星内容（时钟突刺、噪声整形毛刺），单 bin 即可暴露，
-            // 借此拦下「高频自然静默」的真高解析度录音
-            if (leftAvg - rightAvg >= 20f &&
-                rightAvg - st.floor <= 14f &&
-                rightMax - rightMin <= 14f &&
-                rightMax - st.floor <= 20f &&
-                rightAvg <= -45f
-            ) {
-                return true
-            }
+    // 升频假无损判据：先测内容真实截止频率，再判断它是否落在某个源采样率奈奎斯特的
+    // 保护带内（重采样器必有保护带，真实墙总在源奈奎斯特略下方），且过渡带具砖墙陡峭度，
+    // 且 44.1k 源奈奎斯特上方探带的逐帧能量恒定（死区）。
+    // 三者齐备才判升频——自然滚降的 48k 原生母带（截止超出保护带或过渡带平缓）不命中；
+    // 48k/96k 源升频若探带落在真母带内容区（动态大）放行，不把「内容无损、仅采样率虚标」
+    // 的升采样误判为假无损
+    private fun detectUpsample(st: SpectralStats, probe22050: FloatArray): Boolean {
+        val cutHz = st.contentCutHz
+        if (cutHz <= 0f) return false
+        for (srcNyquist in UPSAMPLE_SRC_NYQUIST_HZ) {
+            // 文件采样率必须显著高于源采样率才可能是升频
+            if (st.sampleRate <= srcNyquist * 2f) continue
+            // 源奈奎斯特需深入文件奈奎斯特以下，留足死区宽度供判定
+            if (srcNyquist + 800f > st.nyquist) continue
+            val inGuard = cutHz in (srcNyquist - GUARD_LOW_HZ)..(srcNyquist + GUARD_HIGH_HZ)
+            if (!inGuard) continue
+            // 过渡带须具重采样砖墙陡峭度；自然滚降（数百 Hz 以上）直接排除
+            if (st.wallWidthHz > MAX_WALL_WIDTH_HZ) continue
+            // 死区动态：22050 上方探带逐帧能量起伏——44.1k 源升频死区为常量（<10dB），
+            // 真母带内容随乐句起伏；探带不适用（采样率不足以容纳）或帧数不足时视为无证据，
+            // 放行（宁漏勿误）
+            if (probe22050.isEmpty() || deadzoneDynDb(probe22050) > MIN_DEADZONE_DYN_DB) return false
+            return true
         }
         return false
+    }
+
+    // 探带逐帧能量的动态范围（p95–p05，dB）：真实内容随音乐包络起伏差异大，
+    // 重采样死区为常量噪声；帧数不足返回 MAX 视为无证据
+    private fun deadzoneDynDb(powers: FloatArray): Float {
+        if (powers.size < MIN_DEADZONE_FRAMES) return Float.MAX_VALUE
+        val n = powers.size
+        val s = FloatArray(n)
+        for (i in 0 until n) {
+            s[i] = 10f * log10(powers[i] + 1e-12f)
+        }
+        s.sort()
+        val p95 = s[(n * 0.95).toInt().coerceIn(0, n - 1)]
+        val p05 = s[(n * 0.05).toInt().coerceIn(0, n - 1)]
+        return (p95 - p05).coerceAtLeast(0f)
     }
 }
