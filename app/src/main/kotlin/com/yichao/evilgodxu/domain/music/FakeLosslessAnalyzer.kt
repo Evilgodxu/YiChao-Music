@@ -46,6 +46,12 @@ internal object FakeLosslessAnalyzer {
     private const val HOLE_DEPTH_DB = 10f
     private const val HOLE_MAX_HALF_WIDTH_HZ = 300f
     private const val HOLE_MIN_COUNT = 3
+    // ③ 高频死区全局平坦：转码链（有损解码→重采样→FLAC）的硬截止上方为量化/重采样均匀噪底
+    //    或数字静默，自截止至奈奎斯特逐 bin 能量几乎恒定（p95–p05 极窄）；
+    //    自然限带源的高频残留带模拟噪声/带内滚降结构，跨整个死区的平坦度远逊于该量级。
+    //    平均谱经多块累计后噪声起伏被压低，阈值取固定分贝跨度的稳健分位数差
+    private const val DEADZONE_FLAT_MAX_SPREAD_DB = 8f
+    private const val DEADZONE_MIN_BINS = 16
 
     // 稳健噪声底：取靠近奈奎斯特区间的中位数（而非全局最小值），避免真文件 dither 噪底
     // 与升频数字零死区之间 68dB 级别的基准漂移；宽区间内频带自身动态小，中位数即噪底中心
@@ -140,8 +146,9 @@ internal object FakeLosslessAnalyzer {
     //    但老录音/窄母带等自然限带也可能撞出硬墙，需依次排除：
     //    a) 左右声道明确去相关（≤0.55）→ 自然限带，放行；
     //    b) 无去相关证据时，须有转码专属佐证才判真——截止落在编码器特征频率网格
-    //       （16k/17.5k/18.5k/20k，MP3/AAC 预设位置）或高频存在 ≥3 个掩蔽空洞；
-    //    c) 两者皆无 → 更可能是自然限带（抗混叠/母带低通硬切），放行（宁漏勿误）。
+    //       （16k/17.5k/18.5k/20k，MP3/AAC 预设位置）、高频存在 ≥3 个掩蔽空洞，
+    //       或截止后整个高频死区全局平坦（量化/重采样均匀噪底或数字静默）；
+    //    c) 三者皆无 → 更可能是自然限带（抗混叠/母带低通硬切），放行（宁漏勿误）。
     // ③ 高解析（≥88.2k）：不再无条件判真——内容截止落入对应源奈奎斯特保护带
     //    且死区恒定的升频一定在 ① 命中；其余硬墙形态（真正的原生高解析录音，
     //    内容在某一自然频率滚降）直接放行，避免把母带高频滚降误判为转码。
@@ -157,8 +164,11 @@ internal object FakeLosslessAnalyzer {
             // CD 级：去相关内容撞出硬墙更可能来自自然限带，放行
             val hasStereoEvidence = s.channels == 2 && s.stereoCorrSamples >= STEREO_MIN_SAMPLES
             if (hasStereoEvidence && s.stereoCorrelation <= STEREO_CORR_AGAINST_MAX) return false
-            // 无去相关证据：须有转码专属佐证（特征网格截止或高频掩蔽空洞）才判真
-            return isCodecGridCutoff(stats, cutoffHz) || detectTranscodeHoles(stats)
+            // 无去相关证据：须有转码专属佐证才判真（特征网格截止 / 高频掩蔽空洞 /
+            // 截止后整体高频死区全局平坦），三者构成或逻辑
+            return isCodecGridCutoff(stats, cutoffHz) ||
+                detectTranscodeHoles(stats) ||
+                detectFlatDeadZone(stats, cutoffHz)
         }
         return false
     }
@@ -331,6 +341,22 @@ internal object FakeLosslessAnalyzer {
             i++
         }
         return count >= HOLE_MIN_COUNT
+    }
+
+    // 高频死区平坦佐证：硬截止至奈奎斯特之间的逐 bin 能量几乎恒定（稳健分位数差极小）。
+    // 有损解码→重采样→FLAC 链路的死区是量化/重采样均匀噪底或数字静默，统计上齐平；
+    // 自然限带源（无论是否去相关）的高频残留带模拟噪声/带内滚降结构，跨整个死区
+    // 起伏明显。平均谱经多块累计，噪声的逐 bin 抖动被压低到 2–4dB，阈值取 8dB
+    // 留足裕度；死区过窄（bin 不足）判定能力不足，放行。
+    // 仅在砖墙命中且未触发去相关放行后评估——此时死区平坦与转码在可测物理量上不可区分
+    private fun detectFlatDeadZone(st: SpectralStats, cutoffHz: Float): Boolean {
+        val fromBin = (cutoffHz / st.binHz).toInt().coerceIn(0, st.n)
+        if (st.n - fromBin < DEADZONE_MIN_BINS) return false
+        val seg = st.db.copyOfRange(fromBin, st.n + 1)
+        seg.sort()
+        val p95 = seg[(seg.size * 0.95).toInt().coerceIn(0, seg.size - 1)]
+        val p05 = seg[(seg.size * 0.05).toInt().coerceIn(0, seg.size - 1)]
+        return p95 - p05 <= DEADZONE_FLAT_MAX_SPREAD_DB
     }
 
     // 升频假无损判据：先测内容真实截止频率，再判断它是否落在某个源采样率奈奎斯特的
