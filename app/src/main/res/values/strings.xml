@@ -258,9 +258,9 @@
     <string name="library_analysis_other">其他</string>
     <string name="library_analysis_online">在线</string>
     <string name="library_analysis_fake_lossless">假无损</string>
-    <string name="library_analysis_ai_music">AI 音乐</string>
+    <string name="library_analysis_ai_music">疑似AI</string>
     <string name="library_analysis_checking">正在校验…</string>
-    <string name="library_analysis_check_progress">正在校验 %1$d/%2$d</string>
+    <string name="library_analysis_check_progress">分析音频中 %1$d/%2$d</string>
     <string name="library_analysis_refresh">重新分析</string>
 
     <!-- 更新 -->

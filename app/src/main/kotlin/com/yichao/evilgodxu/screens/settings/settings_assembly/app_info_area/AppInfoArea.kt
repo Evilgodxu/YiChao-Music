@@ -35,6 +35,21 @@ fun AppInfoArea(
 ) {
     val context = LocalContext.current
 
+    // 以系统浏览器打开链接；LocalContext 非 Activity 时需加 NEW_TASK
+    fun openUrl(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+        if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+
+    // 直接拉起 QQ 加群；未安装 QQ 时回退到网页加群
+    fun openQqGroup() {
+        val intent = Intent(Intent.ACTION_VIEW, QQ_GROUP_DEEP_LINK.toUri())
+        if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+            .onFailure { openUrl(QQ_GROUP_URL) }
+    }
+
     // 分享今日日志；无日志文件时直接忽略点击
     fun shareLog() {
         val file = CrashLogManager.todayLogFile() ?: return
@@ -84,21 +99,26 @@ fun AppInfoArea(
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
+        Text(
+            text = "QQ群:923555630",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+                .clickable { openQqGroup() },
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 8.dp),
+                .padding(top = 4.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
                 modifier = Modifier
-                    .clickable {
-                        val intent = Intent(Intent.ACTION_VIEW, GITHUB_URL.toUri())
-                        // LocalContext 为本地化包装 context，非 Activity 时需加 NEW_TASK
-                        if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                    }
+                    .clickable { openUrl(GITHUB_URL) }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -121,3 +141,5 @@ fun AppInfoArea(
 }
 
 private const val GITHUB_URL = "https://github.com/Evilgodxu/YiChao-Music"
+private const val QQ_GROUP_URL = "https://qm.qq.com/q/VkFPRNmykw"
+private const val QQ_GROUP_DEEP_LINK = "mqqapi://card/show_pslcard?src_type=internal&version=1&uin=923555630&card_type=group&source=qrcode"
