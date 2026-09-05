@@ -445,7 +445,7 @@ private fun PlaylistSearchBar(
             .clip(RoundedCornerShape(22.dp))
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.45f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                 shape = RoundedCornerShape(22.dp),
             ),
         contentAlignment = Alignment.CenterStart,
@@ -459,7 +459,7 @@ private fun PlaylistSearchBar(
             Icon(
                 imageVector = AppIcons.Search,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.8f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
             )
             BasicTextField(
