@@ -76,6 +76,7 @@ import com.yichao.evilgodxu.domain.music.searchCoverCandidates
 import com.yichao.evilgodxu.domain.music.searchLyricsCandidates
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.dialog.LosslessUpgradeDialog
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.LibraryAnalysisController
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.LibraryAnalysisSheet
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSheet
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -98,22 +99,22 @@ import kotlinx.coroutines.launch
 
 // 首页播放器主体：沉浸封面 + 歌词 + 标题与艺术家 + 底部控制栏
 @Composable
-fun PlayerArea(
+internal fun PlayerArea(
     modifier: Modifier = Modifier,
     // 标题栏区域高度：封面顶部渐隐区与错误横幅避让基准
     topBarInset: Dp = 0.dp,
     // 纵向切歌预览提示：滑动未松手时显示于专辑封面底部
     swipePreviewText: String? = null,
+    // 曲库分析会话：状态与后台分析任务常驻首页层
+    libraryAnalysis: LibraryAnalysisController,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
     var playlistVisible by remember { mutableStateOf(false) }
-    // 曲库分析面板显隐：长按播放列表按钮打开
-    var analysisVisible by remember { mutableStateOf(false) }
 
-    // 播放列表与曲库分析展开时，系统返回键收起面板
-    BackHandler(enabled = playlistVisible || analysisVisible) {
-        if (analysisVisible) analysisVisible = false else playlistVisible = false
+    // 播放列表与曲库分析展开时，系统返回键收起面板（曲库分析关闭不中断后台任务）
+    BackHandler(enabled = playlistVisible || libraryAnalysis.visible) {
+        if (libraryAnalysis.visible) libraryAnalysis.dismiss() else playlistVisible = false
     }
 
     // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
@@ -505,7 +506,7 @@ fun PlayerArea(
                 PlayerControls(
                     playbackState = playbackState,
                     onPlaylistClick = { playlistVisible = !playlistVisible },
-                    onPlaylistLongClick = { analysisVisible = true },
+                    onPlaylistLongClick = { libraryAnalysis.open() },
                 )
             }
         }
@@ -517,9 +518,10 @@ fun PlayerArea(
         )
 
         LibraryAnalysisSheet(
-            visible = analysisVisible,
+            visible = libraryAnalysis.visible,
             playbackState = playbackState,
-            onDismiss = { analysisVisible = false },
+            analysis = libraryAnalysis,
+            onDismiss = { libraryAnalysis.dismiss() },
         )
 
         RenameDialog(

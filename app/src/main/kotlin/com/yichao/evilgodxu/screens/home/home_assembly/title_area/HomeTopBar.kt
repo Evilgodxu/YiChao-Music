@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
@@ -35,10 +36,22 @@ internal fun HomeTopBar(
     onToggleFavorite: () -> Unit,
     onToggleLandscape: () -> Unit,
     onOpenSettings: () -> Unit,
+    // 居中标题内容：对话框收起后展示后台曲库分析进度
+    centerTitle: String? = null,
     windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
 ) {
     CenterAlignedTopAppBar(
-        title = {},
+        title = {
+            centerTitle?.let {
+                Text(
+                    text = it,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
         windowInsets = windowInsets,
         navigationIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {

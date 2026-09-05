@@ -257,7 +257,10 @@
     <string name="library_analysis_empty">Library is empty</string>
     <string name="library_analysis_other">Other</string>
     <string name="library_analysis_online">Online</string>
+    <string name="library_analysis_fake_lossless">Fake Lossless</string>
     <string name="library_analysis_ai_music">AI Music</string>
+    <string name="library_analysis_checking">Checking…</string>
+    <string name="library_analysis_check_progress">Analyzing audio %1$d/%2$d</string>
     <string name="library_analysis_refresh">Re-analyze</string>
 
     <!-- Update -->

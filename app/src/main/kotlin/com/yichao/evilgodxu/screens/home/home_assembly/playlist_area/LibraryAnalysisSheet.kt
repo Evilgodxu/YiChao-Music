@@ -54,7 +54,9 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -67,6 +69,7 @@ private const val FormatListVisibleRows = 3
 internal fun LibraryAnalysisSheet(
     visible: Boolean,
     playbackState: MusicPlaybackState,
+    analysis: LibraryAnalysisController,
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
@@ -75,46 +78,10 @@ internal fun LibraryAnalysisSheet(
     val stats = remember(playbackState.libraryTracks) {
         analyzeLibraryFormats(context, playbackState.libraryTracks)
     }
-    // 假无损校验状态：progress 为 (已校验数, 总数) 显示进度；count 为校验结果，null 表示进行中
-    var checkingProgress by remember(playbackState.libraryTracks) { mutableStateOf<Pair<Int, Int>?>(null) }
-    var fakeLosslessCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
-    // AI 音乐识别状态：与假无损同语义，两者共用同一进度显示（识别阶段各自回传）
-    var aiMusicCount by remember(playbackState.libraryTracks) { mutableStateOf<Int?>(null) }
-    // 手动刷新触发计数：>0 时先清空缓存（旧版本判定结果不可复用）再全量重新分析；
-    // 与 libraryTracks 同生命周期，曲库变化或对话框重开时归零，恢复缓存命中的增量校验
-    var refreshTick by remember(playbackState.libraryTracks) { mutableStateOf(0) }
-    // 分析进行中标记：驱动刷新按钮防抖（置灰不可点），分析完成前阻断重复触发
-    var analyzing by remember(playbackState.libraryTracks) { mutableStateOf(true) }
-    LaunchedEffect(playbackState.libraryTracks, refreshTick) {
-        // 增量校验：缓存命中的旧文件直接复用持久化结果，仅对新增/变更文件解码分析；
-        // 刷新路径先 resetCache 清空旧判定，强制全部文件重新解码；进度以新增文件数为基数
-        analyzing = true
-        fakeLosslessCount = null
-        aiMusicCount = null
-        try {
-            if (refreshTick > 0) {
-                FakeLosslessAnalyzer.resetCache(context)
-                AiMusicAnalyzer.resetCache(context)
-            }
-            fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
-                context = context,
-                tracks = playbackState.libraryTracks,
-                onProgress = { checked, total ->
-                    if (total > 0) checkingProgress = checked to total
-                },
-            )
-            aiMusicCount = AiMusicAnalyzer.analyzeLibraryIncremental(
-                context = context,
-                tracks = playbackState.libraryTracks,
-                onProgress = { checked, total ->
-                    if (total > 0) checkingProgress = checked to total
-                },
-            )
-        } finally {
-            // 完成或被取消/异常都复位，避免按钮永久禁用或进度残留
-            analyzing = false
-            checkingProgress = null
-        }
+    // 对话框打开或曲库变化时触发分析：任务由控制器在首页层后台执行，
+    // 关闭对话框不中断，重开时沿用进行中的进度
+    LaunchedEffect(playbackState.libraryTracks) {
+        analysis.onSheetOpen(playbackState.libraryTracks)
     }
     val currentKey = playbackState.playlistSource?.key
 
@@ -146,8 +113,8 @@ internal fun LibraryAnalysisSheet(
                 // 刷新：清空校验缓存后全量重新分析，规避识别策略更新后旧缓存复用导致假无损被放行；
                 // 分析进行中置灰不可点，防手抖/重复触发
                 IconButton(
-                    onClick = { refreshTick++ },
-                    enabled = !analyzing,
+                    onClick = { analysis.onRefresh(playbackState.libraryTracks) },
+                    enabled = !analysis.analyzing,
                     modifier = Modifier.size(32.dp),
                 ) {
                     Icon(
@@ -179,9 +146,9 @@ internal fun LibraryAnalysisSheet(
             } else {
                 val total = stats.sumOf { it.count }
                 // 假无损 / AI 音乐为识别算法的补充类目：仅在校验发现的疑似文件并入定位列表
-                val fakeCount = fakeLosslessCount
+                val fakeCount = analysis.fakeLosslessCount
                 val hasFakeLossless = fakeCount != null && fakeCount > 0
-                val aiCount = aiMusicCount
+                val aiCount = analysis.aiMusicCount
                 val hasAiMusic = aiCount != null && aiCount > 0
                 val specialRowCount = (if (hasFakeLossless) 1 else 0) + (if (hasAiMusic) 1 else 0)
                 val navStats = buildList {
@@ -267,7 +234,7 @@ internal fun LibraryAnalysisSheet(
                         modifier = Modifier.weight(1f),
                     )
                     // 校验中在标题右侧提示（含逐曲进度），显隐不改变列表区高度
-                    val progress = checkingProgress
+                    val progress = analysis.checkingProgress
                     when {
                         progress != null -> Text(
                             text = stringResource(
@@ -278,7 +245,7 @@ internal fun LibraryAnalysisSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                         )
-                        fakeLosslessCount == null -> Text(
+                        analysis.fakeLosslessCount == null -> Text(
                             text = stringResource(R.string.library_analysis_checking),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
@@ -563,3 +530,89 @@ private fun formatPercent(percent: Float): String =
     } else {
         String.format(Locale.US, "%.1f%%", percent)
     }
+
+// 曲库分析会话控制器：状态与分析协程常驻首页层（对话框关闭不销毁），
+// 关闭对话框后任务在后台继续执行，标题区据 analyzing 展示分析进度
+internal class LibraryAnalysisController(
+    private val context: Context,
+    private val scope: CoroutineScope,
+) {
+    // 对话框显隐：关闭仅收起展示，不中断分析
+    var visible by mutableStateOf(false)
+        private set
+    // 分析进度：(已校验数, 总数)，null 表示未在分析或已结束
+    var checkingProgress by mutableStateOf<Pair<Int, Int>?>(null)
+        private set
+    // 假无损 / AI 音乐识别结果：null 表示对应识别阶段尚未完成
+    var fakeLosslessCount by mutableStateOf<Int?>(null)
+        private set
+    var aiMusicCount by mutableStateOf<Int?>(null)
+        private set
+    // 分析进行中：驱动刷新按钮防抖；对话框收起后仍在后台执行
+    var analyzing by mutableStateOf(false)
+        private set
+
+    // 当前分析任务与最近一次分析的曲库快照（曲库变化时强制重启）
+    private var analysisJob: Job? = null
+    private var analyzedTracks: List<MusicTrack>? = null
+
+    fun open() {
+        visible = true
+    }
+
+    fun dismiss() {
+        visible = false
+    }
+
+    // 对话框打开或曲库变化时触发：分析已完成或曲库范围变化则启动增量分析；
+    // 后台任务进行中再次打开沿用当前进度，不重复启动
+    fun onSheetOpen(tracks: List<MusicTrack>) {
+        if (analyzedTracks !== tracks || !analyzing) {
+            startAnalysis(tracks, refreshed = false)
+        }
+    }
+
+    // 手动刷新：清空校验缓存（旧版本判定结果不可复用）后强制全量重新分析
+    fun onRefresh(tracks: List<MusicTrack>) {
+        startAnalysis(tracks, refreshed = true)
+    }
+
+    private fun startAnalysis(tracks: List<MusicTrack>, refreshed: Boolean) {
+        analysisJob?.cancel()
+        analyzedTracks = tracks
+        analysisJob = scope.launch {
+            val job = coroutineContext[Job]
+            analyzing = true
+            fakeLosslessCount = null
+            aiMusicCount = null
+            try {
+                if (refreshed) {
+                    FakeLosslessAnalyzer.resetCache(context)
+                    AiMusicAnalyzer.resetCache(context)
+                }
+                // 增量校验：缓存命中的旧文件直接复用持久化结果，仅对新增/变更文件解码分析；
+                // 进度以新增文件数为基数，假无损与 AI 识别共用同一进度显示
+                fakeLosslessCount = FakeLosslessAnalyzer.analyzeLibraryIncremental(
+                    context = context,
+                    tracks = tracks,
+                    onProgress = { checked, total ->
+                        if (total > 0) checkingProgress = checked to total
+                    },
+                )
+                aiMusicCount = AiMusicAnalyzer.analyzeLibraryIncremental(
+                    context = context,
+                    tracks = tracks,
+                    onProgress = { checked, total ->
+                        if (total > 0) checkingProgress = checked to total
+                    },
+                )
+            } finally {
+                // 仅当仍是当前任务时复位，避免被新一轮任务抢先覆盖状态
+                if (analysisJob === job) {
+                    analyzing = false
+                    checkingProgress = null
+                }
+            }
+        }
+    }
+}

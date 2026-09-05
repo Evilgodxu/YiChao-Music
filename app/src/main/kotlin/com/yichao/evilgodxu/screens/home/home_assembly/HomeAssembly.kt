@@ -31,16 +31,19 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.dialog.TimerDialog
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.overlay.swipeToChangeTrackFlow
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.home_assembly.online_search.OnlineSearchPanel
 import com.yichao.evilgodxu.screens.home.home_assembly.permission_area.PermissionDialog
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.LandscapePlayerArea
 import com.yichao.evilgodxu.screens.home.home_assembly.player_area.PlayerArea
+import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.LibraryAnalysisController
 import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistPanel
 import com.yichao.evilgodxu.screens.home.home_assembly.title_area.HomeTopBar
 import com.yichao.evilgodxu.screens.home.HomeUiState
@@ -66,6 +69,8 @@ fun HomeAssembly(
         .collectAsStateWithLifecycle(initialValue = true)
     // 首页标题/艺术家在线搜索等协程作用域
     val scope = rememberCoroutineScope()
+    // 曲库分析会话：状态与后台任务常驻首页层，关闭对话框后分析继续执行
+    val libraryAnalysis = remember(context) { LibraryAnalysisController(context, scope) }
     // 左右滑动切换面板与上下滑动切歌的手势状态
     val swipeController = rememberHomeSwipeController(playbackState, swipeToChangeTrack)
     swipeController.SettleEffect()
@@ -140,6 +145,14 @@ fun HomeAssembly(
             .then(swipeController.swipeModifier)
     ) {
         val contentWidth = maxWidth
+        // 对话框收起后的后台分析进度：在标题区居中展示
+        val analysisCenterTitle = if (!libraryAnalysis.visible && libraryAnalysis.analyzing) {
+            libraryAnalysis.checkingProgress?.let { (checked, total) ->
+                stringResource(R.string.library_analysis_check_progress, checked, total)
+            } ?: stringResource(R.string.library_analysis_checking)
+        } else {
+            null
+        }
         // 横屏系统栏隐藏，无需为状态栏压暗顶部
         SongGradientBackground(
             track = playbackState.currentTrack,
@@ -162,6 +175,7 @@ fun HomeAssembly(
                         isLandscapeMode = isLandscapeMode,
                         isLiked = isLiked,
                         favoriteEnabled = currentTrackId != null,
+                        centerTitle = analysisCenterTitle,
                         onShowTimer = { showTimer = true },
                         onToggleFavorite = { currentTrackId?.let { playbackState.toggleFavorite(it) } },
                         onToggleLandscape = { toggleLandscapeMode() },
@@ -199,6 +213,7 @@ fun HomeAssembly(
                             modifier = Modifier.fillMaxSize(),
                             topBarInset = innerPadding.calculateTopPadding(),
                             swipePreviewText = swipeController.trackSwitchPreviewText,
+                            libraryAnalysis = libraryAnalysis,
                             onOpenOnlineSearch = { query ->
                                 playbackState.setSearchQuery(query)
                                 playbackState.setSearchResultsVisible(true)
