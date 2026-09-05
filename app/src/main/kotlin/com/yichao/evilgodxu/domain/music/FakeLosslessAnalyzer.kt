@@ -34,9 +34,10 @@ internal object FakeLosslessAnalyzer {
     private const val STEREO_CORR_AGAINST_MAX = 0.55f
 
     // 转码第二佐证（CD 级硬墙且相关性无从反驳时用于区分转码与自然限带）：
-    // ① 编码器特征频率网格：LAME/AAC 的硬截止位置由编码器预设决定，仅落在少数确定频率
-    //    （44.1k 下 16k/17.5k/18.5k/20k），自然限带（抗混叠滤波/母带低通）是连续可调的，
-    //    硬切恰落网格的概率低；多边形容差仅对 44.1k 启用，避开 48k 下网格缩放的歧义
+    // ① 编码器特征频率网格：LAME/AAC 的硬截止位置由低通预设决定，仅落在少数确定频率
+    //    （44.1k/48k 下均为 16k/17.5k/18.5k/20k），自然限带（抗混叠滤波/母带低通）
+    //    是连续可调的，硬切恰落网格的概率低；调用方仅在立体声未去相关时评估，
+    //    自然限带源多为去相关内容，已在前置分支放行
     private val CODEC_GRID_HZ = floatArrayOf(16000f, 17500f, 18500f, 20000f)
     private const val CODEC_GRID_TOLERANCE_HZ = 400f
     // ② 高频掩蔽空洞：MP3/AAC 心理声学模型在 16k 以上留下窄深缺口（相邻 bin 突然凹陷又回升），
@@ -64,11 +65,14 @@ internal object FakeLosslessAnalyzer {
     private const val CUT_ABOVE_FLOOR_DB = 3f
     private const val WALL_REF_DB = 20f
 
-    // 升频判据：候选源采样率的奈奎斯特。重采样保护带使真实墙总落在源奈奎斯特略下方，
-    // 从不恰好等于它；过渡带须具砖墙陡峭度；源奈奎斯特上方探带的逐帧能量须恒定（死区）
+    // 升频判据：候选源采样率的奈奎斯特。重采样保护带使真实墙落在源奈奎斯特附近；
+    // 过渡带须具砖墙陡峭度；源奈奎斯特上方探带的逐帧能量须恒定（死区）
     private val UPSAMPLE_SRC_NYQUIST_HZ = floatArrayOf(22050f, 24000f, 44100f)
     private const val GUARD_LOW_HZ = 900f
-    private const val GUARD_HIGH_HZ = 200f
+    // 保护带上限放宽至 1kHz：重采样过渡带/砖墙振铃可使实测内容截止略高于源奈奎斯特
+    // （实测 48k→96k 截止 24.26k，仅超 24000 保护带上缘 58Hz），余量过小导致升频漏判；
+    // 墙宽与死区动态判据仍独立把关，自然滚降不受影响
+    private const val GUARD_HIGH_HZ = 1000f
     private const val MAX_WALL_WIDTH_HZ = 400f
     // 升频死区逐帧动态上界：真实内容随乐句起伏（实测 >45dB），重采样死区恒定（<2dB）
     private const val MIN_DEADZONE_DYN_DB = 10f
@@ -149,9 +153,9 @@ internal object FakeLosslessAnalyzer {
     //       （16k/17.5k/18.5k/20k，MP3/AAC 预设位置）、高频存在 ≥3 个掩蔽空洞，
     //       或截止后整个高频死区全局平坦（量化/重采样均匀噪底或数字静默）；
     //    c) 三者皆无 → 更可能是自然限带（抗混叠/母带低通硬切），放行（宁漏勿误）。
-    // ③ 高解析（≥88.2k）：不再无条件判真——内容截止落入对应源奈奎斯特保护带
-    //    且死区恒定的升频一定在 ① 命中；其余硬墙形态（真正的原生高解析录音，
-    //    内容在某一自然频率滚降）直接放行，避免把母带高频滚降误判为转码。
+    // ③ 高解析（>48k）：内容截止落入对应源奈奎斯特保护带且死区恒定的升频在 ① 命中；
+    //    其余硬墙与 CD 级同等过转码佐证（特征网格仅限 CD 级，高解析以平坦死区为主），
+    //    原生高解析的自然滚降因不满足 detectCliff 的平坦前提而放行，母带滚降不误判。
     private fun detectFakeSignals(s: SpectralDecoder.DecodeSummary): Boolean {
         val stats = computeSpectralStats(s.powerSum, s.blocks, s.sampleRate) ?: return false
         // ① 升频：物理证据独立判定，命中即假无损，不依赖砖墙命中与否
@@ -159,13 +163,14 @@ internal object FakeLosslessAnalyzer {
         // ② ③ 砖墙：先抓「未升频转码」，再按规格做防误判分流
         val cutoffHz = detectCliff(stats)
         if (cutoffHz != null) {
-            // 高解析：非升频的硬墙视为自然滚降，放行（升频已在 ① 捕获）
-            if (stats.sampleRate > 48000) return false
-            // CD 级：去相关内容撞出硬墙更可能来自自然限带，放行
+            // 去相关内容撞出硬墙更可能来自自然限带（老录音/窄母带），放行；
+            // 高解析不再无条件放行：detectCliff 要求截止上方 3kHz 内相对噪底平坦（≤8dB），
+            // 原生高解析的自然滚降不满足该前提，撞出硬墙的多为升频/转码的重采样墙
             val hasStereoEvidence = s.channels == 2 && s.stereoCorrSamples >= STEREO_MIN_SAMPLES
             if (hasStereoEvidence && s.stereoCorrelation <= STEREO_CORR_AGAINST_MAX) return false
             // 无去相关证据：须有转码专属佐证才判真（特征网格截止 / 高频掩蔽空洞 /
-            // 截止后整体高频死区全局平坦），三者构成或逻辑
+            // 截止后整体高频死区全局平坦），三者构成或逻辑；网格仅对 CD 级 44.1k/48k
+            // 启用，高解析的转码墙由「平坦死区」佐证捕获
             return isCodecGridCutoff(stats, cutoffHz) ||
                 detectTranscodeHoles(stats) ||
                 detectFlatDeadZone(stats, cutoffHz)
@@ -267,10 +272,11 @@ internal object FakeLosslessAnalyzer {
     }
 
     // 编码器特征网格佐证：截止频率落在 LAME/AAC 的预设截止点（多边形容差）附近。
-    // 仅在 44.1k 启用——该采样率下编码器网格位置确定；48k 下 LAME 与 AAC 的
-    // 截止随 scale factor band / 码率重新分布，网格缩放引入歧义，交由空洞佐证兜底
+    // 44.1k 与 48k 共用同一 Hz 网格——低通截止由编码器按 Hz 设定，与源采样率解耦；
+    // 48k 下 scale factor band 分布虽略有偏移，但本佐证仅在立体声未去相关时评估，
+    // 自然限带源（多为去相关内容）已在前置分支放行，误伤风险可控
     private fun isCodecGridCutoff(st: SpectralStats, cutoffHz: Float): Boolean {
-        if (st.sampleRate != 44100) return false
+        if (st.sampleRate != 44100 && st.sampleRate != 48000) return false
         return CODEC_GRID_HZ.any { kotlin.math.abs(it - cutoffHz) <= CODEC_GRID_TOLERANCE_HZ }
     }
 
