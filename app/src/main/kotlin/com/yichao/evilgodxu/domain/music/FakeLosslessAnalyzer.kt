@@ -13,6 +13,8 @@ import kotlinx.coroutines.withContext
 // ② 频谱判定：全部候选 FLAC 用共享 SpectralDecoder 稀疏窗口解码 3 段（每窗 4 秒），FFT 求平均
 //    功率谱，两条互补判据任一命中即判为可疑：
 //    a) 砖墙主判据：奈奎斯特以下「砖墙式」截止 + 平坦死区，表征有损转码来源；
+//       CD 级硬墙为避免误伤自然限带（老录音/窄母带），再经去相关性与转码特征
+//       （编码器截止网格 / 高频掩蔽空洞）两级佐证确认，佐证不足则放行（宁漏勿误）；
 //    b) 升频锚点判据：截止恰为源采样率奈奎斯特（22.05k/24k）且其上方整体空虚平坦，
 //       覆盖升频假无损——廉价重采样在锚点上方留下的斜坡过渡带会令 a) 漏判，
 //       而真高解析度在 22.05k 上下存在自然连续内容，不会被 b) 误伤。
@@ -30,6 +32,20 @@ internal object FakeLosslessAnalyzer {
     // 砖墙命中且相关性不高于该值时，视为自然限带内容（真去相关）而非转码，降级放行
     private const val STEREO_MIN_SAMPLES = 4096L
     private const val STEREO_CORR_AGAINST_MAX = 0.55f
+
+    // 转码第二佐证（CD 级硬墙且相关性无从反驳时用于区分转码与自然限带）：
+    // ① 编码器特征频率网格：LAME/AAC 的硬截止位置由编码器预设决定，仅落在少数确定频率
+    //    （44.1k 下 16k/17.5k/18.5k/20k），自然限带（抗混叠滤波/母带低通）是连续可调的，
+    //    硬切恰落网格的概率低；多边形容差仅对 44.1k 启用，避开 48k 下网格缩放的歧义
+    private val CODEC_GRID_HZ = floatArrayOf(16000f, 17500f, 18500f, 20000f)
+    private const val CODEC_GRID_TOLERANCE_HZ = 400f
+    // ② 高频掩蔽空洞：MP3/AAC 心理声学模型在 16k 以上留下窄深缺口（相邻 bin 突然凹陷又回升），
+    //    真无损自然限带的高频是平滑单调滚降，罕有孤立窄凹；对平均谱做局部极小 + 两侧带落差统计
+    private const val HOLE_LO_BAND_HZ = 16000f
+    private const val HOLE_SIDE_BAND_HZ = 180f
+    private const val HOLE_DEPTH_DB = 10f
+    private const val HOLE_MAX_HALF_WIDTH_HZ = 300f
+    private const val HOLE_MIN_COUNT = 3
 
     // 是否为可校验的 FLAC 文件：扩展名口径，与曲库分析的 FLAC 格式类目一致
     fun isFlacCandidate(track: MusicTrack): Boolean =
@@ -91,9 +107,13 @@ internal object FakeLosslessAnalyzer {
         return detectFakeSignals(summary)
     }
 
-    // 假无损合成判定。两条主判据按文件规格分流，立体声相关性仅用于 CD 级防误判：
+    // 假无损合成判定。两条主判据按文件规格分流，CD 级硬墙用三证据合成区分转码与自然限带：
     // ① CD 级（44.1k/48k）：砖墙命中即未升频的直接转码。但老录音/窄母带等
-    //    自然限带也可能撞出硬墙，若左右声道明确去相关（≤0.55）则放行，否则判真。
+    //    自然限带也可能撞出硬墙，需依次排除：
+    //    a) 左右声道明确去相关（≤0.55）→ 自然限带，放行；
+    //    b) 无去相关证据时，须有转码专属佐证才判真——截止落在编码器特征频率网格
+    //       （16k/17.5k/18.5k/20k，MP3/AAC 预设位置）或高频存在 ≥3 个掩蔽空洞；
+    //    c) 两者皆无 → 更可能是自然限带（抗混叠/母带低通硬切），放行（宁漏勿误）。
     // ② 高解析（≥88.2k）：不存在「自然限带」豁免，因为真实高解析录音不会在
     //    22.05k/24k（CD 奈奎斯特）处凭空出现 ≥35dB 硬切 + 上方死区。
     //    墙体未软化 → 砖墙命中，直接判真；
@@ -104,12 +124,15 @@ internal object FakeLosslessAnalyzer {
     private fun detectFakeSignals(s: SpectralDecoder.DecodeSummary): Boolean {
         val stats = computeSpectralStats(s.powerSum, s.blocks, s.sampleRate) ?: return false
         // ① 砖墙：先抓「未升频转码」与「硬墙升频」，再按规格做防误判分流
-        if (detectCliff(stats)) {
+        val cutoffHz = detectCliff(stats)
+        if (cutoffHz != null) {
             // 高解析文件的砖墙命中是升频残留证据，直接判真
             if (stats.sampleRate > 48000) return true
-            // CD 级文件：去相关内容撞出硬墙更可能来自自然限带，放行；否则判真
+            // CD 级：去相关内容撞出硬墙更可能来自自然限带，放行
             val hasStereoEvidence = s.channels == 2 && s.stereoCorrSamples >= STEREO_MIN_SAMPLES
-            return !(hasStereoEvidence && s.stereoCorrelation <= STEREO_CORR_AGAINST_MAX)
+            if (hasStereoEvidence && s.stereoCorrelation <= STEREO_CORR_AGAINST_MAX) return false
+            // 无去相关证据：须有转码专属佐证（特征网格截止或高频掩蔽空洞）才判真
+            return isCodecGridCutoff(stats, cutoffHz) || detectTranscodeHoles(stats)
         }
         // ② 升频锚点：砖墙未命中时抓「软墙升频」，高解析源才启用，不受相关性影响
         return detectUpsampledAnchorWall(stats)
@@ -155,8 +178,9 @@ internal object FakeLosslessAnalyzer {
     }
 
     // 砖墙截止判定：找显著下降沿 + 上方死区平坦且明显低于奈奎斯特，
-    // 表征有损转码的硬截止；未命中时由合成判定转入升频锚点判据
-    private fun detectCliff(st: SpectralStats): Boolean {
+    // 表征有损转码的硬截止；命中返回截止频率（Hz），未命中返回 null，
+    // 由合成判定按规格分流：高解析直接判真，CD 级转入转码第二佐证
+    private fun detectCliff(st: SpectralStats): Float? {
         val n = st.n
         fun mean(from: Int, to: Int): Float =
             ((st.prefix[to + 1] - st.prefix[from]) / (to - from + 1).toFloat())
@@ -174,11 +198,88 @@ internal object FakeLosslessAnalyzer {
             // 硬切判据：下降沿 ≥35dB 且上方死区平坦（≤8dB 相对噪声底）
             if (leftAvg - st.floor >= 35f && rightAvg - st.floor <= 8f) {
                 val cutoffHz = b * st.binHz
-                if (cutoffHz <= 0.9f * st.nyquist) return true
+                if (cutoffHz <= 0.9f * st.nyquist) return cutoffHz
             }
             b--
         }
-        return false
+        return null
+    }
+
+    // 编码器特征网格佐证：截止频率落在 LAME/AAC 的预设截止点（多边形容差）附近。
+    // 仅在 44.1k 启用——该采样率下编码器网格位置确定；48k 下 LAME 与 AAC 的
+    // 截止随 scale factor band / 码率重新分布，网格缩放引入歧义，交由空洞佐证兜底
+    private fun isCodecGridCutoff(st: SpectralStats, cutoffHz: Float): Boolean {
+        if (st.sampleRate != 44100) return false
+        return CODEC_GRID_HZ.any { kotlin.math.abs(it - cutoffHz) <= CODEC_GRID_TOLERANCE_HZ }
+    }
+
+    // 高频掩蔽空洞佐证：16k 至奈奎斯特之间统计「窄而深」的孤立缺口——
+    // MP3/AAC 心理声学掩蔽在平均谱上残留的稳定窄槽；真无损自然限带的高频
+    // 为平滑单调滚降，罕有此类形态。要求局部极小、两侧带落差 ≥10dB、宽度
+    // ≤600Hz，且计数达到阈值才判转码；死区平坦段处处等电平，不会产生空洞
+    private fun detectTranscodeHoles(st: SpectralStats): Boolean {
+        val binHz = st.binHz
+        val db = st.db
+        val n = st.n
+        val loBin = (HOLE_LO_BAND_HZ / binHz).toInt().coerceAtLeast(1)
+        val sideBin = (HOLE_SIDE_BAND_HZ / binHz).toInt().coerceAtLeast(6)
+        val maxHalfWidthBin = (HOLE_MAX_HALF_WIDTH_HZ / binHz).toInt().coerceAtLeast(sideBin + 4)
+        var count = 0
+        var i = loBin + sideBin
+        var lastHoleBin = Int.MIN_VALUE
+        while (i < n - sideBin) {
+            // 局部极小：±sideBin 内最凹点
+            var isLocalMin = true
+            val iLo = (i - sideBin).coerceAtLeast(0)
+            val iHi = (i + sideBin).coerceAtMost(n)
+            for (k in iLo..iHi) {
+                if (db[k] < db[i]) {
+                    isLocalMin = false
+                    break
+                }
+            }
+            if (isLocalMin) {
+                // 两侧带均值（跳过凹点自身 ±sideBin）：取较低一侧作落差基准
+                var leftSum = 0f
+                var leftCnt = 0
+                var k = (i - 2 * sideBin).coerceAtLeast(0)
+                val leftEnd = (i - sideBin).coerceAtLeast(0)
+                while (k < leftEnd) { leftSum += db[k]; leftCnt++; k++ }
+                var rightSum = 0f
+                var rightCnt = 0
+                k = (i + sideBin).coerceAtMost(n)
+                val rightEnd = (i + 2 * sideBin).coerceAtMost(n)
+                while (k <= rightEnd) { rightSum += db[k]; rightCnt++; k++ }
+                if (leftCnt > 0 && rightCnt > 0) {
+                    val sideAvg = minOf(leftSum / leftCnt, rightSum / rightCnt)
+                    if (sideAvg - db[i] >= HOLE_DEPTH_DB) {
+                        // 宽度：自凹点向两侧走，直到回升 3dB 或超出最大半宽
+                        var halfLeft = 0
+                        while (halfLeft < maxHalfWidthBin && i - 1 - halfLeft >= 0 &&
+                            db[i - 1 - halfLeft] < db[i] + 3f
+                        ) {
+                            halfLeft++
+                        }
+                        var halfRight = 0
+                        while (halfRight < maxHalfWidthBin && i + 1 + halfRight <= n &&
+                            db[i + 1 + halfRight] < db[i] + 3f
+                        ) {
+                            halfRight++
+                        }
+                        val width = halfLeft + halfRight + 1
+                        // 窄凹（≤ 最大半宽两倍）+ 与前一空洞保持间距去重
+                        if (width <= 2 * maxHalfWidthBin &&
+                            i - lastHoleBin >= sideBin
+                        ) {
+                            count++
+                            lastHoleBin = i
+                        }
+                    }
+                }
+            }
+            i++
+        }
+        return count >= HOLE_MIN_COUNT
     }
 
     // 升频假无损锚点判据：真高解析度在 22.05k/24k 上下有自然连续内容，
