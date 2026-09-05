@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.data.music.proxy
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import org.json.JSONArray
 
@@ -83,6 +84,21 @@ internal object ProxySourceStore {
             pic = latest { it.pic },
             playlist = latest { it.playlist },
         ).takeIf { it.hasAnyAction }
+    }
+
+    // 注册存储变更监听：分享导入等外部写入路径不经过 ViewModel，界面借此感知数据变化后刷新
+    fun registerChangeListener(
+        context: Context,
+        listener: SharedPreferences.OnSharedPreferenceChangeListener,
+    ) {
+        prefs(context).registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun unregisterChangeListener(
+        context: Context,
+        listener: SharedPreferences.OnSharedPreferenceChangeListener,
+    ) {
+        prefs(context).unregisterOnSharedPreferenceChangeListener(listener)
     }
 
     private fun saveRawList(context: Context, list: List<String>) {

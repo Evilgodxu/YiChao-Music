@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.screens.settings
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,6 +42,16 @@ class SettingsViewModel(
     private val context get() = getApplication<Application>()
     private val localizationManager: LocalizationManager by inject()
 
+    // 代理音源存储变更监听：分享导入等外部写入不经过本 ViewModel，存储变化后统一驱动列表刷新
+    private val proxyChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        refreshProxySources()
+    }
+
+    override fun onCleared() {
+        ProxySourceStore.unregisterChangeListener(context, proxyChangeListener)
+        super.onCleared()
+    }
+
     private val _uiState = MutableStateFlow(
         SettingsUiState(version = getVersion()),
     )
@@ -71,6 +82,8 @@ class SettingsViewModel(
             }
         }
         refreshProxySources()
+        // 注册外部导入（如系统分享）引发的数据变更监听，确保列表即时同步
+        ProxySourceStore.registerChangeListener(context, proxyChangeListener)
     }
 
     fun setMiniPlayerEnabled(enabled: Boolean) {
@@ -162,7 +175,7 @@ class SettingsViewModel(
             _uiState.update {
                 it.copy(proxyImportMessage = message, proxyImportFailed = failed)
             }
-            refreshProxySources()
+            // 列表刷新由存储变更监听统一驱动
         }
     }
 
@@ -170,14 +183,12 @@ class SettingsViewModel(
     fun setProxySourceEnabled(name: String, enabled: Boolean) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { ProxySourceStore.setEnabled(context, name, enabled) }
-            refreshProxySources()
         }
     }
 
     fun removeProxySource(name: String) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { ProxySourceStore.remove(context, name) }
-            refreshProxySources()
         }
     }
 
