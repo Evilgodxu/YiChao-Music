@@ -121,12 +121,15 @@ object UpdateManager {
                 val downloadUrl = apkAsset?.browser_download_url?.takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("GitHub Release 未提供可用 APK")
 
-                prefs.edit()
-                    .putString(KEY_LAST_CHECK_DAY, day)
-                    .putString(KEY_PENDING_VERSION, latest)
-                    .putString(KEY_PENDING_URL, downloadUrl)
-                    .putString(KEY_PENDING_CHANGELOG, release.body)
-                    .apply()
+                // 同步写盘：待更新信息用于冷启动恢复，异步落盘存在进程被杀丢失窗口
+                withContext(Dispatchers.IO) {
+                    prefs.edit()
+                        .putString(KEY_LAST_CHECK_DAY, day)
+                        .putString(KEY_PENDING_VERSION, latest)
+                        .putString(KEY_PENDING_URL, downloadUrl)
+                        .putString(KEY_PENDING_CHANGELOG, release.body)
+                        .commit()
+                }
 
                 UpdateInfo(
                     latestVersion = latest,
@@ -134,7 +137,9 @@ object UpdateManager {
                     changelog = release.body
                 )
             } else {
-                prefs.edit().putString(KEY_LAST_CHECK_DAY, day).apply()
+                withContext(Dispatchers.IO) {
+                    prefs.edit().putString(KEY_LAST_CHECK_DAY, day).commit()
+                }
                 null
             }
         } catch (e: Exception) {
@@ -294,24 +299,28 @@ object UpdateManager {
     /**
      * 清除缓存的更新信息
      */
-    fun clearPendingUpdate(context: Context) {
-        prefs(context).edit()
-            .remove(KEY_PENDING_VERSION)
-            .remove(KEY_PENDING_URL)
-            .remove(KEY_PENDING_CHANGELOG)
-            .apply()
+    suspend fun clearPendingUpdate(context: Context) {
+        withContext(Dispatchers.IO) {
+            prefs(context).edit()
+                .remove(KEY_PENDING_VERSION)
+                .remove(KEY_PENDING_URL)
+                .remove(KEY_PENDING_CHANGELOG)
+                .commit()
+        }
     }
 
     /**
      * 忽略某个版本
      */
-    fun ignoreVersion(context: Context, version: String) {
-        prefs(context).edit()
-            .putString(KEY_IGNORED_VERSION, version)
-            .remove(KEY_PENDING_VERSION)
-            .remove(KEY_PENDING_URL)
-            .remove(KEY_PENDING_CHANGELOG)
-            .apply()
+    suspend fun ignoreVersion(context: Context, version: String) {
+        withContext(Dispatchers.IO) {
+            prefs(context).edit()
+                .putString(KEY_IGNORED_VERSION, version)
+                .remove(KEY_PENDING_VERSION)
+                .remove(KEY_PENDING_URL)
+                .remove(KEY_PENDING_CHANGELOG)
+                .commit()
+        }
     }
 
     /**

@@ -29,6 +29,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
@@ -44,8 +45,11 @@ import com.yichao.evilgodxu.update.UpdateViewModel
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.utils.localization.toLocale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 
 class YiChaoActivity : ComponentActivity() {
@@ -170,24 +174,29 @@ class YiChaoActivity : ComponentActivity() {
     private fun isAudioUri(uri: Uri): Boolean =
         contentResolver.getType(uri)?.startsWith("audio/") == true
 
-    // 读取分享/打开的文本文件并按代理音源解析导入，结果以 Toast 提示
+    // 读取分享/打开的文本文件并按代理音源解析导入，结果以 Toast 提示；
+    // 文件读取与同步写盘均为阻塞操作，移到 IO 线程避免阻塞主线程
     private fun importProxySource(uri: Uri) {
-        val text = runCatching {
-            contentResolver.openInputStream(uri)
-                ?.use { it.readBytes().toString(Charsets.UTF_8) }
-        }.getOrNull()
-        val message = when {
-            text.isNullOrBlank() -> getString(R.string.settings_proxy_source_import_read_error)
-            else -> when (val result = ProxySourceStore.import(this, text)) {
-                is ProxyParseResult.Success ->
-                    getString(R.string.settings_proxy_source_import_success)
-                is ProxyParseResult.Failure -> getString(
-                    R.string.settings_proxy_source_import_failed,
-                    result.reason,
-                )
+        lifecycleScope.launch(Dispatchers.IO) {
+            val text = runCatching {
+                contentResolver.openInputStream(uri)
+                    ?.use { it.readBytes().toString(Charsets.UTF_8) }
+            }.getOrNull()
+            val message = when {
+                text.isNullOrBlank() -> getString(R.string.settings_proxy_source_import_read_error)
+                else -> when (val result = ProxySourceStore.import(this@YiChaoActivity, text)) {
+                    is ProxyParseResult.Success ->
+                        getString(R.string.settings_proxy_source_import_success)
+                    is ProxyParseResult.Failure -> getString(
+                        R.string.settings_proxy_source_import_failed,
+                        result.reason,
+                    )
+                }
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@YiChaoActivity, message, Toast.LENGTH_SHORT).show()
             }
         }
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     @Composable

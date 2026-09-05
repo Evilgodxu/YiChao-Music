@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.edit
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -80,7 +79,11 @@ class MusicPlaybackState {
     private val defaultPlaylistCacheKeyPref = "music_default_playlist_cache"
     private val searchHistoryKey = "music_search_history"
     private val searchHistoryPreferences = "music_search_history_preferences"
-    private var persistenceJob: Job? = null
+    // 待落盘的播放状态快照：每次调用覆盖为最新值，写入任务按需消费，合并连续写入
+    private var pendingStateSnapshot: SavedPlaybackState? = null
+    // 播放状态写入任务：在途时新调用只更新快照，由在途循环以最新快照收尾，
+    // 避免取消旧任务产生"旧任务已取消、新任务未启动"的写入间隙
+    private var stateWriteJob: Job? = null
     private var playlistPersistJob: Job? = null
     private val persistenceMutex = Mutex()
     var appContext: Context? = null
@@ -458,14 +461,22 @@ class MusicPlaybackState {
 
     // 彻底删除歌曲：移除音频源文件与仅该曲引用的歌词/封面缓存，并同步库、播放队列与歌单引用
     suspend fun deleteSongPermanently(context: Context, track: MusicTrack) {
-        // 删除前基于全量库计算剩余曲目的缓存引用，作为封面/歌词清除依据
-        val remaining = (defaultPlaylistBackup ?: playlist).filterNot { it.id == track.id }
+        // 删除前基于全量库+当前列表计算剩余曲目的缓存引用，作为封面/歌词清除依据：
+        // 全量库覆盖本地曲目，当前列表兜底在线曲目（在线曲目只存在于当前列表，不在全量库备份）
+        val remaining = (defaultPlaylistBackup.orEmpty() + playlist)
+            .filterNot { it.id == track.id }
+            .distinctBy { it.id }
         withContext(Dispatchers.IO) {
             deleteAudioSource(context, track)
-            MusicMetadataCache.cleanupOrphanedMetadata(
-                context,
-                remaining.flatMap { listOfNotNull(it.coverCachePath, it.lyricCachePath) }.toSet(),
-            )
+            // 停留在自定义歌单且全量库备份缺失时，当前列表仅含歌单子集，引用集不全，
+            // 跳过清理，交由后续 enrichAndCleanup 以全量库+歌单的并集统一回收，避免误删其他歌曲共享缓存
+            val libraryKnown = playlistSource == null || defaultPlaylistBackup != null
+            if (libraryKnown) {
+                MusicMetadataCache.cleanupOrphanedMetadata(
+                    context,
+                    remaining.flatMap { listOfNotNull(it.coverCachePath, it.lyricCachePath) }.toSet(),
+                )
+            }
         }
         defaultPlaylistBackup = defaultPlaylistBackup?.filterNot { it.id == track.id }
         removeTrack(track.id, advanceToNext = true)
@@ -553,7 +564,7 @@ class MusicPlaybackState {
                 .putString(
                     recentPlayedKey,
                     recentPlayEvents.joinToString(",") { "${it.trackId}:${it.timestamp}" },
-                ).apply()
+                ).commit()
         }
     }
 
@@ -745,15 +756,16 @@ class MusicPlaybackState {
                 // 歌单来源与默认库备份随播放列表一同持久化，重启后恢复选中状态
                 val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
                 val source = playlistSource
+                // 同步写盘：播放列表缓存为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
                 prefs.edit()
                     .putString(playlistSourceKeyPref, source?.key)
                     .putString(playlistSourceNamePref, source?.name)
-                    .apply()
+                    .commit()
                 val backup = defaultPlaylistBackup
                 if (backup != null) {
                     saveCachedPlaylist(context, defaultPlaylistCacheKeyPref, backup)
                 } else {
-                    prefs.edit().remove(defaultPlaylistCacheKeyPref).apply()
+                    prefs.edit().remove(defaultPlaylistCacheKeyPref).commit()
                 }
             }
         }
@@ -783,7 +795,7 @@ class MusicPlaybackState {
             context.getSharedPreferences(searchHistoryPreferences, Context.MODE_PRIVATE)
                 .edit()
                 .putString(searchHistoryKey, searchHistory.joinToString("\n"))
-                .apply()
+                .commit()
         }
     }
 
@@ -852,7 +864,7 @@ class MusicPlaybackState {
         context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
             .edit()
             .putString(cacheKey, array.toString())
-            .apply()
+            .commit()
     }
 
     var pendingSavedUri: String? = null
@@ -861,16 +873,21 @@ class MusicPlaybackState {
     fun persistState() {
         val context = appContext ?: return
         val track = currentTrack ?: return
-        val position = currentPosition
-        val mode = playMode.ordinal
-        persistenceJob?.cancel()
-        persistenceJob = playbackScope.launch {
+        // 调用时刻立即快照：release/softRelease 随后会清空播放状态，异步写入不能再回读内存态
+        pendingStateSnapshot = SavedPlaybackState(track.audioUri, currentPosition, playMode.ordinal)
+        // 写入在途时仅更新快照，由在途任务以最新快照收尾，不再取消旧任务
+        if (stateWriteJob?.isActive == true) return
+        stateWriteJob = playbackScope.launch {
             persistenceMutex.withLock {
-                withContext(Dispatchers.IO) {
-                    context.settingsDataStore.edit { preferences ->
-                        preferences[savedUriKey] = track.audioUri
-                        preferences[savedPositionKey] = position
-                        preferences[savedModeKey] = mode
+                while (true) {
+                    val snapshot = pendingStateSnapshot ?: break
+                    pendingStateSnapshot = null
+                    withContext(Dispatchers.IO) {
+                        context.settingsDataStore.edit { preferences ->
+                            preferences[savedUriKey] = snapshot.audioUri
+                            preferences[savedPositionKey] = snapshot.position
+                            preferences[savedModeKey] = snapshot.mode
+                        }
                     }
                 }
             }
@@ -1174,6 +1191,13 @@ class MusicPlaybackState {
     @JvmName("updateCurrentPosition")
     fun setCurrentPosition(position: Long) { currentPosition = position }
 }
+
+// 播放状态持久化快照：调用时刻即采集，避免写入协程回读时状态已被后续流程（如 release）清空
+private data class SavedPlaybackState(
+    val audioUri: String,
+    val position: Long,
+    val mode: Int,
+)
 
 // 歌手分隔符：顿号、中英文逗号/分号、斜杠、反斜杠、与号
 private val ARTIST_SEPARATOR = Regex("""[、,，;；/\\&]""")

@@ -30,6 +30,13 @@ internal object MusicMetadataCache {
     private const val COVER_DIR = "Cover"
     private const val LYRIC_DIR = "Lyrics"
 
+    // 封面缓存允许的扩展名（WEBP 为主、PNG 兜底两路写入），清理时防误删目录内其他用途文件
+    private val COVER_CACHE_EXTENSIONS = setOf("webp", "png")
+    // 歌词缓存允许的扩展名
+    private val LYRIC_CACHE_EXTENSIONS = setOf("lrc")
+    // 清理宽限期：外部写封面先落盘后写曲目引用，晚于该窗口的缓存可能尚未被引用，跳过避免误删
+    private const val ORPHAN_GRACE_MS = 10_000L
+
     // 缓存根目录：系统公共下载目录 Download/YiChao。
     // 具备全部文件访问权限时直写文件系统并附带 .nomedia 防止封面混入相册；
     // 权限缺失时经 MediaStore Downloads 集合写入自身条目（Android 11+ 对自身写入的
@@ -95,7 +102,12 @@ internal object MusicMetadataCache {
         // 写入期间标记 pending，避免媒体扫描读到半截文件
         resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 1) }, null, null)
         val written = resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } != null
-        resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+        // 写入完成并刷新条目修改时间：清理机制以 DATE_MODIFIED 判定最近写入宽限期，
+        // 复用既有条目时该字段为上次写入时间，不刷新会令宽限期失效，误删刚落盘的缓存
+        resolver.update(uri, ContentValues().apply {
+            put(MediaStore.MediaColumns.IS_PENDING, 0)
+            put(MediaStore.MediaColumns.DATE_MODIFIED, System.currentTimeMillis() / 1000)
+        }, null, null)
         if (!written) return null
         queryDataPath(context, dirName, name)?.let(::File)
     } catch (e: Exception) {
@@ -342,46 +354,61 @@ internal object MusicMetadataCache {
 
     // 按引用集合回收孤儿缓存：删除不再被任何已知歌曲引用的封面/歌词文件。
     // 参照集合由调用方按全量库+当前歌单构建，跨歌单共享的文件因存在引用而不会被误删。
-    // 有全部文件权限时直接遍历目录（含公共目录与应用专属兜底目录），否则以 MediaStore 为目录来源
+    // 双路覆盖：公共目录与应用专属兜底目录始终直扫；公共目录无全部文件权限时不可枚举，
+    // 再由 MediaStore 枚举自身条目兜底，两路互为补充，任一路命中的孤儿都会被回收
     fun cleanupOrphanedMetadata(context: Context, referencedPaths: Set<String>) {
         val referenced = referencedPaths.filter(String::isNotBlank).toSet()
         // 引用集为空（如歌曲库尚未加载）时跳过清理，避免误删全部缓存
         if (referenced.isEmpty()) return
         val dirNames = listOf(COVER_DIR, LYRIC_DIR)
-        if (hasDirectDownloadAccess()) {
-            val roots = buildList {
-                add(mediaRoot(context))
-                context.getExternalFilesDir(null)
-                    ?.takeIf { it.path != mediaRoot(context).path }
-                    ?.let { add(it) }
-            }
-            dirNames.forEach { dirName -> roots.forEach { root -> removeOrphanFiles(File(root, dirName), referenced) } }
-        } else {
-            dirNames.forEach { dirName -> removeOrphanMediaStore(context, dirName, referenced) }
+        val roots = buildList {
+            add(mediaRoot(context))
+            context.getExternalFilesDir(null)
+                ?.takeIf { it.path != mediaRoot(context).path }
+                ?.let { add(it) }
         }
+        dirNames.forEach { dirName -> roots.forEach { root -> removeOrphanFiles(File(root, dirName), referenced) } }
+        dirNames.forEach { dirName -> removeOrphanMediaStore(context, dirName, referenced) }
     }
 
     private fun removeOrphanFiles(dir: File, referenced: Set<String>) {
         // 仅封面目录保留 .nomedia，歌词目录残留的旧 .nomedia 一并清理
         val isCoverDir = dir.name == COVER_DIR
-        dir.takeIf { it.exists() }?.listFiles().orEmpty().forEach { file ->
-            if (file.isFile && (file.name != ".nomedia" || !isCoverDir) && file.absolutePath !in referenced) {
-                runCatching { file.delete() }
+        val allowed = if (isCoverDir) COVER_CACHE_EXTENSIONS else LYRIC_CACHE_EXTENSIONS
+        val now = System.currentTimeMillis()
+        // 无全部文件权限时公共目录不可枚举（返回 null 或抛安全异常），静默跳过由 MediaStore 兜底
+        runCatching { dir.listFiles() }.getOrNull().orEmpty().forEach { file ->
+            if (!file.isFile) return@forEach
+            if (file.name == ".nomedia") {
+                if (!isCoverDir) runCatching { file.delete() }
+                return@forEach
             }
+            // 仅清理明确属于缓存的扩展名，防止误删目录内其他用途文件
+            if (file.extension !in allowed) return@forEach
+            if (file.absolutePath in referenced) return@forEach
+            // 最近写入的缓存可能尚未被曲目引用（外部写封面与清理存在竞态），留出宽限期跳过
+            if (now - file.lastModified() > ORPHAN_GRACE_MS) runCatching { file.delete() }
         }
     }
 
-    // 无全部文件权限时经 MediaStore 枚举自身缓存条目并删除孤儿，避免公共目录 EACCES
+    // 公共目录无全部文件权限时经 MediaStore 枚举自身缓存条目并删除孤儿，避免公共目录 EACCES
     private fun removeOrphanMediaStore(context: Context, dirName: String, referenced: Set<String>) {
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DATA)
+        val projection = arrayOf(
+            MediaStore.Downloads._ID,
+            MediaStore.Downloads.DATA,
+            MediaStore.MediaColumns.DATE_MODIFIED,
+        )
         val selection = "${MediaStore.Downloads.RELATIVE_PATH}=?"
         try {
             context.contentResolver.query(collection, projection, selection, arrayOf(downloadsRelativePath(dirName)), null)
                 ?.use { cursor ->
+                    val nowSec = System.currentTimeMillis() / 1000
                     while (cursor.moveToNext()) {
                         val path = cursor.getString(1) ?: continue
                         if (path in referenced) continue
+                        // 与文件扫描一致：最近写入的条目可能尚未被曲目引用，留出宽限期避免误删
+                        if (nowSec - cursor.getLong(2) < ORPHAN_GRACE_MS / 1000) continue
                         context.contentResolver.delete(ContentUris.withAppendedId(collection, cursor.getLong(0)), null, null)
                     }
                 }

@@ -64,6 +64,7 @@ internal suspend fun cacheToDownloads(
         }
 
         // 流式下载到应用缓存临时文件，再写入 MediaStore，避免整曲驻留内存
+        cleanupStaleTempFiles(context)
         val tempFile = File.createTempFile("download", ".$extension", context.cacheDir)
         var audioUri: String? = null
         try {
@@ -169,6 +170,7 @@ internal suspend fun downloadTrackToLibrary(
             .takeIf { it in AUDIO_EXTENSIONS } ?: "mp3"
         val fileName = "${sanitizeFileName(result.title)} - ${sanitizeFileName(result.artist)}.$extension"
         if (findExistingDownload(context, fileName) != null) return@withContext fileName
+        cleanupStaleTempFiles(context)
         val tempFile = File.createTempFile("download", ".$extension", context.cacheDir)
         try {
             val request = Request.Builder().url(url).build()
@@ -238,6 +240,27 @@ private const val STREAM_BUFFER_SIZE = 64 * 1024
 
 // 等待媒体扫描完成的上限：超时后仍继续刷新，新条目由后续媒体变更刷新兜底
 private const val SCAN_TIMEOUT_MS = 10_000L
+
+// 下载临时文件前缀：与 File.createTempFile 的 prefix 参数对应
+private val TEMP_FILE_PREFIXES = listOf("download", "upgrade")
+// 视为遗留的临时文件存在时长：进程被杀时 finally 不一定执行，超时未删即判定为异常中断残留
+private const val TEMP_STALE_MS = 30 * 60 * 1000L
+// 临时文件清理节流：下载密集场景避免每次下载都遍历缓存目录
+private const val TEMP_CLEANUP_INTERVAL_MS = 60 * 1000L
+
+@Volatile
+private var lastTempCleanupAt = 0L
+
+// 清理异常退出遗留的下载临时文件，避免缓存目录被半截文件长期占用
+private fun cleanupStaleTempFiles(context: Context) {
+    val now = System.currentTimeMillis()
+    if (now - lastTempCleanupAt < TEMP_CLEANUP_INTERVAL_MS) return
+    lastTempCleanupAt = now
+    runCatching {
+        context.cacheDir.listFiles { f -> TEMP_FILE_PREFIXES.any { f.name.startsWith(it) } }
+            ?.forEach { f -> if (now - f.lastModified() > TEMP_STALE_MS) f.delete() }
+    }
+}
 
 // 探测音频时长是否 ≤30 秒的试听片段
 private fun isTrialAudioFile(file: File): Boolean {
@@ -434,6 +457,7 @@ private suspend fun downloadLosslessToDownloads(
             .lowercase()
             .takeIf { it in AUDIO_EXTENSIONS } ?: "flac"
         val fileName = "${sanitizeFileName(result.title)} - ${sanitizeFileName(result.artist)}.$extension"
+        cleanupStaleTempFiles(context)
         val tempFile = File.createTempFile("upgrade", ".$extension", context.cacheDir)
         try {
             val request = Request.Builder().url(url).build()

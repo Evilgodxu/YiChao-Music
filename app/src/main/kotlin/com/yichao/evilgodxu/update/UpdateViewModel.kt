@@ -77,7 +77,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
     fun dismissUpdateDialog() {
         _showUpdateDialog.value = false
         _downloadState.value = DownloadState.Idle
-        UpdateManager.clearPendingUpdate(context)
+        viewModelScope.launch { UpdateManager.clearPendingUpdate(context) }
     }
 
     // 清除手动检查结果提示

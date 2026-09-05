@@ -2,7 +2,6 @@ package com.yichao.evilgodxu.data.music.proxy
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.core.content.edit
 import org.json.JSONArray
 
 // 代理音源持久化：SharedPreferences 存储原始 JSON 列表与启用状态，同名音源重复导入时覆盖
@@ -104,9 +103,8 @@ internal object ProxySourceStore {
     private fun saveRawList(context: Context, list: List<String>) {
         val array = JSONArray()
         list.forEach { array.put(it) }
-        prefs(context).edit {
-            putString(KEY_SOURCES, array.toString())
-        }
+        // 同步写盘：代理音源为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
+        prefs(context).edit().putString(KEY_SOURCES, array.toString()).commit()
     }
 
     private fun rawList(context: Context): List<String> {
@@ -122,9 +120,8 @@ internal object ProxySourceStore {
     private fun saveEnabledNames(context: Context, names: Set<String>) {
         val array = JSONArray()
         names.forEach { array.put(it) }
-        prefs(context).edit {
-            putString(KEY_ENABLED, array.toString())
-        }
+        // 同步写盘：与音源列表一致性读（all 同步读取）保持同一落盘语义
+        prefs(context).edit().putString(KEY_ENABLED, array.toString()).commit()
     }
 
     private fun enabledNames(context: Context): Set<String> {

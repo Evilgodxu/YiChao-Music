@@ -18,6 +18,8 @@ import org.json.JSONObject
 object PlaylistStore {
     private const val PREFS = "music_playlists_preferences"
     private const val KEY = "playlists"
+    // 首次加载标记：多线程首次访问时防止重复加载或以空列表覆盖已持久化数据
+    @Volatile
     private var loaded = false
     // 歌单 id 生成：时间戳高 44 位 + 进程内自增低 20 位，避免同毫秒快速创建碰撞
     private val idCounter = AtomicLong(0)
@@ -36,6 +38,8 @@ object PlaylistStore {
 
     // 新建空歌单，名称空白时返回 null
     fun create(context: Context, name: String): Playlist? {
+        // 写前先确保已加载，避免以空列表覆盖已持久化歌单
+        ensureLoaded(context)
         val trimmed = name.trim()
         if (trimmed.isBlank()) return null
         val now = System.currentTimeMillis()
@@ -51,6 +55,7 @@ object PlaylistStore {
     }
 
     fun rename(context: Context, id: Long, name: String) {
+        ensureLoaded(context)
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         playlists = playlists.map { if (it.id == id) it.copy(name = trimmed) else it }
@@ -58,12 +63,14 @@ object PlaylistStore {
     }
 
     fun delete(context: Context, id: Long) {
+        ensureLoaded(context)
         playlists = playlists.filterNot { it.id == id }
         persist(context)
     }
 
     // 批量加入曲目并去重
     fun addTracks(context: Context, id: Long, trackIds: List<Long>) {
+        ensureLoaded(context)
         if (trackIds.isEmpty()) return
         playlists = playlists.map { playlist ->
             if (playlist.id == id) playlist.copy(trackIds = (playlist.trackIds + trackIds).distinct()) else playlist
@@ -72,6 +79,7 @@ object PlaylistStore {
     }
 
     fun removeTracks(context: Context, id: Long, trackIds: List<Long>) {
+        ensureLoaded(context)
         if (trackIds.isEmpty()) return
         val removed = trackIds.toSet()
         playlists = playlists.map { playlist ->
@@ -82,6 +90,7 @@ object PlaylistStore {
 
     // 歌曲被彻底删除后，从所有自定义歌单中清除残留引用
     fun removeTrackFromAll(context: Context, trackId: Long) {
+        ensureLoaded(context)
         playlists = playlists.map { playlist ->
             if (trackId in playlist.trackIds) playlist.copy(trackIds = playlist.trackIds.filterNot { it == trackId }) else playlist
         }
@@ -90,6 +99,7 @@ object PlaylistStore {
 
     // 按新顺序重排歌单曲目并持久化
     fun setTrackOrder(context: Context, id: Long, orderedIds: List<Long>) {
+        ensureLoaded(context)
         playlists = playlists.map { playlist ->
             if (playlist.id == id) playlist.copy(trackIds = orderedIds.distinct()) else playlist
         }
@@ -110,10 +120,11 @@ object PlaylistStore {
                         put("trackIds", JSONArray(playlist.trackIds.toTypedArray()))
                     })
                 }
+                // 同步写盘：自定义歌单为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .edit()
                     .putString(KEY, array.toString())
-                    .apply()
+                    .commit()
             }
         }
     }

@@ -474,19 +474,10 @@ internal suspend fun downloadAndPlay(
             if (lines.isNotEmpty()) {
                 val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
                 withContext(Dispatchers.Main) {
-                    val idx = playbackState.playlist.indexOfFirst { it.id == trackId }
-                    if (idx >= 0) {
-                        val updated = playbackState.playlist[idx].copy(
-                            lyricCachePath = lyricPath,
-                            lyricLines = lines
-                        )
-                        val list = playbackState.playlist.toMutableList()
-                        list[idx] = updated
-                        playbackState.playlist = list
-                        if (playbackState.currentTrack?.id == trackId) {
-                            playbackState.currentTrack = updated
-                        }
-                    }
+                    // updateTrack 同步回写并持久化引用：仅改内存态会丢失持久化引用，
+                    // 进程被杀后重启清理会把刚落盘的歌词缓存当作孤儿误删
+                    val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return@withContext
+                    playbackState.updateTrack(track.copy(lyricCachePath = lyricPath, lyricLines = lines))
                 }
             }
         } catch (e: Exception) {
@@ -509,15 +500,10 @@ internal suspend fun downloadAndPlay(
             val coverPath = MusicMetadataCache.saveCover(context, result.id, bytes).orEmpty()
             if (coverPath.isBlank()) return@launch
             withContext(Dispatchers.Main) {
-                val idx = playbackState.playlist.indexOfFirst { it.id == trackId }
-                if (idx < 0) return@withContext
-                val updated = playbackState.playlist[idx].copy(coverCachePath = coverPath)
-                val list = playbackState.playlist.toMutableList()
-                list[idx] = updated
-                playbackState.playlist = list
-                if (playbackState.currentTrack?.id == trackId) {
-                    playbackState.currentTrack = updated
-                }
+                // updateTrack 同步回写并持久化引用：仅改内存态会丢失持久化引用，
+                // 进程被杀后重启清理会把刚落盘的封面缓存当作孤儿误删
+                val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return@withContext
+                playbackState.updateTrack(track.copy(coverCachePath = coverPath))
             }
             // 封面就绪后刷新系统媒体面板的当前 MediaItem
             refreshCurrentMediaItem(playbackState)
@@ -552,20 +538,16 @@ internal suspend fun enrichOnlineMetadata(
             MusicMetadataCache.saveLyrics(context, track.title, track.artist, lyric.lines).orEmpty()
         } else ""
         withContext(Dispatchers.Main) {
-            val idx = playbackState.playlist.indexOfFirst { it.id == track.id }
-            if (idx < 0) return@withContext
-            val updated = playbackState.playlist[idx].copy(
-                neteaseId = result.id,
-                neteaseCoverUrl = result.coverUrl.orEmpty(),
-                lyricCachePath = lyricPath,
-                lyricLines = lyric.lines
+            // updateTrack 同步回写并持久化引用，避免进程被杀后重启清理误删刚下载的歌词缓存
+            val track = playbackState.playlist.firstOrNull { it.id == track.id } ?: return@withContext
+            playbackState.updateTrack(
+                track.copy(
+                    neteaseId = result.id,
+                    neteaseCoverUrl = result.coverUrl.orEmpty(),
+                    lyricCachePath = lyricPath,
+                    lyricLines = lyric.lines
+                )
             )
-            val list = playbackState.playlist.toMutableList()
-            list[idx] = updated
-            playbackState.playlist = list
-            if (playbackState.currentTrack?.id == track.id) {
-                playbackState.currentTrack = updated
-            }
         }
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "获取在线元数据失败", e)
