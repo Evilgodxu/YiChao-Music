@@ -438,6 +438,7 @@ private fun PlaylistSearchBar(
     onFocusChanged: (Boolean) -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -476,7 +477,11 @@ private fun PlaylistSearchBar(
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+                keyboardActions = KeyboardActions(onSearch = {
+                    // 回车搜索后收起键盘并释放焦点，避免输入框保持聚焦态
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
                 decorationBox = { innerTextField ->
                     Box {
                         if (query.isEmpty()) {

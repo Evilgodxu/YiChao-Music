@@ -107,14 +107,16 @@ internal fun PlayerArea(
     swipePreviewText: String? = null,
     // 曲库分析会话：状态与后台分析任务常驻首页层
     libraryAnalysis: LibraryAnalysisController,
+    // 播放列表面板显隐：由首页层持有，显示期间禁用上下滑动切歌
+    playlistVisible: Boolean,
+    onPlaylistVisibilityChange: (Boolean) -> Unit,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
-    var playlistVisible by remember { mutableStateOf(false) }
 
     // 播放列表与曲库分析展开时，系统返回键收起面板（曲库分析关闭不中断后台任务）
     BackHandler(enabled = playlistVisible || libraryAnalysis.visible) {
-        if (libraryAnalysis.visible) libraryAnalysis.dismiss() else playlistVisible = false
+        if (libraryAnalysis.visible) libraryAnalysis.dismiss() else onPlaylistVisibilityChange(false)
     }
 
     // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
@@ -505,7 +507,7 @@ internal fun PlayerArea(
                 Spacer(Modifier.height(8.dp))
                 PlayerControls(
                     playbackState = playbackState,
-                    onPlaylistClick = { playlistVisible = !playlistVisible },
+                    onPlaylistClick = { onPlaylistVisibilityChange(!playlistVisible) },
                     onPlaylistLongClick = { libraryAnalysis.open() },
                 )
             }
@@ -514,7 +516,7 @@ internal fun PlayerArea(
         PlaylistSheet(
             visible = playlistVisible,
             playbackState = playbackState,
-            onDismiss = { playlistVisible = false },
+            onDismiss = { onPlaylistVisibilityChange(false) },
         )
 
         LibraryAnalysisSheet(

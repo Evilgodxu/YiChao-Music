@@ -74,6 +74,9 @@ fun HomeAssembly(
     // 左右滑动切换面板与上下滑动切歌的手势状态
     val swipeController = rememberHomeSwipeController(playbackState, swipeToChangeTrack)
     swipeController.SettleEffect()
+    // 首页播放列表面板显隐：显示期间禁用上下滑动切歌，滚动交由播放列表处理
+    var playlistVisible by remember { mutableStateOf(false) }
+    swipeController.playlistSheetVisible = playlistVisible
     var showTimer by remember { mutableStateOf(false) }
     // 横屏模式：跟随窗口宽高比，旋转时窗口重布局由 onSizeChanged 更新
     var isLandscapeMode by remember { mutableStateOf(false) }
@@ -205,6 +208,8 @@ fun HomeAssembly(
                             playbackState = playbackState,
                             chromeVisible = landscapeChromeVisible,
                             onToggleChrome = { landscapeChromeVisible = !landscapeChromeVisible },
+                            playlistVisible = playlistVisible,
+                            onPlaylistVisibilityChange = { playlistVisible = it },
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {
@@ -214,6 +219,8 @@ fun HomeAssembly(
                             topBarInset = innerPadding.calculateTopPadding(),
                             swipePreviewText = swipeController.trackSwitchPreviewText,
                             libraryAnalysis = libraryAnalysis,
+                            playlistVisible = playlistVisible,
+                            onPlaylistVisibilityChange = { playlistVisible = it },
                             onOpenOnlineSearch = { query ->
                                 playbackState.setSearchQuery(query)
                                 playbackState.setSearchResultsVisible(true)

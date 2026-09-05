@@ -62,6 +62,8 @@ internal class HomeSwipeController(
     var showOnlineSearch by mutableStateOf(false)
     // 左滑呼出的歌单面板显隐状态
     var showPlaylist by mutableStateOf(false)
+    // 首页播放列表面板（底部弹出）显隐状态：显示期间禁用上下滑动切歌，滚动交由播放列表处理
+    var playlistSheetVisible by mutableStateOf(false)
     // 手势跟手进度：0=播放器页，1=对应面板展开，拖动期间随手指实时更新
     var searchProgress by mutableFloatStateOf(0f)
     var playlistProgress by mutableFloatStateOf(0f)
@@ -193,37 +195,40 @@ internal class HomeSwipeController(
                     if (playlistOpen != showPlaylist) showPlaylist = playlistOpen
                     settleKey++ // 结算本次滑动，非目标状态时平滑动画到目标
                 } else if (axis == 2) {
-                    // 纵向主导：向上切下一首、向下切上一首；仅播放器视图（无覆盖面板）生效，避免与面板内滚动冲突。
-                    // 滑动开始后持续按住（未松手）才实时显示将播放的曲目方向，滑回起点附近松手取消切歌；
-                    // 瞬间滑动（一甩即松手）保持原逻辑直接切歌，不显示提示
-                    val previewEnabled = swipeToChangeTrack.value &&
-                        searchProgress <= 0f && playlistProgress <= 0f
-                    var swipeY = accY
-                    var maxSwipeY = abs(accY)
-                    var steadyHold = false
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id }
-                        if (change == null || !change.pressed || change.isConsumed) break
-                        swipeY += change.positionChange().y
-                        change.consume()
-                        if (!steadyHold &&
-                            change.uptimeMillis - axisLockUptime >= TRACK_PREVIEW_FLICK_HOLD_MS
-                        ) {
-                            steadyHold = true
+                    // 首页播放列表显示期间让出纵向手势：不消费事件也不切歌，滚动交由播放列表处理
+                    if (!playlistSheetVisible) {
+                        // 纵向主导：向上切下一首、向下切上一首；仅播放器视图（无覆盖面板）生效，避免与面板内滚动冲突。
+                        // 滑动开始后持续按住（未松手）才实时显示将播放的曲目方向，滑回起点附近松手取消切歌；
+                        // 瞬间滑动（一甩即松手）保持原逻辑直接切歌，不显示提示
+                        val previewEnabled = swipeToChangeTrack.value &&
+                            searchProgress <= 0f && playlistProgress <= 0f
+                        var swipeY = accY
+                        var maxSwipeY = abs(accY)
+                        var steadyHold = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            if (change == null || !change.pressed || change.isConsumed) break
+                            swipeY += change.positionChange().y
+                            change.consume()
+                            if (!steadyHold &&
+                                change.uptimeMillis - axisLockUptime >= TRACK_PREVIEW_FLICK_HOLD_MS
+                            ) {
+                                steadyHold = true
+                            }
+                            if (abs(swipeY) > maxSwipeY) maxSwipeY = abs(swipeY)
+                            if (previewEnabled && steadyHold) {
+                                trackSwitchPreviewText = previewTextOf(swipeY, maxSwipeY)
+                            }
                         }
-                        if (abs(swipeY) > maxSwipeY) maxSwipeY = abs(swipeY)
-                        if (previewEnabled && steadyHold) {
-                            trackSwitchPreviewText = previewTextOf(swipeY, maxSwipeY)
+                        // 松手判定：按住滑动时位移回到起点附近则取消切歌；瞬间滑动保持原逻辑直接切歌
+                        if (previewEnabled && (!steadyHold || abs(swipeY) >= cancelDistancePx)) {
+                            val next = if (swipeY < 0f) playbackState.nextIndex()
+                            else playbackState.previousIndex()
+                            if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
                         }
+                        trackSwitchPreviewText = null
                     }
-                    // 松手判定：按住滑动时位移回到起点附近则取消切歌；瞬间滑动保持原逻辑直接切歌
-                    if (previewEnabled && (!steadyHold || abs(swipeY) >= cancelDistancePx)) {
-                        val next = if (swipeY < 0f) playbackState.nextIndex()
-                        else playbackState.previousIndex()
-                        if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
-                    }
-                    trackSwitchPreviewText = null
                 }
             }
         }

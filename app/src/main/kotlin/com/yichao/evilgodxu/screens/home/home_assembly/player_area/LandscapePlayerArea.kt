@@ -79,9 +79,11 @@ fun LandscapePlayerArea(
     playbackState: MusicPlaybackState,
     chromeVisible: Boolean,
     onToggleChrome: () -> Unit,
+    // 播放列表面板显隐：由首页层持有，显示期间禁用上下滑动切歌
+    playlistVisible: Boolean,
+    onPlaylistVisibilityChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var playlistVisible by remember { mutableStateOf(false) }
     var coverCarouselVisible by remember { mutableStateOf(false) }
     // 无损升级确认对话框显隐
     var showLosslessUpgrade by remember { mutableStateOf(false) }
@@ -186,7 +188,7 @@ fun LandscapePlayerArea(
                 )
                 PlayerControls(
                     playbackState = playbackState,
-                    onPlaylistClick = { playlistVisible = true },
+                    onPlaylistClick = { onPlaylistVisibilityChange(true) },
                 )
             }
         }
@@ -194,7 +196,7 @@ fun LandscapePlayerArea(
         PlaylistSheet(
             visible = playlistVisible,
             playbackState = playbackState,
-            onDismiss = { playlistVisible = false },
+            onDismiss = { onPlaylistVisibilityChange(false) },
         )
 
         // 音频信息条点击触发的无损升级确认对话框
