@@ -23,6 +23,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -121,6 +122,12 @@ class YiChaoActivity : ComponentActivity() {
         applySystemBarAppearance()
     }
 
+    override fun onStop() {
+        // 收起键盘并重置窗口输入状态，避免回前台时键盘偶发自动弹出
+        window.insetsController?.hide(WindowInsets.Type.ime())
+        super.onStop()
+    }
+
     // 窗口重新获得焦点时系统可能重置系统栏外观与显隐（如对话框关闭后），复读 Compose 应用的状态
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -207,6 +214,19 @@ class YiChaoActivity : ComponentActivity() {
             val observer = LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME && UpdateManager.shouldCheckUpdate(applicationContext)) {
                     updateViewModel.checkForUpdate()
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+        // 退后台时清除输入焦点，避免回前台时系统按残留焦点偶发自动弹出键盘
+        val focusManager = LocalFocusManager.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) {
+                    focusManager.clearFocus()
                 }
             }
             lifecycleOwner.lifecycle.addObserver(observer)
