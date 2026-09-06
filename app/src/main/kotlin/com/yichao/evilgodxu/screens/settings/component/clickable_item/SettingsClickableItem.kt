@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem
+package com.yichao.evilgodxu.screens.settings.component.clickable_item
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures

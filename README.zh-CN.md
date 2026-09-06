@@ -101,13 +101,13 @@
 │       │   │   │   ├── expanded/        #     横屏播放分区
 │       │   │   │   ├── component/       #     共享分区(歌单 / 在线搜索 / 权限 / 手势)
 │       │   │   │   └── dialog/          #     首页对话框(歌单导入 / 无损升级)
-│       │   │   └── settings/            #   外观 / 语言 / 播放 / 代理音源 / 关于
-│       │   │       ├── settings_assembly/  #   各分类设置分区
-│       │   │       ├── typography/      #     排版子页面
-│       │   │       └── dialog/          #     设置对话框(主题 / 语言 / 导入音源)
-│       │   ├── service/                 # MediaSessionService 播放引擎
-│       │   ├── theme/                   # Material 3 配色与字体
-│       │   ├── ui/                      # 全局共享 UI(音乐面板组件:封面 / 歌词 / 控制)
+│       │   │   │   ├── settings/            #   外观 / 语言 / 播放 / 代理音源 / 关于
+│       │   │   │   │   ├── component/       #     设置页共享分区与 clickable_item 原子
+│       │   │   │   │   └── dialog/          #     设置对话框(主题 / 语言 / 导入音源)
+│       │   │   │   └── typography/          #   排版设置(字号 / 行数 / 3D 强度)
+│       │   │   ├── service/                 # MediaSessionService 播放引擎
+│       │   │   ├── theme/                   # Material 3 配色与字体
+│       │   │   ├── ui/                      # 全局共享 UI(音乐面板组件:封面 / 歌词 / 控制;分区卡片容器)
 │       │   ├── update/                  # 检查更新与应用内更新
 │       │   ├── utils/localization/      # 应用内多语言管理
 │       │   ├── YiChaoActivity.kt

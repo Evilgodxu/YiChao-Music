@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.typography
+package com.yichao.evilgodxu.screens.typography
 
 import com.yichao.evilgodxu.data.settings.LandscapeLyricLayoutParams
 import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults

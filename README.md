@@ -101,13 +101,13 @@
 │       │   │   │   ├── expanded/        #     Landscape player area
 │       │   │   │   ├── component/       #     Shared areas (playlist / online search / permissions / swipe)
 │       │   │   │   └── dialog/          #     Home dialogs (playlist import / lossless upgrade)
-│       │   │   └── settings/            #   Appearance / language / playback / proxy source / about
-│       │   │       ├── settings_assembly/  #     Settings areas (per section)
-│       │   │       ├── typography/      #     Typography sub-screen
-│       │   │       └── dialog/          #     Settings dialogs (theme / language / proxy import)
-│       │   ├── service/                 # MediaSessionService playback engine
-│       │   ├── theme/                   # Material 3 color & typography
-│       │   ├── ui/                      # Shared UI (music panel composables: cover / lyrics / controls)
+│       │   │   │   ├── settings/            #   Appearance / language / playback / proxy source / about
+│       │   │   │   │   ├── component/       #     Shared settings areas & clickable-item atom
+│       │   │   │   │   └── dialog/          #     Settings dialogs (theme / language / proxy import)
+│       │   │   │   └── typography/          #   Typography settings (font size / lines / 3D intensity)
+│       │   │   ├── service/                 # MediaSessionService playback engine
+│       │   │   ├── theme/                   # Material 3 color & typography
+│       │   │   ├── ui/                      # Shared UI (music panel composables: cover / lyrics / controls; section container)
 │       │   ├── update/                  # Version check & in-app update
 │       │   ├── utils/localization/      # In-app localization manager
 │       │   ├── YiChaoActivity.kt

@@ -1,11 +1,11 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.language_area
+package com.yichao.evilgodxu.screens.settings.component.language_area
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.clickable_item.SettingsClickableItem
+import com.yichao.evilgodxu.ui.SettingsSection
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
 // 语言分区

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.proxy_source_area
+package com.yichao.evilgodxu.screens.settings.component.proxy_source_area
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,8 +30,8 @@ import com.yichao.evilgodxu.data.music.proxy.ProxySourceSpec
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.dialog.ProxySourceImportDialog
 import com.yichao.evilgodxu.screens.settings.dialog.ProxySourceInputDialog
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.clickable_item.SettingsClickableItem
+import com.yichao.evilgodxu.ui.SettingsSection
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.delay

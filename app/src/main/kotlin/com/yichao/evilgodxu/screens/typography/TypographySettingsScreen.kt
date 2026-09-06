@@ -1,9 +1,10 @@
-package com.yichao.evilgodxu.screens.settings.typography
+package com.yichao.evilgodxu.screens.typography
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yichao.evilgodxu.screens.typography.component.TypographySettingsAssembly
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import org.koin.androidx.compose.koinViewModel
 

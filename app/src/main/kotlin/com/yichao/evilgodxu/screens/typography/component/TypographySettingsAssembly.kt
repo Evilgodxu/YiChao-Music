@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.typography
+package com.yichao.evilgodxu.screens.typography.component
 
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
@@ -36,7 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.typography.TypographyUiState
+import com.yichao.evilgodxu.ui.SettingsSection
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlin.math.roundToInt
 

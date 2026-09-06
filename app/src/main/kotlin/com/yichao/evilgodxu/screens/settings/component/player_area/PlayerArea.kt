@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.player_area
+package com.yichao.evilgodxu.screens.settings.component.player_area
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,8 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.clickable_item.SettingsClickableItem
+import com.yichao.evilgodxu.ui.SettingsSection
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
 

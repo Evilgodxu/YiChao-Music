@@ -20,7 +20,7 @@ import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.HomeScreen
 import com.yichao.evilgodxu.screens.settings.SettingsScreen
-import com.yichao.evilgodxu.screens.settings.typography.TypographySettingsScreen
+import com.yichao.evilgodxu.screens.typography.TypographySettingsScreen
 
 // 导航宿主：统一走路由栈
 @Composable

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly
+package com.yichao.evilgodxu.screens.settings.component
 
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
@@ -33,11 +33,11 @@ import com.yichao.evilgodxu.data.settings.ThemeMode
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.dialog.LanguageSelectionDialog
 import com.yichao.evilgodxu.screens.settings.dialog.ThemeSelectionDialog
-import com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area.AppInfoArea
-import com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area.AppearanceArea
-import com.yichao.evilgodxu.screens.settings.settings_assembly.language_area.LanguageArea
-import com.yichao.evilgodxu.screens.settings.settings_assembly.player_area.PlayerArea
-import com.yichao.evilgodxu.screens.settings.settings_assembly.proxy_source_area.ProxySourceArea
+import com.yichao.evilgodxu.screens.settings.component.app_info_area.AppInfoArea
+import com.yichao.evilgodxu.screens.settings.component.appearance_area.AppearanceArea
+import com.yichao.evilgodxu.screens.settings.component.language_area.LanguageArea
+import com.yichao.evilgodxu.screens.settings.component.player_area.PlayerArea
+import com.yichao.evilgodxu.screens.settings.component.proxy_source_area.ProxySourceArea
 import com.yichao.evilgodxu.screens.settings.SettingsUiState
 import com.yichao.evilgodxu.ui.icons.AppIcons
 

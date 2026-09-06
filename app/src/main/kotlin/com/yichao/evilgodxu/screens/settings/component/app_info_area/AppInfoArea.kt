@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area
+package com.yichao.evilgodxu.screens.settings.component.app_info_area
 
 import android.app.Activity
 import android.content.Intent

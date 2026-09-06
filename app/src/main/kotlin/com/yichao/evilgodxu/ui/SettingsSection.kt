@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.component.section
+package com.yichao.evilgodxu.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
