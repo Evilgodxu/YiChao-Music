@@ -143,6 +143,8 @@ class MusicPlaybackState {
                 isPrepared = false
                 currentPosition = 0L
                 duration = 0L
+                // 切歌或单曲循环重播：复位进度单调基准，允许进度回到起点
+                lastMonoMediaId = null
                 // 切换曲目即持久化最新 URI，确保后台自动下一首也能被冷启动恢复
                 persistState()
                 // 切歌后主动预读新曲源格式，避免信息条等待解码回填而长时间空白
@@ -164,6 +166,7 @@ class MusicPlaybackState {
             // 避免把"拖回开头"误判为单曲循环完整播放
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 lastTickPosition = 0L
+                lastMonoMediaId = null
             }
         }
 
@@ -522,6 +525,10 @@ class MusicPlaybackState {
     // 最近一次完整播放记录时间与曲目，供回卷检测与过渡回调去重
     private var lastAutoCountAtMs = 0L
     private var lastAutoCountTrackId: Long? = null
+    // 进度展示单调性：连续播放期间进度与时长只增不减，规避流媒体位置回锚/时长修正导致进度条倒退；
+    // 手动拖动(SEEK)、切歌、单曲循环回卷时复位基准，允许进度回落
+    private var lastMonoMediaId: Long? = null
+    private var lastMonoPosition = 0L
 
     val recentPlayedIds: List<Long>
         get() {
@@ -910,6 +917,8 @@ class MusicPlaybackState {
         mediaController = null
         player = null
         isPlaying = false
+        // 释放播放器后复位单调基准，避免恢复播放时进度被残留基准钳到高位
+        lastMonoMediaId = null
     }
 
     fun release() {
@@ -933,6 +942,8 @@ class MusicPlaybackState {
         isPlaying = false
         isPrepared = false
         duration = 0L
+        // 释放播放器后复位单调基准，避免恢复播放时进度被残留基准钳到高位
+        lastMonoMediaId = null
         errorMsg = null
         stopTimer()
     }
@@ -1094,7 +1105,9 @@ class MusicPlaybackState {
     private fun detectLoopRestart() {
         val track = currentTrack ?: return
         if (duration <= 0L) return
-        val cur = currentPosition
+        // 以控制器原始位置检测回卷，避免被进度单调钳制掩盖导致单曲循环漏记
+        val cur = mediaController?.currentPosition
+            ?.coerceIn(0L, duration) ?: return
         val trackChanged = lastTickTrackId != track.id
         lastTickTrackId = track.id
         // 切歌后的首个 tick 仅建立基准，不判定
@@ -1111,16 +1124,31 @@ class MusicPlaybackState {
         if (deDuplicated) return
         lastAutoCountTrackId = track.id
         lastAutoCountAtMs = now
+        // 回卷复位进度单调基准，让进度条回到起点
+        lastMonoMediaId = null
         recordPlayed(track.id)
     }
 
     private fun syncPlaybackPosition(controller: MediaController, isActive: Boolean) {
         if (isActive) {
+            val mediaId = controller.currentMediaItem?.mediaId?.toLongOrNull()
+            val baselineReset = mediaId != lastMonoMediaId
+            if (baselineReset) lastMonoMediaId = mediaId
             val controllerDuration = controller.duration
-            if (controllerDuration > 0L) duration = controllerDuration
+            if (controllerDuration > 0L) {
+                // 时长随时间线解析而增长时单调累进，避免按更大分母使进度回退
+                duration = if (baselineReset) controllerDuration else maxOf(duration, controllerDuration)
+            }
             val controllerPosition = controller.currentPosition
             if (controllerPosition >= 0L && duration > 0L) {
-                currentPosition = controllerPosition.coerceIn(0L, duration)
+                val raw = controllerPosition.coerceIn(0L, duration)
+                // 连续播放期间进度单调递增，规避流媒体位置回锚导致的倒退；复位(切歌/拖动/循环)时重新锚定
+                currentPosition = if (baselineReset) {
+                    lastMonoPosition = raw
+                    raw
+                } else {
+                    maxOf(lastMonoPosition, raw).also { lastMonoPosition = it }
+                }
             }
         }
         isPlaying = controller.isPlaying
@@ -1189,7 +1217,11 @@ class MusicPlaybackState {
     @JvmName("updateSleepTimerExpired")
     fun setSleepTimerExpired(expired: Boolean) { sleepTimerExpired = expired }
     @JvmName("updateCurrentPosition")
-    fun setCurrentPosition(position: Long) { currentPosition = position }
+    fun setCurrentPosition(position: Long) {
+        // 拖动进度条直接改写位置：复位单调基准，避免被钳回拖动前的位置
+        lastMonoMediaId = null
+        currentPosition = position
+    }
 }
 
 // 播放状态持久化快照：调用时刻即采集，避免写入协程回读时状态已被后续流程（如 release）清空
