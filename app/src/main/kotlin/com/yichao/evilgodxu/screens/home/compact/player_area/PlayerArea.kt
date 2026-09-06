@@ -72,7 +72,6 @@ import com.yichao.evilgodxu.domain.music.applyLyricsLineEdit
 import com.yichao.evilgodxu.domain.music.copyToClipboard
 import com.yichao.evilgodxu.ui.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.searchCoverCandidates
 import com.yichao.evilgodxu.domain.music.searchLyricsCandidates
 import com.yichao.evilgodxu.R
@@ -252,7 +251,7 @@ internal fun PlayerArea(
                     coverTargetId = playbackState.currentTrack?.id
                     showCoverRefresh = true
                     playbackState.currentTrack?.let { track ->
-                        scope.launch { searchCoverCandidates(ui, track, ui.coverRefreshSource) }
+                        ui.searchCoverCandidates(track, ui.coverRefreshSource)
                     }
                 },
                 onLocalCover = {
@@ -356,7 +355,7 @@ internal fun PlayerArea(
                             lyricsTargetId = playbackState.currentTrack?.id
                             showLyricsRefresh = true
                             playbackState.currentTrack?.let { track ->
-                                scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) }
+                                ui.searchLyricsCandidates(track, ui.lyricsRefreshSource)
                             }
                         },
                         onLocalImport = {
@@ -616,14 +615,14 @@ internal fun PlayerArea(
                 if (track != null && track.id == coverTargetId && source != ui.coverRefreshSource) {
                     ui.setCoverRefreshSource(source)
                     selectedCoverCandidate = null
-                    scope.launch { searchCoverCandidates(ui, track, source) }
+                    ui.searchCoverCandidates(track, source)
                 }
             },
             onRefresh = {
                 val track = playbackState.currentTrack
                 if (track != null && track.id == coverTargetId) {
                     selectedCoverCandidate = null
-                    scope.launch { searchCoverCandidates(ui, track, ui.coverRefreshSource) }
+                    ui.searchCoverCandidates(track, ui.coverRefreshSource)
                 }
             },
             onConfirm = {
@@ -690,14 +689,14 @@ internal fun PlayerArea(
                 if (track != null && track.id == lyricsTargetId && source != ui.lyricsRefreshSource) {
                     ui.setLyricsRefreshSource(source)
                     selectedLyricsCandidate = null
-                    scope.launch { searchLyricsCandidates(ui, track, source) }
+                    ui.searchLyricsCandidates(track, source)
                 }
             },
             onRefresh = {
                 val track = playbackState.currentTrack
                 if (track != null && track.id == lyricsTargetId) {
                     selectedLyricsCandidate = null
-                    scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) }
+                    ui.searchLyricsCandidates(track, ui.lyricsRefreshSource)
                 }
             },
             onConfirm = {

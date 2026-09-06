@@ -43,46 +43,17 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.PlaylistSource
-import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
-import kotlinx.coroutines.launch
-
-// 切换到指定歌单队列并播放该歌单第一首歌曲
-internal fun switchToPlaylistQueue(
-    context: Context,
-    state: MusicPlaybackState,
-    tracks: List<MusicTrack>,
-    source: PlaylistSource?,
-) {
-    if (tracks.isEmpty()) {
-        state.playlist = tracks
-        state.playlistSource = source
-        state.persistPlaylist()
-        return
-    }
-    // 首次从默认库切到歌单时备份默认列表，供快捷切回
-    if (state.playlistSource == null && state.defaultPlaylistBackup == null) {
-        state.defaultPlaylistBackup = state.playlist
-    }
-    state.playlist = tracks
-    state.playlistSource = source
-    state.currentIndex = 0
-    // 仅加载新队列并暂停，不自动播放；在播放器全局作用域执行，避免弹层关闭取消协程导致队列未加载
-    state.playbackScope.launch { playTrackAt(context, state, 0, autoPlay = false) }
-    state.persistPlaylist()
-    // 切换歌单后后台补全新歌单缺失的封面/歌词，缓存已就绪的歌曲直接命中不重复加载
-    state.playbackScope.launch { MetadataEnricher.enrichAndCleanup(context, state) }
-}
 
 // 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航
 @Composable
 internal fun PlaylistSwitcher(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
@@ -134,7 +105,7 @@ internal fun PlaylistSwitcher(
                 PlaylistSwitchList(
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, tracks, source)
+                        playbackState.switchToPlaylist(tracks, source)
                         onDismiss()
                     },
                     onOpenGroups = { showGroups = it },
@@ -144,7 +115,7 @@ internal fun PlaylistSwitcher(
                     type = type,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, tracks, source)
+                        playbackState.switchToPlaylist(tracks, source)
                         onDismiss()
                     },
                 )
@@ -156,7 +127,7 @@ internal fun PlaylistSwitcher(
 // 一级列表：默认播放列表 + 常听/收藏 + 专辑/艺术家入口 + 我的歌单
 @Composable
 private fun PlaylistSwitchList(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onSwitch: (List<MusicTrack>, PlaylistSource?) -> Unit,
     onOpenGroups: (SmartPlaylistType) -> Unit,
 ) {
@@ -259,7 +230,7 @@ private fun PlaylistSwitchList(
 @Composable
 private fun PlaylistSwitchGroups(
     type: SmartPlaylistType,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onSwitch: (List<MusicTrack>, PlaylistSource?) -> Unit,
 ) {
     val library = playbackState.libraryTracks

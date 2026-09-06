@@ -1,15 +1,12 @@
 package com.yichao.evilgodxu.domain.music
 
-import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import com.yichao.evilgodxu.data.music.metadata.MusicCoverProvider
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.PlayMode
-import com.yichao.evilgodxu.service.MusicPlaybackService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
@@ -19,7 +16,9 @@ import kotlinx.coroutines.withContext
 private suspend fun getController(context: Context, state: MusicPlaybackState): MediaController {
     state.mediaController?.let { return it }
     state.appContext = context.applicationContext
-    val token = SessionToken(context, ComponentName(context, MusicPlaybackService::class.java))
+    // 经装配层提供的令牌工厂构建会话令牌，domain 不直接依赖播放服务类
+    val token = PlaybackSessionTokenProviders.provider?.create(context)
+        ?: error("PlaybackSessionTokenProvider 未装配")
     val controller = withContext(Dispatchers.Main) {
         MediaController.Builder(context, token).buildAsync().await()
     }

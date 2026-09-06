@@ -52,7 +52,8 @@ import com.yichao.evilgodxu.data.playlist.Playlist
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.dialog.PlaylistImportDialog
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -65,7 +66,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun PlaylistPanel(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     isLandscape: Boolean = false,
     modifier: Modifier = Modifier,
@@ -109,7 +110,8 @@ internal fun PlaylistPanel(
         syncJob?.cancel()
         syncState = SyncUiState.Running(0, 0, "")
         syncJob = scope.launch {
-            val result = PlaylistSyncer.syncToLibrary(context, playbackState, link) { done, total, title ->
+            // 歌单同步为数据层编排，经全局播放核心执行
+            val result = PlaylistSyncer.syncToLibrary(context, MusicPanelStateHolder.state, link) { done, total, title ->
                 syncState = SyncUiState.Running(total, done, title)
             }
             syncState = when (result) {
@@ -224,7 +226,7 @@ internal fun PlaylistPanel(
 @Composable
 private fun LandscapePlaylistContent(
     page: PlaylistPage,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     syncState: SyncUiState?,
     selectedSmartType: SmartPlaylistType?,
@@ -310,7 +312,7 @@ private fun DetailPlaceholder() {
 // 横屏左列歌单导航：系统歌单 + 我的歌单，紧凑行式布局
 @Composable
 private fun PlaylistNavColumn(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     selectedSmartType: SmartPlaylistType?,
     selectedPlaylistId: Long?,
@@ -492,7 +494,7 @@ private fun PanelHeader(
 // 总览页：系统歌单卡片 + 我的歌单列表 + 新建歌单入口
 @Composable
 private fun PlaylistOverview(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     onOpenSmart: (SmartPlaylistType) -> Unit,
     onOpenCustom: (Playlist) -> Unit,

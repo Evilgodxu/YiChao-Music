@@ -13,22 +13,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.data.music.model.PlayMode
-import com.yichao.evilgodxu.domain.music.applyPlaybackMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaybackController
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun ControlBar(
@@ -36,9 +29,6 @@ internal fun ControlBar(
     onPlaylistClick: () -> Unit,
     onLyricsRefreshClick: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -61,7 +51,6 @@ internal fun ControlBar(
                     PlayMode.RepeatOne -> PlayMode.Shuffle
                     PlayMode.Shuffle -> PlayMode.RepeatAll
                 })
-                playbackState.persistState()
             },
             size = 32.dp,
             iconSize = 21.dp
@@ -72,7 +61,7 @@ internal fun ControlBar(
             contentDescription = stringResource(R.string.music_panel_previous_track),
             onClick = {
                 val prev = playbackState.previousIndex()
-                if (prev >= 0) scope.launch { playbackState.playTrackAt(prev) }
+                if (prev >= 0) playbackState.playTrackAt(prev)
             },
             enabled = playbackState.playlist.isNotEmpty(),
             size = 32.dp,
@@ -105,7 +94,7 @@ internal fun ControlBar(
             contentDescription = stringResource(R.string.music_panel_next_track),
             onClick = {
                 val next = playbackState.nextIndex()
-                if (next >= 0) scope.launch { playbackState.playTrackAt(next) }
+                if (next >= 0) playbackState.playTrackAt(next)
             },
             enabled = playbackState.playlist.isNotEmpty(),
             size = 32.dp,

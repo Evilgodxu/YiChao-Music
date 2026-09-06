@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +49,7 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.AiMusicAnalyzer
 import com.yichao.evilgodxu.domain.music.analyzeLibraryCombined
 import com.yichao.evilgodxu.domain.music.FakeLosslessAnalyzer
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.PlaylistSource
 import com.yichao.evilgodxu.domain.music.trackFormatCategory
 import com.yichao.evilgodxu.R
@@ -69,12 +70,13 @@ private const val FormatListVisibleRows = 3
 @Composable
 internal fun LibraryAnalysisSheet(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     analysis: LibraryAnalysisController,
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     // 全量库统计：切换歌单时曲库范围不变，仅依赖全量库数据
     val stats = remember(playbackState.libraryTracks) {
         analyzeLibraryFormats(context, playbackState.libraryTracks)
@@ -213,7 +215,7 @@ internal fun LibraryAnalysisSheet(
                                 color = FORMAT_COLOR_PALETTE[index % FORMAT_COLOR_PALETTE.size],
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat)
+                                    switchToFormat(scope, context, playbackState, stat)
                                     onDismiss()
                                 },
                             )
@@ -265,7 +267,7 @@ internal fun LibraryAnalysisSheet(
                                 specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat)
+                                    switchToFormat(scope, context, playbackState, stat)
                                     onDismiss()
                                 },
                             )
@@ -284,7 +286,7 @@ internal fun LibraryAnalysisSheet(
                                 specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat)
+                                    switchToFormat(scope, context, playbackState, stat)
                                     onDismiss()
                                 },
                             )
@@ -297,14 +299,14 @@ internal fun LibraryAnalysisSheet(
 }
 
 // 切换播放列表为指定格式/识别类目曲目（假无损、AI 音乐按校验结果过滤，其余按格式分类过滤），
-// 复用歌单切换（备份默认列表 + 加载首曲不自动播放 + 补全元数据）。
-// 在播放器全局作用域执行：识别类目过滤需读文件（缓存命中即瞬时返回），且弹层关闭不取消切换
+// 复用歌单切换（备份默认列表 + 加载首曲不自动播放 + 补全元数据）
 private fun switchToFormat(
+    scope: CoroutineScope,
     context: Context,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     stat: FormatStat,
 ) {
-    playbackState.playbackScope.launch {
+    scope.launch {
         val tracks = playbackState.libraryTracks.filter { track ->
             when (stat.key) {
                 FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY -> withContext(Dispatchers.IO) {
@@ -316,11 +318,9 @@ private fun switchToFormat(
                 else -> trackFormatCategory(context, track) == stat.name
             }
         }
-        switchToPlaylistQueue(
-            context = context,
-            state = playbackState,
-            tracks = tracks,
-            source = PlaylistSource(formatSourceKey(stat.key), stat.name),
+        playbackState.switchToPlaylist(
+            tracks,
+            PlaylistSource(formatSourceKey(stat.key), stat.name),
         )
     }
 }

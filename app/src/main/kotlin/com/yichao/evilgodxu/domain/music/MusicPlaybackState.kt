@@ -47,10 +47,6 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
 
     // 常听收录窗口：统计 3 天内完整播放次数不少于 2 次的歌曲
     companion object {
-        // 播放速度调节范围与默认值：步长 0.1
-        const val PLAYBACK_SPEED_MIN = 0.5f
-        const val PLAYBACK_SPEED_MAX = 2.0f
-        const val PLAYBACK_SPEED_DEFAULT = 1.0f
         private const val RECENT_WINDOW_DAYS = 3
         private const val RECENT_MIN_PLAYS = 2
         // 播放期间周期性持久化间隔：保证冷启动/异常退出也能恢复当前曲目与进度
@@ -235,6 +231,9 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
         } ?: false
     override var duration by mutableLongStateOf(0L)
     override var currentPosition by mutableLongStateOf(0L)
+    override val rawPosition: Long
+        get() = mediaController?.currentPosition
+            ?.takeIf { it >= 0L } ?: currentPosition
     private val _playlist = mutableStateOf<List<MusicTrack>>(emptyList())
     override var playlist: List<MusicTrack>
         get() = _playlist.value
@@ -251,7 +250,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
     override var currentTrack by mutableStateOf<MusicTrack?>(null)
     override var playMode by mutableStateOf(PlayMode.RepeatAll)
     // 播放速度：默认 1.0，调节范围 0.5~2.0
-    override var playbackSpeed by mutableFloatStateOf(PLAYBACK_SPEED_DEFAULT)
+    override var playbackSpeed by mutableFloatStateOf(PlaybackController.PLAYBACK_SPEED_DEFAULT)
     override var errorMsg by mutableStateOf<String?>(null)
     override var isScanning by mutableStateOf(false)
     override var isLyricsVisible by mutableStateOf(false)
@@ -481,7 +480,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
     }
 
     // 从常听手动移除：清除该曲目的播放记录，期间不再自动收录
-    fun removeFromRecentPlayed(trackId: Long) {
+    override fun removeFromRecentPlayed(trackId: Long) {
         recentPlayEvents = recentPlayEvents.filterNot { it.trackId == trackId }
         persistRecentPlayed()
     }
@@ -616,7 +615,10 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
                 currentPosition = snapshot.position
             }
             playMode = PlayMode.entries.getOrElse(snapshot.mode) { PlayMode.RepeatAll }
-            playbackSpeed = snapshot.speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
+            playbackSpeed = snapshot.speed.coerceIn(
+                PlaybackController.PLAYBACK_SPEED_MIN,
+                PlaybackController.PLAYBACK_SPEED_MAX,
+            )
         }
     }
 
@@ -820,6 +822,33 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
         persistPlaylist()
     }
 
+    // 切换到指定歌单队列：空队列仅落盘来源；非空时备份默认列表、加载首曲（不自动播放）并后台补全元数据
+    override fun switchToPlaylist(tracks: List<MusicTrack>, source: PlaylistSource?) {
+        val context = appContext ?: return
+        if (tracks.isEmpty()) {
+            playlist = tracks
+            playlistSource = source
+            persistPlaylist()
+            return
+        }
+        // 首次从默认库切到歌单时备份默认列表，供快捷切回
+        if (playlistSource == null && defaultPlaylistBackup == null) {
+            defaultPlaylistBackup = playlist
+        }
+        playlist = tracks
+        playlistSource = source
+        currentIndex = 0
+        // 仅加载新队列并暂停，不自动播放；在播放器全局作用域执行，避免弹层关闭取消协程导致队列未加载
+        playbackScope.launch {
+            playTrackAt(context, this@MusicPlaybackState, 0, autoPlay = false)
+        }
+        persistPlaylist()
+        // 切换歌单后后台补全新歌单缺失的封面/歌词，缓存已就绪的歌曲直接命中不重复加载
+        playbackScope.launch {
+            MetadataEnricher.enrichAndCleanup(context, this@MusicPlaybackState)
+        }
+    }
+
     // 更新播放列表中指定曲目的元数据并持久化（列表与当前曲目同步替换）
     override fun updateTrack(updated: MusicTrack) {
         playlist = playlist.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }
@@ -981,9 +1010,14 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
         playMode = mode
         // 同步应用到播放器：播放模式修改即时生效，无需 UI 再经控制器下发
         mediaController?.let { applyPlaybackMode(it, mode) }
+        // 播放模式持久化在状态内部收敛，UI 不直接驱动落盘
+        persistState()
     }
     override fun updatePlaybackSpeed(speed: Float) {
-        playbackSpeed = speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
+        playbackSpeed = speed.coerceIn(
+            PlaybackController.PLAYBACK_SPEED_MIN,
+            PlaybackController.PLAYBACK_SPEED_MAX,
+        )
         mediaController?.setPlaybackSpeed(playbackSpeed)
         persistPlaybackSpeed()
     }

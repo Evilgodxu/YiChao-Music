@@ -49,7 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
@@ -58,7 +58,7 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun PlaylistOverlay(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onScan: () -> Unit,
     onTrackSelected: (Int) -> Unit,
     onTrackLongPress: (MusicTrack) -> Unit,

@@ -49,7 +49,7 @@ import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.searchLosslessUpgradeCandidates
 import com.yichao.evilgodxu.domain.music.upgradeTrackToLossless
 import com.yichao.evilgodxu.R
@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun LosslessUpgradeDialog(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -74,7 +74,7 @@ internal fun LosslessUpgradeDialog(
     LaunchedEffect(visible, track?.id, ui.losslessUpgradeSource) {
         if (visible && track != null) {
             selectedCandidate = null
-            searchLosslessUpgradeCandidates(context, ui, track, ui.losslessUpgradeSource)
+            ui.searchLosslessUpgradeCandidates(context, track, ui.losslessUpgradeSource)
         }
     }
 
@@ -141,9 +141,7 @@ internal fun LosslessUpgradeDialog(
                 IconButton(
                     onClick = {
                         selectedCandidate = null
-                        scope.launch {
-                            searchLosslessUpgradeCandidates(context, ui, track, ui.losslessUpgradeSource)
-                        }
+                        ui.searchLosslessUpgradeCandidates(context, track, ui.losslessUpgradeSource)
                     },
                     enabled = !ui.isLosslessUpgradeSearching && !ui.losslessUpgradeBusy,
                     modifier = Modifier.align(Alignment.CenterEnd),
@@ -268,7 +266,8 @@ internal fun LosslessUpgradeDialog(
                             scope.launch {
                                 ui.losslessUpgradeBusy = true
                                 ui.losslessUpgradeError = null
-                                val success = upgradeTrackToLossless(context, playbackState, track, candidate)
+                                // 无损升级为播放核心数据编排，经全局状态执行
+                                val success = upgradeTrackToLossless(context, MusicPanelStateHolder.state, track, candidate)
                                 ui.losslessUpgradeBusy = false
                                 if (success) {
                                     ui.losslessUpgradeError = null

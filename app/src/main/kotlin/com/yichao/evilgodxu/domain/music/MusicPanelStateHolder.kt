@@ -5,7 +5,7 @@ package com.yichao.evilgodxu.domain.music
 object MusicPanelStateHolder {
     // 页面级瞬态 UI 状态（搜索/音质/封面/歌词/无损升级），与播放核心分离
     val ui = MusicPanelUiState()
-    val state = MusicPlaybackState(ui)
+    val state = MusicPlaybackState(ui).also { ui.attachPlaybackState(it) }
 
     fun releaseIfIdle() {
         if (!state.isPlayerActive) {

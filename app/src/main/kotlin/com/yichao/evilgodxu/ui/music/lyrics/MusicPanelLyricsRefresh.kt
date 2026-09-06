@@ -55,7 +55,7 @@ import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.ui.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
@@ -63,7 +63,7 @@ import com.yichao.evilgodxu.ui.icons.AppIcons
 internal fun LyricsRefreshOverlay(
     visible: Boolean,
     track: MusicTrack?,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selectedId: Long?,
     context: Context,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
@@ -107,7 +107,7 @@ internal fun LyricsRefreshOverlay(
 internal fun LyricsRefreshDialog(
     visible: Boolean,
     track: MusicTrack?,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selectedId: Long?,
     context: Context,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,
@@ -146,7 +146,7 @@ internal fun LyricsRefreshDialog(
 // 歌词刷新共享主体：标题行(点击切换来源+刷新按钮) + 候选 / 状态 + 按钮，供全屏蒙层与对话框复用
 @Composable
 private fun LyricsRefreshContent(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selectedId: Long?,
     context: Context,
     onCandidateSelected: (NeteaseSongSearchResult) -> Unit,

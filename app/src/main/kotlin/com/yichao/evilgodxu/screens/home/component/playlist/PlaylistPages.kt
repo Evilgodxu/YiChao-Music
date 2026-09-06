@@ -50,10 +50,8 @@ import com.yichao.evilgodxu.data.playlist.Playlist
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.PlaylistSource
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
@@ -64,7 +62,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun PlaylistGroupsPage(
     type: SmartPlaylistType,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onOpenGroup: (PlaylistGroup) -> Unit,
 ) {
     val groups = when (type) {
@@ -153,7 +151,7 @@ internal fun PlaylistGroupsPage(
 @Composable
 internal fun PlaylistTracksPage(
     playlist: Playlist,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -208,7 +206,7 @@ internal fun PlaylistTracksPage(
 @Composable
 internal fun PlaylistSmartTracksPage(
     type: SmartPlaylistType,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
 ) {
     val scope = rememberCoroutineScope()
     val library = playbackState.libraryTracks
@@ -246,7 +244,7 @@ internal fun PlaylistSmartTracksPage(
 internal fun PlaylistGroupTracksPage(
     type: SmartPlaylistType,
     group: PlaylistGroup,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -289,7 +287,7 @@ internal fun PlaylistGroupTracksPage(
 private fun TracksContent(
     tracks: List<MusicTrack>,
     source: PlaylistSource?,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     scope: CoroutineScope,
     trailingAction: @Composable () -> Unit,
     onTrackLongClick: (MusicTrack) -> Unit,
@@ -320,7 +318,7 @@ private fun TracksContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(
-                onClick = { playQueue(context, playbackState, scope, orderedTracks, 0, source) },
+                onClick = { playQueue(playbackState, orderedTracks, 0, source) },
                 enabled = orderedTracks.isNotEmpty(),
             ) {
                 Icon(
@@ -364,9 +362,9 @@ private fun TracksContent(
                             isDragging = isDragging,
                             onClick = {
                                 if (isActive) {
-                                    togglePlayPause(playbackState)
+                                    playbackState.togglePlayPause()
                                 } else {
-                                    playQueue(context, playbackState, scope, orderedTracks, index, source)
+                                    playQueue(playbackState, orderedTracks, index, source)
                                 }
                             },
                             onLongClick = { onTrackLongClick(track) },
@@ -394,24 +392,15 @@ private fun EmptyHint(text: String) {
 
 // 将歌单曲目设为当前播放队列并切入指定曲目，同时记录来源歌单
 private fun playQueue(
-    context: android.content.Context,
-    state: MusicPlaybackState,
-    scope: CoroutineScope,
+    playbackState: PlaybackController,
     tracks: List<MusicTrack>,
     startIndex: Int,
     source: PlaylistSource?,
 ) {
     if (tracks.isEmpty()) return
-    // 首次从默认库切到歌单时备份默认列表，供快捷切回
-    if (state.playlistSource == null && state.defaultPlaylistBackup == null) {
-        state.defaultPlaylistBackup = state.playlist
-    }
-    state.playlist = tracks
-    state.playlistSource = source
+    playbackState.switchToPlaylist(tracks, source)
     val index = startIndex.coerceIn(0, tracks.size - 1)
-    state.currentIndex = index
-    scope.launch { playTrackAt(context, state, index) }
-    state.persistPlaylist()
+    playbackState.playTrackAt(index)
 }
 
 // 从歌单移除/删除歌曲的确认弹窗：默认文案为「从歌单移除」，可按场景传入删除文案

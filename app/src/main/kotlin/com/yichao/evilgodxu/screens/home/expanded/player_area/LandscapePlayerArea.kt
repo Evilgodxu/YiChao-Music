@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -62,8 +61,7 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.settings.landscapeLyricLayoutFlow
 import com.yichao.evilgodxu.data.settings.LandscapeLyricLayoutParams
 import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.screens.home.dialog.LosslessUpgradeDialog
 import com.yichao.evilgodxu.screens.home.component.player_area.HomeAlbumArt
 import com.yichao.evilgodxu.screens.home.component.player_area.MarqueeInfoLine
@@ -74,12 +72,11 @@ import com.yichao.evilgodxu.ui.music.currentTrackNeedsLosslessUpgrade
 import com.yichao.evilgodxu.ui.music.lyrics.LyricsPanel
 import com.yichao.evilgodxu.ui.music.TrackFormatInfoSection
 import com.yichao.evilgodxu.ui.music.VerticalProgressBar
-import kotlinx.coroutines.launch
 
 // 横屏播放器：双栏结构（封面视觉区 → 歌词透视区）左右居中，标题栏与控制栏点击弹出
 @Composable
 fun LandscapePlayerArea(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     chromeVisible: Boolean,
     onToggleChrome: () -> Unit,
     // 播放列表面板显隐：由首页层持有，显示期间禁用上下滑动切歌
@@ -93,8 +90,6 @@ fun LandscapePlayerArea(
     // 封面与点击检测层在窗口坐标系下的位置，用于判定点击是否命中封面
     var tapBounds by remember { mutableStateOf<Rect?>(null) }
     var coverBounds by remember { mutableStateOf<Rect?>(null) }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     // 覆盖层开启时，系统返回键收起 3D 封面轮播
     BackHandler(enabled = coverCarouselVisible) { coverCarouselVisible = false }
@@ -226,7 +221,7 @@ fun LandscapePlayerArea(
                 playlist = playbackState.playlist,
                 currentIndex = playbackState.currentIndex.coerceAtLeast(0),
                 onTrackSelected = { index ->
-                    scope.launch { playTrackAt(context, playbackState, index) }
+                    playbackState.playTrackAt(index)
                     coverCarouselVisible = false
                 },
                 onDismiss = { coverCarouselVisible = false },
@@ -242,7 +237,7 @@ private const val BASE_CAMERA_DISTANCE_FACTOR = 0.15f
 // 歌词透视区：rotationY 绕 Y 轴旋转，配合随宽度缩放的 cameraDistance 产生近大远小的真实 3D 透视
 @Composable
 private fun LyricsPerspectiveZone(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current

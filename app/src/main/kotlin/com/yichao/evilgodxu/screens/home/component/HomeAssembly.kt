@@ -226,7 +226,7 @@ fun HomeAssembly(
                                 ui.setSearchQuery(query)
                                 ui.setSearchResultsVisible(true)
                                 swipeController.showOnlineSearch = true
-                                scope.launch { performSearch(ui, playbackState, context) }
+                                ui.performSearch(context)
                             },
                         )
                     }

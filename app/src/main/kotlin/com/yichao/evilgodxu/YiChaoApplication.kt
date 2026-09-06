@@ -1,12 +1,17 @@
 package com.yichao.evilgodxu
 
 import android.app.Application
+import android.content.ComponentName
+import androidx.media3.session.SessionToken
 import coil3.ImageLoader
 import coil3.memory.MemoryCache
 import coil3.SingletonImageLoader
 import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.di.appModule
+import com.yichao.evilgodxu.domain.music.PlaybackSessionTokenProvider
+import com.yichao.evilgodxu.domain.music.PlaybackSessionTokenProviders
 import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.service.MusicPlaybackService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -43,6 +48,10 @@ class YiChaoApplication : Application() {
             androidLogger(level = org.koin.core.logger.Level.ERROR)
             androidContext(this@YiChaoApplication)
             modules(appModule)
+        }
+        // 装配播放会话令牌工厂：domain 层仅依赖抽象，播放服务类由应用入口持有
+        PlaybackSessionTokenProviders.provider = PlaybackSessionTokenProvider { context ->
+            SessionToken(context, ComponentName(context, MusicPlaybackService::class.java))
         }
     }
 }

@@ -72,9 +72,8 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.HeaderIconButton
@@ -87,7 +86,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun PlaylistSheet(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -187,11 +186,12 @@ internal fun PlaylistSheet(
                             onClick = {
                                 if (!playbackState.isScanning) {
                                     scope.launch {
+                                        // 刷新与补全为播放核心数据编排，经全局状态执行
                                         PlaylistRefresher.refresh(
-                                            context, playbackState, restoreCurrent = true
+                                            context, MusicPanelStateHolder.state, restoreCurrent = true
                                         ) {
                                             // 刷新后后台加载封面与歌词
-                                            scope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
+                                            scope.launch { MetadataEnricher.enrichAndCleanup(context, MusicPanelStateHolder.state) }
                                         }
                                     }
                                 }
@@ -321,7 +321,7 @@ internal fun PlaylistSheet(
                                             if (isActive) {
                                                 playbackState.togglePlayPause()
                                             } else {
-                                                scope.launch { playbackState.playTrackAt(index) }
+                                                playbackState.playTrackAt(index)
                                             }
                                             onDismiss()
                                         },

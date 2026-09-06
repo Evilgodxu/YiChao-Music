@@ -49,7 +49,7 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.copyToClipboard
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.DiscArt
@@ -324,7 +324,7 @@ internal fun MiniContextMenu(
 
 @Composable
 internal fun TrackInfo(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onClick: () -> Unit = {},
     onRenameRequest: ((isTitle: Boolean, text: String) -> Unit)? = null,
 ) {

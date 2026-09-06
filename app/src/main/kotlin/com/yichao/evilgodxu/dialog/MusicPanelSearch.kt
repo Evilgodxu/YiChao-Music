@@ -42,7 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -72,7 +71,7 @@ import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.domain.music.loadMoreSearchResults
 import com.yichao.evilgodxu.ui.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -80,15 +79,13 @@ import com.yichao.evilgodxu.ui.music.HeaderIconButton
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SearchOverlay(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     modifier: Modifier = Modifier,
 ) {
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val ui = MusicPanelStateHolder.ui
     Column(
@@ -149,9 +146,7 @@ internal fun SearchOverlay(
                     onSearch = {
                         val query = ui.searchQuery.trim()
                         if (query.isNotBlank()) {
-                            scope.launch {
-                                performSearch(ui, playbackState, context)
-                            }
+                            ui.performSearch(context)
                         }
                     }
                 ),
@@ -224,7 +219,7 @@ internal fun SearchOverlay(
                             .clip(RoundedCornerShape(8.dp))
                             .clickable {
                                 ui.setSearchQuery(query)
-                                scope.launch { performSearch(ui, playbackState, context) }
+                                ui.performSearch(context)
                             }
                             .padding(start = 8.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -258,7 +253,7 @@ internal fun SearchOverlay(
 @Composable
 internal fun SearchResultsOverlay(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     onClose: () -> Unit,
     onRefresh: () -> Unit,
@@ -443,7 +438,7 @@ internal fun SearchResultRow(
 // 搜索结果列表底部脚注：加载更多时显示进度，全部加载完成时显示提示
 @Composable
 internal fun SearchLoadMoreFooter(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     val ui = MusicPanelStateHolder.ui
@@ -485,7 +480,7 @@ private val SEARCH_PULL_LOAD_THRESHOLD_DP = 60.dp
 // 搜索结果列表：触底后继续上拉（overscroll）达到阈值才加载下一页，避免误触；上拉过程展示提示
 @Composable
 internal fun SearchResultsLazyList(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     onResultClick: (NeteaseSongSearchResult) -> Unit,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
@@ -524,7 +519,7 @@ internal fun SearchResultsLazyList(
                 if (pullDistance >= loadThreshold && ui.hasMoreSearchResults &&
                     !ui.isSearching && ui.searchResults.isNotEmpty()
                 ) {
-                    loadMoreSearchResults(ui, playbackState, context)
+                    ui.loadMoreSearchResults(context)
                 }
                 pullDistance = 0f
             }

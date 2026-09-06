@@ -65,10 +65,9 @@ import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.domain.music.applyCoverCandidate
 import com.yichao.evilgodxu.domain.music.applyLyricsCandidate
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.domain.music.playSearchResult
-import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.domain.music.searchCoverCandidates
 import com.yichao.evilgodxu.domain.music.searchLyricsCandidates
 import com.yichao.evilgodxu.floatingwindow.music_panel.PendingFeatureOverlay
@@ -88,7 +87,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun MusicPanelOverlay(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onScan: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -309,7 +308,7 @@ fun MusicPanelOverlay(
                                             onOnlineCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
                                                 showCoverRefresh = true
-                                                scope.launch { searchCoverCandidates(ui, playbackState.currentTrack!!, ui.coverRefreshSource) }
+                                                ui.searchCoverCandidates(playbackState.currentTrack!!, ui.coverRefreshSource)
                                             },
                                             onLocalCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
@@ -340,7 +339,7 @@ fun MusicPanelOverlay(
                                     onLyricsRefreshClick = {
                                         lyricsTargetId = playbackState.currentTrack?.id
                                         showLyricsRefresh = true
-                                        playbackState.currentTrack?.let { track -> scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) } }
+                                        playbackState.currentTrack?.let { track -> ui.searchLyricsCandidates(track, ui.lyricsRefreshSource) }
                                     }
                                 )
                             }
@@ -384,13 +383,11 @@ fun MusicPanelOverlay(
                             playbackState.updateErrorMsg(null)
                         },
                         onRefresh = {
-                            scope.launch {
-                                performSearch(ui, playbackState, context)
-                            }
+                            ui.performSearch(context)
                         },
                         onTrackSelected = { result ->
                             scope.launch {
-                                playSearchResult(result, ui, playbackState, context, scope)
+                                ui.playSearchResult(result, context)
                             }
                         }
                     )
@@ -481,14 +478,14 @@ fun MusicPanelOverlay(
                             if (track != null && track.id == coverTargetId && source != ui.coverRefreshSource) {
                                 ui.setCoverRefreshSource(source)
                                 selectedCoverCandidate = null
-                                scope.launch { searchCoverCandidates(ui, track, source) }
+                                ui.searchCoverCandidates(track, source)
                             }
                         },
                         onRefresh = {
                             val track = playbackState.currentTrack
                             if (track != null && track.id == coverTargetId) {
                                 selectedCoverCandidate = null
-                                scope.launch { searchCoverCandidates(ui, track, ui.coverRefreshSource) }
+                                ui.searchCoverCandidates(track, ui.coverRefreshSource)
                             }
                         },
                         onConfirm = {
@@ -531,14 +528,14 @@ fun MusicPanelOverlay(
                             if (track != null && track.id == lyricsTargetId && source != ui.lyricsRefreshSource) {
                                 ui.setLyricsRefreshSource(source)
                                 selectedLyricsCandidate = null
-                                scope.launch { searchLyricsCandidates(ui, track, source) }
+                                ui.searchLyricsCandidates(track, source)
                             }
                         },
                         onRefresh = {
                             val track = playbackState.currentTrack
                             if (track != null && track.id == lyricsTargetId) {
                                 selectedLyricsCandidate = null
-                                scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) }
+                                ui.searchLyricsCandidates(track, ui.lyricsRefreshSource)
                             }
                         },
                         onConfirm = {

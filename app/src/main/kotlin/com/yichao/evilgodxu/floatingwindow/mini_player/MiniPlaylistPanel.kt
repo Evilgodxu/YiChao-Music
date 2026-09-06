@@ -41,14 +41,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaybackController
-import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 import com.yichao.evilgodxu.ui.music.scrollPlaylistTo
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun MiniPlaylistPanel(

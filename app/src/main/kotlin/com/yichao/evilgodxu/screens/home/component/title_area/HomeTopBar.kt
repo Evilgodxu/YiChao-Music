@@ -20,7 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
@@ -28,7 +28,7 @@ import com.yichao.evilgodxu.ui.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HomeTopBar(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     isLandscapeMode: Boolean,
     isLiked: Boolean,
     favoriteEnabled: Boolean,

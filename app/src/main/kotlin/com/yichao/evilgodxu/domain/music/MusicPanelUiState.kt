@@ -21,7 +21,18 @@ import kotlinx.coroutines.launch
 class MusicPanelUiState {
     // 搜索历史持久化用上下文，由播放状态恢复流程注入
     var appContext: Context? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    // 面板级协程作用域：应用级常驻，面板关闭后搜索/封面等后台任务不被取消
+    internal val panelScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // 播放核心引用：由 MusicPanelStateHolder 构造播放状态后注入，供面板动作编排播放
+    internal var playbackState: MusicPlaybackState? = null
+    internal val core: MusicPlaybackState
+        get() = playbackState ?: error("MusicPanelUiState 未绑定播放核心")
+
+    // 绑定播放核心：仅在应用装配阶段由全局状态持有者调用一次
+    internal fun attachPlaybackState(state: MusicPlaybackState) {
+        playbackState = state
+    }
 
     // 在线搜索相关状态
     var isSearchMode by mutableStateOf(false)
@@ -96,7 +107,7 @@ class MusicPanelUiState {
 
     private fun persistSearchHistory() {
         val context = appContext ?: return
-        scope.launch(Dispatchers.IO) {
+        panelScope.launch(Dispatchers.IO) {
             SearchHistoryStore.save(context, searchHistory)
         }
     }

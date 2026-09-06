@@ -12,25 +12,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.data.music.model.PlayMode
 import com.yichao.evilgodxu.dialog.SpeedDialog
-import com.yichao.evilgodxu.domain.music.applyPlaybackMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaybackController
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import kotlinx.coroutines.launch
 
 // 底部控制栏：与迷你播放器控件布局一致（播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表）
 @Composable
@@ -39,8 +32,6 @@ internal fun PlayerControls(
     onPlaylistClick: () -> Unit,
     onPlaylistLongClick: () -> Unit = {},
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     // 调速对话框显隐：长按上一曲/下一曲按钮弹出
     var showSpeedDialog by remember { mutableStateOf(false) }
     Row(
@@ -63,7 +54,6 @@ internal fun PlayerControls(
                         PlayMode.Shuffle -> PlayMode.RepeatAll
                     }
                 )
-                playbackState.persistState()
             },
         )
         PlayerControlButton(
@@ -72,7 +62,7 @@ internal fun PlayerControls(
             enabled = playbackState.playlist.isNotEmpty(),
             onClick = {
                 val prev = playbackState.previousIndex()
-                if (prev >= 0) scope.launch { playbackState.playTrackAt(prev) }
+                if (prev >= 0) playbackState.playTrackAt(prev)
             },
             onLongClick = { showSpeedDialog = true },
         )
@@ -90,7 +80,7 @@ internal fun PlayerControls(
             enabled = playbackState.playlist.isNotEmpty(),
             onClick = {
                 val next = playbackState.nextIndex()
-                if (next >= 0) scope.launch { playbackState.playTrackAt(next) }
+                if (next >= 0) playbackState.playTrackAt(next)
             },
             onLongClick = { showSpeedDialog = true },
         )

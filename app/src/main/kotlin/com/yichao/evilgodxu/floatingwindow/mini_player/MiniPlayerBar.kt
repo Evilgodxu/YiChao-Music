@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -52,21 +51,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.model.PlayMode
-import com.yichao.evilgodxu.domain.music.applyPlaybackMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.DiscArt
 import kotlin.math.min
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun MiniPlayerBar(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     barHeight: Dp,
     playlistExpanded: Boolean,
     onPlaylistExpandedChange: (Boolean) -> Unit,
@@ -76,7 +71,6 @@ internal fun MiniPlayerBar(
     onSwipeCancel: () -> Unit,
     onSwipeDown: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // 逐字渲染开关：关闭后整行高亮，不再逐字点亮
     val wordByWordEnabled by context.wordByWordRenderingFlow().collectAsState(initial = true)
@@ -104,8 +98,7 @@ internal fun MiniPlayerBar(
         if (controlsVisible) return@LaunchedEffect
         var lastSyncMs = 0L
         while (isActive) {
-            val candidate = playbackState.mediaController?.currentPosition
-                ?.takeIf { it >= 0L } ?: playbackState.currentPosition
+            val candidate = playbackState.rawPosition
             if (playbackState.isPlaying) {
                 val now = System.currentTimeMillis()
                 val elapsed = if (lastSyncMs == 0L) 0L else (now - lastSyncMs).coerceAtLeast(0L)
@@ -179,7 +172,7 @@ internal fun MiniPlayerBar(
                                 } else {
                                     playbackState.nextIndex()
                                 }
-                                if (index >= 0) scope.launch { playTrackAt(context, playbackState, index) }
+                                if (index >= 0) playbackState.playTrackAt(index)
                             }
                             // 垂直：下滑隐藏播放器
                             2 -> if (totalDy > verticalSwipeThresholdPx) onSwipeDown()
@@ -230,7 +223,6 @@ internal fun MiniPlayerBar(
                             PlayMode.Shuffle -> PlayMode.RepeatAll
                         }
                     )
-                    playbackState.persistState()
                 }
             )
             // 上一曲
@@ -240,7 +232,7 @@ internal fun MiniPlayerBar(
                 enabled = playbackState.playlist.isNotEmpty(),
                 onClick = {
                     val prev = playbackState.previousIndex()
-                    if (prev >= 0) scope.launch { playTrackAt(context, playbackState, prev) }
+                    if (prev >= 0) playbackState.playTrackAt(prev)
                 }
             )
             // 暂停 / 播放
@@ -249,7 +241,7 @@ internal fun MiniPlayerBar(
                 contentDescription = stringResource(
                     if (playbackState.isPlaying) R.string.music_panel_pause else R.string.music_panel_play
                 ),
-                onClick = { togglePlayPause(playbackState) }
+                onClick = { playbackState.togglePlayPause() }
             )
             // 下一曲
             MiniControlButton(
@@ -258,7 +250,7 @@ internal fun MiniPlayerBar(
                 enabled = playbackState.playlist.isNotEmpty(),
                 onClick = {
                     val next = playbackState.nextIndex()
-                    if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
+                    if (next >= 0) playbackState.playTrackAt(next)
                 }
             )
             // 播放列表

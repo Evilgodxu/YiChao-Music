@@ -32,9 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.domain.music.AudioSignalPathFormat
 import com.yichao.evilgodxu.domain.music.formatTime
 import com.yichao.evilgodxu.domain.music.isLosslessFormatName
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaybackController
-import com.yichao.evilgodxu.domain.music.seekTo
 
 @Composable
 internal fun ProgressSection(

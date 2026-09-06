@@ -30,13 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.data.settings.settingsFlow
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme
 
 @Composable
 internal fun MiniPlayerOverlay(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     barHeightPx: Int,
     barWidthPx: Int,
     playlistExpanded: Boolean,

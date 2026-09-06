@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.LyricLine
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.floatingwindow.mini_player.wordByWordRenderingFlow
 import com.yichao.evilgodxu.R
 import kotlin.math.roundToInt
@@ -66,7 +66,7 @@ import kotlinx.coroutines.isActive
 
 @Composable
 internal fun LyricsPanel(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -85,9 +85,7 @@ internal fun LyricsPanel(
     LaunchedEffect(playbackState.isPlaying, playbackState.currentTrack?.id) {
         var lastSyncMs = 0L
         while (isActive) {
-            val candidate = playbackState.mediaController?.currentPosition
-                ?.takeIf { it >= 0L }
-                ?: playbackState.currentPosition
+            val candidate = playbackState.rawPosition
             if (playbackState.isPlaying) {
                 val now = System.currentTimeMillis()
                 val elapsed = if (lastSyncMs == 0L) 0L else (now - lastSyncMs).coerceAtLeast(0L)

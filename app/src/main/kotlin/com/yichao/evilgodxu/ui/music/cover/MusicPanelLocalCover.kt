@@ -37,7 +37,7 @@ import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPanelUiState
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +69,7 @@ internal suspend fun loadRecentCovers(context: Context): List<RecentCover> = wit
 internal suspend fun applyLocalCover(
     context: Context,
     ui: MusicPanelUiState,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     track: MusicTrack,
     cover: RecentCover,
 ): Boolean = withContext(Dispatchers.IO) {
@@ -94,7 +94,7 @@ internal suspend fun applyLocalCover(
 @Composable
 internal fun LocalCoverOverlay(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selected: RecentCover?,
     saving: Boolean,
     onSelected: (RecentCover) -> Unit,
@@ -121,7 +121,7 @@ internal fun LocalCoverOverlay(
 @Composable
 internal fun LocalCoverDialog(
     visible: Boolean,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selected: RecentCover?,
     saving: Boolean,
     onSelected: (RecentCover) -> Unit,
@@ -145,7 +145,7 @@ internal fun LocalCoverDialog(
 // 本地封面共享主体：标题 + 候选列表 + 按钮，供全屏蒙层与对话框复用
 @Composable
 private fun LocalCoverContent(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selected: RecentCover?,
     saving: Boolean,
     onSelected: (RecentCover) -> Unit,

@@ -65,7 +65,7 @@ import com.yichao.evilgodxu.data.music.api.MusicQuality
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.dialog.SearchResultsLazyList
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.domain.music.playSearchResultWithQuality
 import com.yichao.evilgodxu.domain.music.tryPlayLocalMatch
@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
 // 首页专属在线搜索面板：搜索输入/历史/结果逻辑与其样式在此独立封装
 @Composable
 internal fun OnlineSearchPanel(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     isLandscape: Boolean = false,
     modifier: Modifier = Modifier,
@@ -156,7 +156,7 @@ internal fun OnlineSearchPanel(
 // 横屏双列布局：左列搜索输入与历史导航，右列结果列表，避免结果横向拉伸
 @Composable
 private fun LandscapeSearchContent(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     context: Context,
     scope: CoroutineScope,
@@ -235,7 +235,7 @@ private fun PanelHeader() {
 // 搜索输入框：左侧放大镜点击弹出平台下拉列表，切换后带已有关键词自动重搜
 @Composable
 private fun SearchInput(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     menuBackgroundColor: Color,
     context: Context,
     scope: CoroutineScope,
@@ -303,7 +303,7 @@ private fun SearchInput(
                                 ui.setSearchSource(source)
                                 val query = ui.searchQuery.trim()
                                 if (query.isNotBlank()) {
-                                    scope.launch { performSearch(ui, playbackState, context) }
+                                    ui.performSearch(context)
                                 }
                             },
                             trailingIcon = {
@@ -340,7 +340,7 @@ private fun SearchInput(
                         keyboardController?.hide()
                         val query = ui.searchQuery.trim()
                         if (query.isNotBlank()) {
-                            scope.launch { performSearch(ui, playbackState, context) }
+                            ui.performSearch(context)
                         }
                     }
                 ),
@@ -389,7 +389,7 @@ private fun sourceName(source: MusicSearchSource): String = stringResource(
 // 搜索历史列表
 @Composable
 private fun SearchHistoryList(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     scope: CoroutineScope,
 ) {
@@ -437,7 +437,7 @@ private fun SearchHistoryList(
                     .clip(RoundedCornerShape(8.dp))
                     .clickable {
                         ui.setSearchQuery(query)
-                        scope.launch { performSearch(ui, playbackState, context) }
+                        ui.performSearch(context)
                     }
                     .padding(start = 8.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -470,7 +470,7 @@ private fun SearchHistoryList(
 // 搜索状态区：结果计数/刷新/加载/空/列表
 @Composable
 private fun SearchResultList(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     scope: CoroutineScope,
 ) {
@@ -493,7 +493,7 @@ private fun SearchResultList(
             IconButton(
                 onClick = {
                     if (!ui.isSearching) {
-                        scope.launch { performSearch(ui, playbackState, context) }
+                        ui.performSearch(context)
                     }
                 },
                 modifier = Modifier.size(28.dp)
@@ -548,7 +548,7 @@ private fun SearchResultList(
                         onResultClick = { result ->
                             // 本地曲库命中同曲直接播放；否则弹出音质选择对话框由用户选音质
                             scope.launch {
-                                if (!tryPlayLocalMatch(result, ui, playbackState, context, scope)) {
+                                if (!ui.tryPlayLocalMatch(result, context)) {
                                     ui.qualityPickTrack = result
                                     ui.qualityBusy = false
                                     ui.qualityError = null
@@ -567,7 +567,7 @@ private fun SearchResultList(
 // 音质选择对话框：音质尝试失败时不关闭，保留供用户更换音质重试
 @Composable
 private fun QualitySelectDialog(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     scope: CoroutineScope,
 ) {
@@ -619,7 +619,7 @@ private fun QualitySelectDialog(
                             scope.launch {
                                 ui.qualityBusy = true
                                 ui.qualityError = null
-                                val started = playSearchResultWithQuality(track, quality, ui, playbackState, context)
+                                val started = ui.playSearchResultWithQuality(track, quality, context)
                                 // URL 解析失败直接提示；解析成功后保持忙碌态等待播放器就绪/失败回调结算
                                 if (!started) {
                                     ui.qualityBusy = false

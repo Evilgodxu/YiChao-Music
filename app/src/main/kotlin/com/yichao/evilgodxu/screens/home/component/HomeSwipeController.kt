@@ -27,8 +27,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +49,7 @@ private const val TRACK_PREVIEW_FLICK_HOLD_MS = 200L
  */
 @Stable
 internal class HomeSwipeController(
-    private val playbackState: MusicPlaybackState,
+    private val playbackState: PlaybackController,
     private val context: Context,
     private val scope: CoroutineScope,
     private val keyboardController: SoftwareKeyboardController?,
@@ -227,7 +226,7 @@ internal class HomeSwipeController(
                         if (previewEnabled && (!steadyHold || abs(swipeY) >= cancelDistancePx)) {
                             val next = if (swipeY < 0f) playbackState.nextIndex()
                             else playbackState.previousIndex()
-                            if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
+                            if (next >= 0) playbackState.playTrackAt(next)
                         }
                         trackSwitchPreviewText = null
                     }
@@ -256,7 +255,7 @@ internal class HomeSwipeController(
 
 @Composable
 internal fun rememberHomeSwipeController(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     swipeToChangeTrack: Boolean,
 ): HomeSwipeController {
     val context = LocalContext.current

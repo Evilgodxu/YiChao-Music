@@ -38,7 +38,6 @@ import com.yichao.evilgodxu.dialog.UpdateDialog
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
 import com.yichao.evilgodxu.theme.SystemBarAppearance
-import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
 import com.yichao.evilgodxu.ui.music.LocalMusicPanelController
 import com.yichao.evilgodxu.ui.music.MusicPanelController
 import com.yichao.evilgodxu.update.UpdateManager
@@ -94,9 +93,7 @@ class YiChaoActivity : ComponentActivity() {
         setContent {
             ProvideLocalizedContext(localizationManager) {
                 CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
-                    ProvideWindowSizeClass {
-                        YiChaoContent()
-                    }
+                    YiChaoContent()
                 }
             }
         }

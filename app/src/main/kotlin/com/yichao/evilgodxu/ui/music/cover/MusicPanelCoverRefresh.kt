@@ -59,7 +59,7 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
@@ -67,7 +67,7 @@ import com.yichao.evilgodxu.ui.icons.AppIcons
 internal fun CoverRefreshOverlay(
     visible: Boolean,
     track: MusicTrack?,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     selectedId: Long?,
     saving: Boolean,
@@ -102,7 +102,7 @@ internal fun CoverRefreshOverlay(
 internal fun CoverRefreshDialog(
     visible: Boolean,
     track: MusicTrack?,
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: Context,
     selectedId: Long?,
     saving: Boolean,
@@ -133,7 +133,7 @@ internal fun CoverRefreshDialog(
 // 封面刷新共享主体：标题行(点击切换来源+刷新按钮) + 候选 / 状态 + 按钮，供全屏蒙层与对话框复用
 @Composable
 private fun CoverRefreshContent(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     selectedId: Long?,
     saving: Boolean,
     context: Context,

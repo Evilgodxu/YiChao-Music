@@ -24,7 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 
 // 播放调速对话框：调节实时生效，点击外部或返回键关闭
@@ -76,7 +76,7 @@ private fun SpeedPanelContent(
             // 中间数值：点击重置回默认速度，透明背景仅保留点击区
             Surface(
                 color = Color.Transparent,
-                onClick = { onSpeedChange(MusicPlaybackState.PLAYBACK_SPEED_DEFAULT) },
+                onClick = { onSpeedChange(PlaybackController.PLAYBACK_SPEED_DEFAULT) },
             ) {
                 Text(
                     text = stringResource(R.string.music_panel_speed_value, speed),
