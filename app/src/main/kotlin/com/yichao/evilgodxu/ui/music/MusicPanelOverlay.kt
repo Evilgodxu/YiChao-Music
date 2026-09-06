@@ -70,7 +70,7 @@ import com.yichao.evilgodxu.domain.music.playSearchResult
 import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.domain.music.searchCoverCandidates
 import com.yichao.evilgodxu.domain.music.searchLyricsCandidates
-import com.yichao.evilgodxu.overlay.PendingFeatureOverlay
+import com.yichao.evilgodxu.floatingwindow.PendingFeatureOverlay
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme

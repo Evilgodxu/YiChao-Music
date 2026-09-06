@@ -58,7 +58,7 @@ import androidx.compose.ui.unit.TextUnit
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.overlay.wordByWordRenderingFlow
+import com.yichao.evilgodxu.floatingwindow.wordByWordRenderingFlow
 import com.yichao.evilgodxu.R
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay

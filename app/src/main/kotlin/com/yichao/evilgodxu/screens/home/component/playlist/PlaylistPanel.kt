@@ -1,0 +1,824 @@
+package com.yichao.evilgodxu.screens.home.component.playlist
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.music.proxy.PlaylistSyncer
+import com.yichao.evilgodxu.data.music.proxy.PlaylistSyncResult
+import com.yichao.evilgodxu.data.music.proxy.RemotePlaylistLink
+import com.yichao.evilgodxu.data.music.proxy.SyncFailure
+import com.yichao.evilgodxu.data.playlist.Playlist
+import com.yichao.evilgodxu.data.playlist.PlaylistGroup
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
+import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
+import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.screens.home.dialog.PlaylistImportDialog
+import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+
+// 首页左滑呼出的歌单面板：系统歌单 + 自定义歌单，支持页面栈导航
+@Composable
+internal fun PlaylistPanel(
+    visible: Boolean,
+    playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
+    isLandscape: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { PlaylistStore.ensureLoaded(context) }
+    var backStack by remember { mutableStateOf(listOf<PlaylistPage>(PlaylistPage.Overview)) }
+    LaunchedEffect(visible) { if (!visible) backStack = listOf(PlaylistPage.Overview) }
+    val page = backStack.last()
+    // 打开系统歌单：专辑/艺术家进入分组列表，其余直接进入曲目页
+    fun openSmart(type: SmartPlaylistType) {
+        backStack = backStack + if (type == SmartPlaylistType.ALBUM || type == SmartPlaylistType.ARTIST) {
+            PlaylistPage.Groups(type)
+        } else {
+            PlaylistPage.SmartTracks(type)
+        }
+    }
+    // 当前详情页对应的导航选中态：横屏左列高亮当前歌单入口
+    val selectedSmartType = when (val current = page) {
+        is PlaylistPage.Groups -> current.type
+        is PlaylistPage.SmartTracks -> current.type
+        is PlaylistPage.GroupTracks -> current.type
+        else -> null
+    }
+    val selectedPlaylistId = (page as? PlaylistPage.Tracks)?.playlist?.id
+    // 二级/三级详情页系统返回键逐级回退；顶层页面由首页 BackHandler 关闭面板
+    BackHandler(enabled = visible && backStack.size > 1) {
+        backStack = backStack.dropLast(1)
+    }
+    // 新建/重命名/删除歌单弹窗
+    var showCreate by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<Playlist?>(null) }
+    var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
+    var showImport by remember { mutableStateOf(false) }
+    // 歌单同步后台状态：进度显示在总览标题区，完成提示短暂展示后自动清理
+    var syncState by remember { mutableStateOf<SyncUiState?>(null) }
+    var syncJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun startSync(link: RemotePlaylistLink, name: String) {
+        syncJob?.cancel()
+        syncState = SyncUiState.Running(0, 0, "")
+        syncJob = scope.launch {
+            val result = PlaylistSyncer.syncToLibrary(context, playbackState, link) { done, total, title ->
+                syncState = SyncUiState.Running(total, done, title)
+            }
+            syncState = when (result) {
+                is PlaylistSyncResult.Success -> {
+                    val created = PlaylistStore.create(context, name)
+                    if (created != null) {
+                        PlaylistStore.addTracks(context, created.id, result.trackIds)
+                        SyncUiState.Finished(
+                            result.stats.downloadedCount,
+                            result.stats.existingCount,
+                            result.stats.failedCount,
+                        )
+                    } else {
+                        SyncUiState.Failed(context.getString(R.string.playlist_import_failed))
+                    }
+                }
+                is PlaylistSyncResult.Failure -> SyncUiState.Failed(
+                    context.getString(
+                        when (result.reason) {
+                            SyncFailure.FETCH_FAILED -> R.string.playlist_import_fetch_failed
+                            SyncFailure.NO_DOWNLOAD -> R.string.playlist_import_empty
+                            SyncFailure.LIBRARY_MATCH_FAILED -> R.string.playlist_import_failed
+                        }
+                    )
+                )
+            }
+            delay(SYNC_DONE_DISMISS_MS)
+            syncState = null
+            syncJob = null
+        }
+    }
+
+    Box(modifier = modifier) {
+        if (isLandscape) {
+            LandscapePlaylistContent(
+                page = page,
+                playbackState = playbackState,
+                menuBackgroundColor = menuBackgroundColor,
+                syncState = syncState,
+                selectedSmartType = selectedSmartType,
+                selectedPlaylistId = selectedPlaylistId,
+                onBack = { backStack = backStack.dropLast(1) },
+                onOpenSmart = ::openSmart,
+                onOpenCustom = { playlist -> backStack = backStack + PlaylistPage.Tracks(playlist) },
+                onOpenGroup = { type, group -> backStack = backStack + PlaylistPage.GroupTracks(type, group) },
+                onCreatePlaylist = { showCreate = true },
+                onImportPlaylist = { showImport = true },
+                onRename = { renameTarget = it },
+                onDelete = { deleteTarget = it },
+            )
+        } else {
+            // 透明全屏布局，与在线搜索面板一致，透出首页沉浸渐变背景
+            Column(modifier = Modifier.fillMaxSize()) {
+                PanelHeader(
+                    title = if (page is PlaylistPage.Overview) syncTitle(syncState) else page.title(),
+                    showBack = backStack.size > 1,
+                    onBack = { backStack = backStack.dropLast(1) },
+                )
+                when (page) {
+                    is PlaylistPage.Overview -> PlaylistOverview(
+                        playbackState = playbackState,
+                        menuBackgroundColor = menuBackgroundColor,
+                        onOpenSmart = ::openSmart,
+                        onOpenCustom = { playlist -> backStack = backStack + PlaylistPage.Tracks(playlist) },
+                        onCreatePlaylist = { showCreate = true },
+                        onImportPlaylist = { showImport = true },
+                        onRename = { renameTarget = it },
+                        onDelete = { deleteTarget = it },
+                    )
+                    is PlaylistPage.Groups -> PlaylistGroupsPage(
+                        type = page.type,
+                        playbackState = playbackState,
+                        onOpenGroup = { group -> backStack = backStack + PlaylistPage.GroupTracks(page.type, group) },
+                    )
+                    is PlaylistPage.SmartTracks -> PlaylistSmartTracksPage(
+                        type = page.type,
+                        playbackState = playbackState,
+                    )
+                    is PlaylistPage.Tracks -> PlaylistTracksPage(playlist = page.playlist, playbackState = playbackState)
+                    is PlaylistPage.GroupTracks -> PlaylistGroupTracksPage(
+                        type = page.type,
+                        group = page.group,
+                        playbackState = playbackState,
+                    )
+                }
+            }
+        }
+    }
+    CreatePlaylistDialog(
+        visible = showCreate,
+        onCreated = { playlist ->
+            showCreate = false
+            // 创建后直接进入新歌单，便于立即添加歌曲
+            backStack = backStack + PlaylistPage.Tracks(playlist)
+        },
+        onDismiss = { showCreate = false },
+    )
+    PlaylistImportDialog(
+        visible = showImport,
+        onSyncStart = { link, name ->
+            showImport = false
+            // 同步在后台进行，进度显示在歌单面板标题区
+            startSync(link, name)
+        },
+        onDismiss = { showImport = false },
+    )
+    RenamePlaylistDialog(playlist = renameTarget, onDismiss = { renameTarget = null })
+    DeletePlaylistDialog(playlist = deleteTarget, onDismiss = { deleteTarget = null })
+}
+
+// 横屏双列布局：左列歌单导航，右列详情页，二级页面在右侧第二列展示
+@Composable
+private fun LandscapePlaylistContent(
+    page: PlaylistPage,
+    playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
+    syncState: SyncUiState?,
+    selectedSmartType: SmartPlaylistType?,
+    selectedPlaylistId: Long?,
+    onBack: () -> Unit,
+    onOpenSmart: (SmartPlaylistType) -> Unit,
+    onOpenCustom: (Playlist) -> Unit,
+    onOpenGroup: (SmartPlaylistType, PlaylistGroup) -> Unit,
+    onCreatePlaylist: () -> Unit,
+    onImportPlaylist: () -> Unit,
+    onRename: (Playlist) -> Unit,
+    onDelete: (Playlist) -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .width(LANDSCAPE_NAV_WIDTH)
+                .fillMaxHeight(),
+        ) {
+            PanelHeader(
+                title = syncTitle(syncState).ifEmpty {
+                    stringResource(R.string.music_panel_playlist_title)
+                },
+                showBack = false,
+                onBack = {},
+            )
+            PlaylistNavColumn(
+                playbackState = playbackState,
+                menuBackgroundColor = menuBackgroundColor,
+                selectedSmartType = selectedSmartType,
+                selectedPlaylistId = selectedPlaylistId,
+                onOpenSmart = onOpenSmart,
+                onOpenCustom = onOpenCustom,
+                onCreatePlaylist = onCreatePlaylist,
+                onImportPlaylist = onImportPlaylist,
+                onRename = onRename,
+                onDelete = onDelete,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .background(Color.White.copy(alpha = 0.15f)),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+        ) {
+            if (page !is PlaylistPage.Overview) {
+                PanelHeader(
+                    title = page.title(),
+                    showBack = true,
+                    onBack = onBack,
+                )
+            }
+            when (page) {
+                is PlaylistPage.Overview -> DetailPlaceholder()
+                is PlaylistPage.Groups -> PlaylistGroupsPage(page.type, playbackState) { group ->
+                    onOpenGroup(page.type, group)
+                }
+                is PlaylistPage.SmartTracks -> PlaylistSmartTracksPage(page.type, playbackState)
+                is PlaylistPage.Tracks -> PlaylistTracksPage(page.playlist, playbackState)
+                is PlaylistPage.GroupTracks -> PlaylistGroupTracksPage(page.type, page.group, playbackState)
+            }
+        }
+    }
+}
+
+// 横屏详情列占位：总览页即导航本身，右侧提示用户选择歌单
+@Composable
+private fun DetailPlaceholder() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text = stringResource(R.string.playlist_select_hint),
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 13.sp,
+        )
+    }
+}
+
+// 横屏左列歌单导航：系统歌单 + 我的歌单，紧凑行式布局
+@Composable
+private fun PlaylistNavColumn(
+    playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
+    selectedSmartType: SmartPlaylistType?,
+    selectedPlaylistId: Long?,
+    onOpenSmart: (SmartPlaylistType) -> Unit,
+    onOpenCustom: (Playlist) -> Unit,
+    onCreatePlaylist: () -> Unit,
+    onImportPlaylist: () -> Unit,
+    onRename: (Playlist) -> Unit,
+    onDelete: (Playlist) -> Unit,
+) {
+    val allTracks = playbackState.libraryTracks
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        item {
+            SectionLabel(text = stringResource(R.string.playlist_section_smart))
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+        SmartPlaylistType.entries.forEach { type ->
+            item(key = "smart_${type.name}") {
+                SmartNavRow(
+                    type = type,
+                    countText = when (type) {
+                        SmartPlaylistType.RECENT -> stringResource(
+                            R.string.music_panel_track_count,
+                            smartTrackCount(allTracks, playbackState.recentPlayedIds),
+                        )
+                        SmartPlaylistType.FAVORITE -> stringResource(
+                            R.string.music_panel_track_count,
+                            smartTrackCount(allTracks, playbackState.likedIds),
+                        )
+                        SmartPlaylistType.ALBUM -> stringResource(
+                            R.string.playlist_album_count,
+                            distinctAlbumCount(allTracks),
+                        )
+                        SmartPlaylistType.ARTIST -> stringResource(
+                            R.string.playlist_artist_count,
+                            distinctArtistCount(allTracks),
+                        )
+                    },
+                    selected = selectedSmartType == type,
+                    onClick = { onOpenSmart(type) },
+                )
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            SectionLabel(text = stringResource(R.string.playlist_section_my))
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+        item {
+            Spacer(modifier = Modifier.height(6.dp))
+            ImportPlaylistRow(onClick = onImportPlaylist)
+            Spacer(modifier = Modifier.height(6.dp))
+            CreatePlaylistRow(onClick = onCreatePlaylist)
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+        items(PlaylistStore.playlists, key = { it.id }) { playlist ->
+            PlaylistListRow(
+                playlist = playlist,
+                count = resolveTracks(allTracks, playlist.trackIds).size,
+                coverTrack = resolveTracks(allTracks, playlist.trackIds).firstOrNull(),
+                menuBackgroundColor = menuBackgroundColor,
+                selected = selectedPlaylistId == playlist.id,
+                onClick = { onOpenCustom(playlist) },
+                onRename = { onRename(playlist) },
+                onDelete = { onDelete(playlist) },
+            )
+        }
+        item { Spacer(modifier = Modifier.height(14.dp)) }
+    }
+}
+
+// 横屏左列系统歌单行：图标 + 名称 + 数量 + 箭头，选中态加亮
+@Composable
+private fun SmartNavRow(
+    type: SmartPlaylistType,
+    countText: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = smartTypeIcon(type),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = smartTypeLabel(type),
+            color = Color.White,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = countText,
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 11.sp,
+        )
+        Icon(
+            imageVector = AppIcons.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+// 横屏双列左导航宽度
+private val LANDSCAPE_NAV_WIDTH = 340.dp
+
+// 面板页面：总览 / 智能分组列表 / 智能曲目 / 自定义歌单曲目 / 智能分组曲目
+private sealed interface PlaylistPage {
+    data object Overview : PlaylistPage
+    data class Groups(val type: SmartPlaylistType) : PlaylistPage
+    data class SmartTracks(val type: SmartPlaylistType) : PlaylistPage
+    data class Tracks(val playlist: Playlist) : PlaylistPage
+    data class GroupTracks(val type: SmartPlaylistType, val group: PlaylistGroup) : PlaylistPage
+}
+
+@Composable
+private fun PlaylistPage.title(): String = when (this) {
+    is PlaylistPage.Overview -> ""
+    is PlaylistPage.Groups -> smartTypeLabel(type)
+    is PlaylistPage.SmartTracks -> smartTypeLabel(type)
+    is PlaylistPage.Tracks -> playlist.name
+    is PlaylistPage.GroupTracks -> group.name
+}
+
+// 面板顶部栏：返回按钮 + 标题，关闭统一走系统返回键
+@Composable
+private fun PanelHeader(
+    title: String,
+    showBack: Boolean,
+    onBack: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showBack) {
+            IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    imageVector = AppIcons.ChevronLeft,
+                    contentDescription = stringResource(R.string.back),
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+// 总览页：系统歌单卡片 + 我的歌单列表 + 新建歌单入口
+@Composable
+private fun PlaylistOverview(
+    playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
+    onOpenSmart: (SmartPlaylistType) -> Unit,
+    onOpenCustom: (Playlist) -> Unit,
+    onCreatePlaylist: () -> Unit,
+    onImportPlaylist: () -> Unit,
+    onRename: (Playlist) -> Unit,
+    onDelete: (Playlist) -> Unit,
+) {
+    val allTracks = playbackState.libraryTracks
+    // 专辑/艺术家入口封面取各自类目内第一首歌，避免显示全部库（播放队列）首曲
+    val firstAlbumCover = albumGroups(allTracks, stringResource(R.string.playlist_unknown_album))
+        .firstOrNull()?.trackIds?.firstOrNull()
+        ?.let { id -> allTracks.firstOrNull { it.id == id } }
+    val firstArtistCover = artistGroups(allTracks, stringResource(R.string.music_scanner_unknown_artist))
+        .firstOrNull()?.trackIds?.firstOrNull()
+        ?.let { id -> allTracks.firstOrNull { it.id == id } }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        item {
+            SectionLabel(text = stringResource(R.string.playlist_section_smart))
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SmartPlaylistCard(
+                        type = SmartPlaylistType.RECENT,
+                        countText = stringResource(R.string.music_panel_track_count, smartTrackCount(allTracks, playbackState.recentPlayedIds)),
+                        onClick = { onOpenSmart(SmartPlaylistType.RECENT) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SmartPlaylistCard(
+                        type = SmartPlaylistType.FAVORITE,
+                        countText = stringResource(R.string.music_panel_track_count, smartTrackCount(allTracks, playbackState.likedIds)),
+                        onClick = { onOpenSmart(SmartPlaylistType.FAVORITE) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SmartPlaylistCard(
+                        type = SmartPlaylistType.ALBUM,
+                        countText = stringResource(R.string.playlist_album_count, distinctAlbumCount(allTracks)),
+                        onClick = { onOpenSmart(SmartPlaylistType.ALBUM) },
+                        modifier = Modifier.weight(1f),
+                        coverTrack = firstAlbumCover,
+                    )
+                    SmartPlaylistCard(
+                        type = SmartPlaylistType.ARTIST,
+                        countText = stringResource(R.string.playlist_artist_count, distinctArtistCount(allTracks)),
+                        onClick = { onOpenSmart(SmartPlaylistType.ARTIST) },
+                        modifier = Modifier.weight(1f),
+                        coverTrack = firstArtistCover,
+                    )
+                }
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            SectionLabel(text = stringResource(R.string.playlist_section_my))
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            ImportPlaylistRow(onClick = onImportPlaylist)
+            Spacer(modifier = Modifier.height(8.dp))
+            CreatePlaylistRow(onClick = onCreatePlaylist)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        items(PlaylistStore.playlists, key = { it.id }) { playlist ->
+            PlaylistListRow(
+                playlist = playlist,
+                count = resolveTracks(allTracks, playlist.trackIds).size,
+                coverTrack = resolveTracks(allTracks, playlist.trackIds).firstOrNull(),
+                menuBackgroundColor = menuBackgroundColor,
+                onClick = { onOpenCustom(playlist) },
+                onRename = { onRename(playlist) },
+                onDelete = { onDelete(playlist) },
+            )
+        }
+        item {
+            Spacer(modifier = Modifier.height(14.dp))
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        color = Color.White,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+    )
+}
+
+// 系统歌单卡片：白色描边圆角卡片 + 白色图标与文字，与在线搜索输入框风格一致
+@Composable
+private fun SmartPlaylistCard(
+    type: SmartPlaylistType,
+    countText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    coverTrack: MusicTrack? = null,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(24.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+    ) {
+        if (coverTrack != null) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            ) {
+                PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+            }
+        } else {
+            Icon(
+                imageVector = smartTypeIcon(type),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = smartTypeLabel(type),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = countText,
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 11.sp,
+        )
+    }
+}
+
+// 自定义歌单行：无背景 + 小圆角 + 封面或图标与主次文字，对齐在线搜索结果行
+@Composable
+private fun PlaylistListRow(
+    playlist: Playlist,
+    count: Int,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    menuBackgroundColor: Color,
+    coverTrack: MusicTrack? = null,
+    selected: Boolean = false,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (coverTrack != null) {
+                PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+            } else {
+                Icon(
+                    imageVector = AppIcons.QueueMusic,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = playlist.name,
+                color = Color.White,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(R.string.music_panel_track_count, count),
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 10.sp,
+            )
+        }
+        Box {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(
+                    imageVector = AppIcons.MoreVert,
+                    contentDescription = stringResource(R.string.playlist_more),
+                    tint = Color.White,
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                containerColor = menuBackgroundColor,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.playlist_rename), color = Color.White) },
+                    onClick = {
+                        menuExpanded = false
+                        onRename()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.playlist_delete), color = Color.White) },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    },
+                )
+            }
+        }
+    }
+}
+
+// 新建歌单入口：白色描边圆角卡片，与系统歌单卡片一致
+@Composable
+private fun CreatePlaylistRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(24.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.playlist_create),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+// 从平台分享链接导入歌单入口：样式与新建歌单卡片一致，纯文字无图标
+@Composable
+private fun ImportPlaylistRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(24.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.playlist_import),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+// 系统歌单名称文案
+@Composable
+internal fun smartTypeLabel(type: SmartPlaylistType): String = when (type) {
+    SmartPlaylistType.RECENT -> stringResource(R.string.playlist_smart_recent)
+    SmartPlaylistType.FAVORITE -> stringResource(R.string.playlist_smart_favorite)
+    SmartPlaylistType.ALBUM -> stringResource(R.string.playlist_smart_album)
+    SmartPlaylistType.ARTIST -> stringResource(R.string.playlist_smart_artist)
+}
+
+private fun smartTypeIcon(type: SmartPlaylistType): ImageVector = when (type) {
+    SmartPlaylistType.RECENT -> AppIcons.History
+    SmartPlaylistType.FAVORITE -> AppIcons.Favorite
+    SmartPlaylistType.ALBUM -> AppIcons.Album
+    SmartPlaylistType.ARTIST -> AppIcons.Person
+}
+
+// 歌单同步状态：运行中实时进度 / 已完成统计 / 失败原因
+private sealed interface SyncUiState {
+    data class Running(val total: Int, val done: Int, val currentTitle: String) : SyncUiState
+    data class Finished(val success: Int, val existing: Int, val failed: Int) : SyncUiState
+    data class Failed(val message: String) : SyncUiState
+}
+
+// 总览页标题区文案：同步进行中显示进度，完成后显示统计
+@Composable
+private fun syncTitle(syncState: SyncUiState?): String = when (syncState) {
+    is SyncUiState.Running ->
+        if (syncState.total > 0) {
+            stringResource(R.string.playlist_import_progress, syncState.done, syncState.total, syncState.currentTitle)
+        } else {
+            stringResource(R.string.playlist_import_preparing)
+        }
+    is SyncUiState.Finished ->
+        stringResource(R.string.playlist_import_done, syncState.success, syncState.existing, syncState.failed)
+    is SyncUiState.Failed -> syncState.message
+    null -> ""
+}
+
+// 同步完成提示的展示时长
+private const val SYNC_DONE_DISMISS_MS = 3_000L

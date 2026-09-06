@@ -1,0 +1,513 @@
+package com.yichao.evilgodxu.screens.home.component.playlist
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
+import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.music.PlaylistRefresher
+import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playTrackAt
+import com.yichao.evilgodxu.domain.music.togglePlayPause
+import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.music.HeaderIconButton
+import com.yichao.evilgodxu.ui.music.PlaylistRow
+import com.yichao.evilgodxu.ui.music.scrollPlaylistTo
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+// 播放列表面板：点击遮罩或关闭按钮收起
+@Composable
+internal fun PlaylistSheet(
+    visible: Boolean,
+    playbackState: MusicPlaybackState,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+    // 歌单副标题点击后的快捷切换弹层
+    var showSwitcher by remember { mutableStateOf(false) }
+    // 长按删除目标：非空时显示确认弹窗
+    var deleteTrack by remember { mutableStateOf<MusicTrack?>(null) }
+    // 后台预取整个播放列表缩略图：曲目集合变化即触发，不等面板展开逐行懒加载，
+    // 展开时封面已就绪；幂等，已缓存/补全中/全量补全中的曲目自动跳过
+    val playlistTrackIds = remember(playbackState.playlist) { playbackState.playlist.map { it.id } }
+    LaunchedEffect(playlistTrackIds) {
+        val currentId = playbackState.currentTrack?.id
+        playbackState.playlist
+            .sortedBy { it.id != currentId }
+            .forEach { playbackState.requestMetadata(it) }
+    }
+    Box(Modifier.fillMaxSize()) {
+        // 遮罩，点击收起
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss,
+                    ),
+            )
+        }
+        // 从底部滑入的面板
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(animationSpec = tween(300)) { it } + fadeIn(),
+            exit = slideOutVertically(animationSpec = tween(300)) { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.7f)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    // 键盘弹出时面板内容整体上移避开键盘，窗口与其他页面保持原位
+                    .imePadding(),
+            ) {
+                // 展开就绪：等面板滑入动画完成后再定位当前曲目，避免滚动与展开动画叠加卡顿
+                var playlistSettled by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    playlistSettled = false
+                    delay(PLAYLIST_EXPAND_ANIM_MS)
+                    playlistSettled = true
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.music_panel_playlist_title),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    // 歌单副标题：浅色小字常驻显示，点击快捷切换歌单；默认列表显示默认播放列表
+                    Text(
+                        text = playbackState.playlistSource?.name
+                            ?: stringResource(R.string.playlist_switch_default),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showSwitcher = true }
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.music_panel_track_count, playbackState.playlist.size),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                        HeaderIconButton(
+                            icon = AppIcons.Refresh,
+                            onClick = {
+                                if (!playbackState.isScanning) {
+                                    scope.launch {
+                                        PlaylistRefresher.refresh(
+                                            context, playbackState, restoreCurrent = true
+                                        ) {
+                                            // 刷新后后台加载封面与歌词
+                                            scope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(28.dp),
+                            enabled = !playbackState.isScanning,
+                        )
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                imageVector = AppIcons.Close,
+                                contentDescription = stringResource(R.string.home_player_close_playlist),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                if (playbackState.isScanning) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                } else if (playbackState.playlist.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_player_empty),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    val listState = rememberLazyListState()
+                    // 列表滚动中隐藏悬浮控件，滚动停止自动恢复
+                    val isScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
+                    // 列表内搜索关键词：仅过滤展示，不改变播放队列
+                    var searchQuery by remember { mutableStateOf("") }
+                    // 搜索框聚焦状态：键盘展开期间用拦截层接住列表点击，仅收起键盘避免误触播放
+                    var searchFocused by remember { mutableStateOf(false) }
+                    // 过滤后仍保留原队列索引：点击播放与定位需回填真实索引
+                    // 索引仅来自当前 playlist 快照；playlist 收缩后布局期可能读到过期索引，须容忍缺失
+                    val filteredIndices = remember(playbackState.playlist, searchQuery) {
+                        if (searchQuery.isBlank()) {
+                            playbackState.playlist.indices.toList()
+                        } else {
+                            playbackState.playlist.indices.filter { index ->
+                                val track = playbackState.playlist.getOrNull(index) ?: return@filter false
+                                track.title.contains(searchQuery, ignoreCase = true) ||
+                                    track.artist.contains(searchQuery, ignoreCase = true)
+                            }
+                        }
+                    }
+                    // 滚动到顶部后继续下拉：累计下拉距离超过阈值即收起面板
+                    val density = LocalDensity.current
+                    val dismissOverscrollPx = with(density) { PLAYLIST_DISMISS_OVERSCROLL_DP.toPx() }
+                    // 搜索框在列表底部占用的高度：最后一项底缘进入该区域即视为滚到底部
+                    val searchBarRegionPx = with(density) { PLAYLIST_SEARCH_BAR_REGION_DP.toPx() }
+                    // 滚到底部判定：最后一项已到达列表底部（底缘进入搜索框遮挡区）；
+                    // 列表不足一屏时最后一项不会触底，搜索框保持常驻
+                    val atBottom by remember {
+                        derivedStateOf {
+                            val layout = listState.layoutInfo
+                            val last = layout.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+                            last.index == layout.totalItemsCount - 1 &&
+                                last.offset + last.size >= layout.viewportEndOffset - searchBarRegionPx
+                        }
+                    }
+                    // 搜索框显隐：列表滚动中或滚到底部时隐藏，避免遮挡底部曲目；
+                    // 输入/聚焦期间常驻，切歌触发的自动滚动不中断输入
+                    val searchHidden = (isScrolling || atBottom) && !searchFocused && searchQuery.isBlank()
+                    val dismissNestedScroll = remember(listState) {
+                        object : NestedScrollConnection {
+                            private var overscrollAccum = 0f
+                            private var dismissed = false
+                            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                                if (dismissed || source != NestedScrollSource.UserInput) return Offset.Zero
+                                val dy = available.y
+                                val atTop = listState.firstVisibleItemIndex == 0 &&
+                                    listState.firstVisibleItemScrollOffset == 0
+                                if (dy > 0f && atTop) {
+                                    overscrollAccum += dy
+                                    if (overscrollAccum > dismissOverscrollPx) {
+                                        dismissed = true
+                                        onDismiss()
+                                    }
+                                } else {
+                                    overscrollAccum = 0f
+                                }
+                                return Offset.Zero
+                            }
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (searchQuery.isNotBlank() && filteredIndices.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = stringResource(R.string.playlist_search_no_results),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .nestedScroll(dismissNestedScroll),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                itemsIndexed(
+                                    items = filteredIndices,
+                                    key = { _, index -> playbackState.playlist.getOrNull(index)?.id ?: -1L },
+                                ) { _, index ->
+                                    val track = playbackState.playlist.getOrNull(index) ?: return@itemsIndexed
+                                    val isActive = index == playbackState.currentIndex
+                                    PlaylistRow(
+                                        track = track,
+                                        isActive = isActive,
+                                        isPlaying = isActive && playbackState.isPlaying,
+                                        isQueued = playbackState.isInPlayNext(track.id),
+                                        onClick = {
+                                            keyboardController?.hide()
+                                            if (isActive) {
+                                                togglePlayPause(playbackState)
+                                            } else {
+                                                scope.launch { playTrackAt(context, playbackState, index) }
+                                            }
+                                            onDismiss()
+                                        },
+                                        onLongClick = { deleteTrack = track },
+                                        onFavoriteClick = { playbackState.toggleFavorite(track.id) },
+                                        onPlayNextClick = { playbackState.togglePlayNext(track) },
+                                    )
+                                }
+                            }
+                            // 面板展开动画完成后：始终将当前曲目滚动到列表居中位置
+                            LaunchedEffect(playlistSettled) {
+                                if (playlistSettled && searchQuery.isBlank() && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+                                    listState.scrollPlaylistTo(
+                                        playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1),
+                                        forceCenter = true
+                                    )
+                                }
+                            }
+                            // 切歌时定位：当前曲目不在可视区内才滚动到居中位置，避免反复滚动卡顿
+                            LaunchedEffect(playbackState.currentTrack?.id) {
+                                if (playlistSettled && searchQuery.isBlank() && playbackState.currentIndex >= 0 && playbackState.playlist.isNotEmpty()) {
+                                    listState.scrollPlaylistTo(
+                                        playbackState.currentIndex.coerceIn(0, playbackState.playlist.size - 1)
+                                    )
+                                }
+                            }
+                        }
+                        // 键盘展开期间覆盖列表的拦截层：点击列表任意处仅收起键盘，阻断误触播放歌单行
+                        if (searchFocused) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(focusManager) {
+                                        awaitEachGesture {
+                                            awaitFirstDown(requireUnconsumed = false)
+                                            val up = waitForUpOrCancellation()
+                                            if (up != null) {
+                                                up.consume()
+                                                focusManager.clearFocus()
+                                            }
+                                        }
+                                    }
+                            )
+                        }
+                        // 底部搜索框：滚到底部或滚动中隐藏，避免遮挡底部曲目；输入中常驻
+                        PlaylistSearchOverlay(
+                            hidden = searchHidden,
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onFocusChanged = { searchFocused = it },
+                        )
+                    }
+                }
+            }
+        }
+        PlaylistSwitcher(
+            visible = showSwitcher,
+            playbackState = playbackState,
+            onDismiss = { showSwitcher = false },
+        )
+        RemoveTrackDialog(
+            track = deleteTrack,
+            titleRes = R.string.music_panel_delete_title,
+            messageRes = R.string.music_panel_delete_message,
+            confirmRes = R.string.music_panel_delete_confirm,
+            onConfirm = { track ->
+                scope.launch { playbackState.deleteSongPermanently(context, track) }
+                deleteTrack = null
+            },
+            onDismiss = { deleteTrack = null },
+        )
+    }
+}
+
+// 播放列表展开进入动画时长：等动画完成后才滚动定位当前曲目，避免动画叠加卡顿
+private const val PLAYLIST_EXPAND_ANIM_MS = 300L
+// 列表顶部继续下拉的收起阈值：累计下拉超过该距离即收起面板
+private val PLAYLIST_DISMISS_OVERSCROLL_DP = 64.dp
+// 搜索框在列表底部占用的区域高度：最后一项底缘进入该区域即判定为滚到底部
+private val PLAYLIST_SEARCH_BAR_REGION_DP = 54.dp
+
+// 播放列表底部搜索框：列表滚到底部或滚动中隐藏，输入/聚焦期间常驻
+@Composable
+private fun BoxScope.PlaylistSearchOverlay(
+    hidden: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
+) {
+    AnimatedVisibility(
+        visible = !hidden,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+        enter = fadeIn(animationSpec = tween(160)) +
+            slideInVertically(animationSpec = tween(160)) { it },
+        exit = fadeOut(animationSpec = tween(160)) +
+            slideOutVertically(animationSpec = tween(160)) { it },
+    ) {
+        PlaylistSearchBar(
+            query = query,
+            onQueryChange = onQueryChange,
+            onFocusChanged = onFocusChanged,
+        )
+    }
+}
+
+// 播放列表内搜索输入框：胶囊描边样式，输入即按标题/歌手过滤列表
+@Composable
+private fun PlaylistSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(22.dp),
+            ),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = AppIcons.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp)
+                    .onFocusChanged { onFocusChanged(it.isFocused) },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    // 回车搜索后收起键盘并释放焦点，避免输入框保持聚焦态
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.playlist_search_placeholder),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
