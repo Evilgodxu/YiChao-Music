@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.floatingwindow
+package com.yichao.evilgodxu.floatingwindow.music_panel
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn

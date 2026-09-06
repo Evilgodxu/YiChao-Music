@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.floatingwindow
+package com.yichao.evilgodxu.floatingwindow.music_panel
 
 import android.annotation.SuppressLint
 import android.content.Context

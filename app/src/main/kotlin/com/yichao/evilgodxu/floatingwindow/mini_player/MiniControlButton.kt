@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.floatingwindow
+package com.yichao.evilgodxu.floatingwindow.mini_player
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home
+package com.yichao.evilgodxu.screens.home.component
 
 import android.content.Context
 import androidx.compose.animation.core.animate

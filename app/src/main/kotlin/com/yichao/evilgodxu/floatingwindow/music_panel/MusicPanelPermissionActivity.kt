@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.floatingwindow
+package com.yichao.evilgodxu.floatingwindow.music_panel
 
 import android.content.Intent
 import android.content.pm.PackageManager

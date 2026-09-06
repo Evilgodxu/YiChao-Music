@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.floatingwindow
+package com.yichao.evilgodxu.floatingwindow.mini_player
 
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver

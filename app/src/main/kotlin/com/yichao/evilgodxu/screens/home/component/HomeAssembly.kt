@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home
+package com.yichao.evilgodxu.screens.home.component
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
@@ -37,7 +37,7 @@ import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.dialog.TimerDialog
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.performSearch
-import com.yichao.evilgodxu.floatingwindow.swipeToChangeTrackFlow
+import com.yichao.evilgodxu.floatingwindow.mini_player.swipeToChangeTrackFlow
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.component.online_search.OnlineSearchPanel
 import com.yichao.evilgodxu.screens.home.component.permission_area.PermissionDialog

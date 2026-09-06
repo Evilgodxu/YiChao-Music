@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.floatingwindow
+package com.yichao.evilgodxu.floatingwindow.mini_player
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey

@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.screens.home.component.HomeAssembly
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import org.koin.androidx.compose.koinViewModel
 

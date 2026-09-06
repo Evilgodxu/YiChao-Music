@@ -11,11 +11,11 @@ import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.log.CrashLogManager
-import com.yichao.evilgodxu.floatingwindow.miniPlayerEnabledFlow
-import com.yichao.evilgodxu.floatingwindow.MiniPlayerViewManager
-import com.yichao.evilgodxu.floatingwindow.MusicPanelPermissionActivity
-import com.yichao.evilgodxu.floatingwindow.MusicPanelPermissionBridge
-import com.yichao.evilgodxu.floatingwindow.MusicPanelViewManager
+import com.yichao.evilgodxu.floatingwindow.mini_player.miniPlayerEnabledFlow
+import com.yichao.evilgodxu.floatingwindow.mini_player.MiniPlayerViewManager
+import com.yichao.evilgodxu.floatingwindow.music_panel.MusicPanelPermissionActivity
+import com.yichao.evilgodxu.floatingwindow.music_panel.MusicPanelPermissionBridge
+import com.yichao.evilgodxu.floatingwindow.music_panel.MusicPanelViewManager
 import com.yichao.evilgodxu.service.MusicPlaybackService
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
