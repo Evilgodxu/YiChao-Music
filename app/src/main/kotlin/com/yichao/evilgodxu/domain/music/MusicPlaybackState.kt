@@ -31,7 +31,6 @@ import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import java.io.File
-import kotlin.jvm.JvmName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +43,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // 音乐播放器状态持有者（悬浮窗级共享状态）
-class MusicPlaybackState(val ui: MusicPanelUiState) {
+class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
 
     // 常听收录窗口：统计 3 天内完整播放次数不少于 2 次的歌曲
     companion object {
@@ -215,7 +214,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
                 ui.pendingQualityPlayTrackId = null
                 ui.qualityBusy = false
                 ui.qualityError = appContext?.getString(R.string.music_panel_quality_failed)
-                removeTrack(pendingId)
+                removeTrack(pendingId, advanceToNext = false)
             }
             // errorMsg 为可空类型，appContext 为空时置 null（播放不会发生，正常显示无错误）
             errorMsg = appContext?.getString(R.string.music_panel_play_failed)
@@ -228,16 +227,16 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
             mediaController?.stop()
         }
     }
-    var isPlaying by mutableStateOf(false)
-    var isPrepared by mutableStateOf(false)
-    val isPlayerActive: Boolean
+    override var isPlaying by mutableStateOf(false)
+    override var isPrepared by mutableStateOf(false)
+    override val isPlayerActive: Boolean
         get() = mediaController?.let { ctrl ->
             ctrl.isPlaying || ctrl.playbackState == Player.STATE_BUFFERING
         } ?: false
-    var duration by mutableLongStateOf(0L)
-    var currentPosition by mutableLongStateOf(0L)
+    override var duration by mutableLongStateOf(0L)
+    override var currentPosition by mutableLongStateOf(0L)
     private val _playlist = mutableStateOf<List<MusicTrack>>(emptyList())
-    var playlist: List<MusicTrack>
+    override var playlist: List<MusicTrack>
         get() = _playlist.value
         set(value) {
             _playlist.value = value
@@ -248,14 +247,14 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     var cachedMediaItems by mutableStateOf<List<androidx.media3.common.MediaItem>?>(null)
     /** 封面更新后需要刷新系统媒体面板的 MediaItem，标记为脏 */
     var mediaItemsDirty by mutableStateOf(false)
-    var currentIndex by mutableIntStateOf(-1)
-    var currentTrack by mutableStateOf<MusicTrack?>(null)
-    var playMode by mutableStateOf(PlayMode.RepeatAll)
+    override var currentIndex by mutableIntStateOf(-1)
+    override var currentTrack by mutableStateOf<MusicTrack?>(null)
+    override var playMode by mutableStateOf(PlayMode.RepeatAll)
     // 播放速度：默认 1.0，调节范围 0.5~2.0
-    var playbackSpeed by mutableFloatStateOf(PLAYBACK_SPEED_DEFAULT)
-    var errorMsg by mutableStateOf<String?>(null)
-    var isScanning by mutableStateOf(false)
-    var isLyricsVisible by mutableStateOf(false)
+    override var playbackSpeed by mutableFloatStateOf(PLAYBACK_SPEED_DEFAULT)
+    override var errorMsg by mutableStateOf<String?>(null)
+    override var isScanning by mutableStateOf(false)
+    override var isLyricsVisible by mutableStateOf(false)
 
     private fun hasUriAccess(context: Context, audioUri: String): Boolean {
         val uri = Uri.parse(audioUri)
@@ -270,7 +269,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
     }
 
-    suspend fun removeUnavailableExternalTracks(context: Context) {
+    override suspend fun removeUnavailableExternalTracks(context: Context) {
         // 文件访问探测属 I/O 操作，在 IO 线程执行避免阻塞主线程
         val unavailableIds = withContext(Dispatchers.IO) {
             playlist
@@ -321,7 +320,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         java.util.Collections.synchronizedSet(mutableSetOf())
 
     // 自动清理未在播放的纯在线流曲目；已缓存为本地文件或缓存进行中的曲目保留，保证离线播放不中断
-    fun cleanupIdleOnlineTracks() {
+    override fun cleanupIdleOnlineTracks() {
         // 以控制器实际播放项为权威来源，避免 UI 状态与真实音频脱同步
         val activeId = mediaController?.currentMediaItem?.mediaId?.toLongOrNull() ?: currentTrack?.id
         val kept = playlist.filter { track ->
@@ -343,7 +342,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // advanceToNext：删除的是当前曲目时，自动递补原列表顺序中的下一首，避免播放器内容空白
-    fun removeTrack(trackId: Long, advanceToNext: Boolean = false) {
+    override fun removeTrack(trackId: Long, advanceToNext: Boolean) {
         if (playlist.none { it.id == trackId }) return
         val removedCurrent = currentTrack?.id == trackId
         // 记录删除前是否正在播放，决定递补后是继续播放还是仅切换显示
@@ -389,7 +388,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 彻底删除歌曲：移除音频源文件与仅该曲引用的歌词/封面缓存，并同步库、播放队列与歌单引用
-    suspend fun deleteSongPermanently(context: Context, track: MusicTrack) {
+    override suspend fun deleteSongPermanently(context: Context, track: MusicTrack) {
         // 删除前基于全量库+当前列表计算剩余曲目的缓存引用，作为封面/歌词清除依据：
         // 全量库覆盖本地曲目，当前列表兜底在线曲目（在线曲目只存在于当前列表，不在全量库备份）
         val remaining = (defaultPlaylistBackup.orEmpty() + playlist)
@@ -431,12 +430,12 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
     }
 
-    var audioSignalPathFormat by mutableStateOf<AudioSignalPathFormat?>(null)
+    override var audioSignalPathFormat by mutableStateOf<AudioSignalPathFormat?>(null)
     // 音频信息所属曲目：保证格式信息始终与当前曲目对应，后台切歌后再回前台不会错配
-    var audioSignalPathTrackId by mutableStateOf<Long?>(null)
+    override var audioSignalPathTrackId by mutableStateOf<Long?>(null)
 
     // 收藏的歌曲 ID 集合（面板级内存状态）
-    var likedIds by mutableStateOf<Set<Long>>(emptySet())
+    override var likedIds by mutableStateOf<Set<Long>>(emptySet())
 
     // 常听：3 天内完整播放次数不少于 2 次的歌曲，按最近一次播放时间倒序
     private var recentPlayEvents by mutableStateOf<List<PlayEvent>>(emptyList())
@@ -454,7 +453,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     private var lastMonoMediaId: Long? = null
     private var lastMonoPosition = 0L
 
-    val recentPlayedIds: List<Long>
+    override val recentPlayedIds: List<Long>
         get() {
             val cutoff = System.currentTimeMillis() - recentWindowMs
             val window = recentPlayEvents.filter { it.timestamp >= cutoff }
@@ -466,11 +465,11 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
 
     // 当前播放列表来源歌单（null = 默认全量播放列表）
-    var playlistSource by mutableStateOf<PlaylistSource?>(null)
+    override var playlistSource by mutableStateOf<PlaylistSource?>(null)
     // 默认全量播放列表备份：首次切到歌单时快照，供快捷切回默认
-    var defaultPlaylistBackup by mutableStateOf<List<MusicTrack>?>(null)
+    override var defaultPlaylistBackup by mutableStateOf<List<MusicTrack>?>(null)
     // 全量库：优先备份，否则为当前播放列表
-    val libraryTracks: List<MusicTrack>
+    override val libraryTracks: List<MusicTrack>
         get() = defaultPlaylistBackup ?: playlist
 
     // 记录一次完整播放：追加带时间戳的播放记录，并清理超出 3 天窗口的旧记录
@@ -495,15 +494,15 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 下一首播放插队队列：自然播完后依次播放队列曲目，再接续原播放位置
-    var playNextQueue by mutableStateOf<List<MusicTrack>>(emptyList())
+    override var playNextQueue by mutableStateOf<List<MusicTrack>>(emptyList())
     // 建立队列时记录的当前曲目 ID，队列播完后据此接续原播放位置
     private var queueResumeTrackId: Long? by mutableStateOf(null)
 
     // 曲目是否已在下一首播放队列中
-    fun isInPlayNext(trackId: Long): Boolean = playNextQueue.any { it.id == trackId }
+    override fun isInPlayNext(trackId: Long): Boolean = playNextQueue.any { it.id == trackId }
 
     // 切换下一首播放：已在队列则取消插队，否则加入
-    fun togglePlayNext(track: MusicTrack) {
+    override fun togglePlayNext(track: MusicTrack) {
         if (isInPlayNext(track.id)) {
             playNextQueue = playNextQueue.filterNot { it.id == track.id }
             // 队列清空后无需再接续原播放位置
@@ -517,17 +516,17 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 手动切歌时清空插队队列
-    fun clearPlayNextQueue() {
+    override fun clearPlayNextQueue() {
         playNextQueue = emptyList()
         queueResumeTrackId = null
     }
 
     // 定时关闭相关状态（后台计时）
-    var timerMinutes by mutableIntStateOf(10)
-    var timerRemaining by mutableIntStateOf(0)
-    var timerAutoStopped by mutableStateOf(false)
+    override var timerMinutes by mutableIntStateOf(10)
+    override var timerRemaining by mutableIntStateOf(0)
+    override var timerAutoStopped by mutableStateOf(false)
     // 定时关闭到点后请求真正退出应用（一次性信号，退出编排由应用外壳执行）
-    var sleepTimerExpired by mutableStateOf(false)
+    override var sleepTimerExpired by mutableStateOf(false)
     private val timerJob = SupervisorJob()
     private val timerScope = CoroutineScope(timerJob + Dispatchers.Main)
     private var countdownJob: Job? = null
@@ -559,9 +558,26 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     // 防止手动切歌与自动切歌并发导致状态错乱
     val playTrackMutex = Mutex()
 
-    val hasTrack: Boolean get() = currentTrack != null
+    override val hasTrack: Boolean get() = currentTrack != null
 
-    suspend fun restoreSavedState(context: Context) {
+    // ===== PlaybackController 动作实现：委托全局播放辅助（playTrackAt 等）=====
+    override fun playTrackAt(index: Int, autoPlay: Boolean, clearQueue: Boolean) {
+        val context = appContext ?: return
+        // 经应用级作用域派发：面板收起离开组合时播放命令不被协程取消
+        playbackScope.launch {
+            playTrackAt(context, this@MusicPlaybackState, index, autoPlay, clearQueue)
+        }
+    }
+
+    override fun togglePlayPause() {
+        togglePlayPause(this)
+    }
+
+    override fun seekTo(positionMs: Long) {
+        seekTo(this, positionMs)
+    }
+
+    override suspend fun restoreSavedState(context: Context) {
         appContext = context.applicationContext
         ui.appContext = context.applicationContext
         ui.searchHistory = withContext(Dispatchers.IO) {
@@ -605,7 +621,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 冷启动未播放时预读当前曲目格式信息，供音频信息条展示；开始播放后由解码头覆盖
-    fun refreshIdleTrackFormatInfo(context: Context) {
+    override fun refreshIdleTrackFormatInfo(context: Context) {
         val track = currentTrack ?: return
         if (audioSignalPathTrackId == track.id) return
         playbackScope.launch(Dispatchers.IO) {
@@ -618,7 +634,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 缓存完成后以本地缓存文件为源强制补齐当前曲目格式信息，避免在线播放期间信息条空白
-    fun refreshTrackFormatInfoFromLocal(context: Context) {
+    override fun refreshTrackFormatInfoFromLocal(context: Context) {
         val track = currentTrack ?: return
         if (!track.isLocalAudioSource) return
         playbackScope.launch(Dispatchers.IO) {
@@ -632,7 +648,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
 
     // 回到前台时校正音频信息：与当前曲目错配时清掉旧值并重新读取当前曲目源格式，
     // 保证信息条始终对应当前曲目而不依赖解码回调回填
-    fun reconcileTrackFormatInfo(context: Context) {
+    override fun reconcileTrackFormatInfo(context: Context) {
         val track = currentTrack ?: return
         if (audioSignalPathTrackId == track.id) return
         audioSignalPathFormat = null
@@ -648,7 +664,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
     }
 
-    fun persistPlaylist() {
+    override fun persistPlaylist() {
         val context = appContext ?: return
         // 合并连续写入：取消未开始的上一次任务，仅保留最后一次持久化
         playlistPersistJob?.cancel()
@@ -660,16 +676,16 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
     }
 
-    fun addSearchHistory(query: String) = ui.addSearchHistory(query)
+    override fun addSearchHistory(query: String) = ui.addSearchHistory(query)
 
-    fun removeSearchHistory(query: String) = ui.removeSearchHistory(query)
+    override fun removeSearchHistory(query: String) = ui.removeSearchHistory(query)
 
-    fun clearSearchHistory() = ui.clearSearchHistory()
+    override fun clearSearchHistory() = ui.clearSearchHistory()
 
     var pendingSavedUri: String? = null
     var pendingResumePosition: Long = 0L
 
-    fun persistState() {
+    override fun persistState() {
         val context = appContext ?: return
         val track = currentTrack ?: return
         // 调用时刻立即快照：release/softRelease 随后会清空播放状态，异步写入不能再回读内存态
@@ -687,7 +703,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
     }
 
-    fun softRelease() {
+    override fun softRelease() {
         stopPositionTicker()
         persistState()
         currentTrack?.let { track ->
@@ -706,7 +722,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         lastMonoMediaId = null
     }
 
-    fun release() {
+    override fun release() {
         stopPositionTicker()
         persistState()
         currentTrack?.let { track ->
@@ -744,7 +760,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 启动定时关闭（分钟），计时结束后停止播放并释放资源
-    fun startTimer(minutes: Int) {
+    override fun startTimer(minutes: Int) {
         stopTimer()
         timerMinutes = minutes
         timerRemaining = minutes
@@ -769,7 +785,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 取消定时关闭
-    fun stopTimer() {
+    override fun stopTimer() {
         stopAfterCurrentTrack = false
         countdownJob?.cancel()
         countdownJob = null
@@ -777,7 +793,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 将原始曲目列表按默认规则排序（歌手聚合 → 专辑聚合 → 标题），并保留当前曲目索引
-    fun setSortedPlaylist(tracks: List<MusicTrack>) {
+    override fun setSortedPlaylist(tracks: List<MusicTrack>) {
         val currentId = currentTrack?.id
         val sorted = tracks
             .map { it.copy(isFavorite = likedIds.contains(it.id)) }
@@ -787,7 +803,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 切换指定曲目的收藏状态：仅就地更新收藏标记，不改变列表顺序
-    fun toggleFavorite(trackId: Long) {
+    override fun toggleFavorite(trackId: Long) {
         val newLiked = if (likedIds.contains(trackId)) likedIds - trackId else likedIds + trackId
         likedIds = newLiked
         playlist = playlist.map { if (it.id == trackId) it.copy(isFavorite = trackId in newLiked) else it }
@@ -795,7 +811,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 按新顺序重排当前播放队列，保持当前曲目与播放索引同步
-    fun reorderPlaylist(ordered: List<MusicTrack>) {
+    override fun reorderPlaylist(ordered: List<MusicTrack>) {
         if (ordered.isEmpty()) return
         val currentId = currentTrack?.id
         val tracks = ordered.map { it.copy(isFavorite = likedIds.contains(it.id)) }
@@ -805,20 +821,20 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     }
 
     // 更新播放列表中指定曲目的元数据并持久化（列表与当前曲目同步替换）
-    fun updateTrack(updated: MusicTrack) {
+    override fun updateTrack(updated: MusicTrack) {
         playlist = playlist.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }
         currentTrack = currentTrack?.let { if (it.id == updated.id) updated else it }
         persistPlaylist()
     }
 
     // 封面写入成功后自增，通知封面组件强制重载最新图
-    fun bumpCoverRevision() {
+    override fun bumpCoverRevision() {
         ui.coverRevision++
     }
 
     // 批量更新曲目元数据（封面等），一次触发重组 + 一次持久化；
     // 同时回写全量库备份，保证切歌单后其他歌单的歌曲引用到最新封面
-    fun batchUpdateTracks(updates: List<MusicTrack>) {
+    override fun batchUpdateTracks(updates: List<MusicTrack>) {
         val updateMap = updates.associateBy { it.id }
         val applyUpdates: (List<MusicTrack>) -> List<MusicTrack> = { list ->
             list.map { orig ->
@@ -833,7 +849,7 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
 
     // 按需补全单曲封面/歌词（懒加载）：幂等，由 UI 可见项触发，
     // 已具备缓存、已标记失败或在全量补全排期中的曲目自动跳过
-    fun requestMetadata(track: MusicTrack?) {
+    override fun requestMetadata(track: MusicTrack?) {
         if (track == null) return
         val context = appContext ?: return
         playbackScope.launch {
@@ -841,12 +857,12 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
         }
     }
 
-    fun renameTrackMetadata(renamed: MusicTrack) {
+    override fun renameTrackMetadata(renamed: MusicTrack) {
         updateTrack(renamed)
     }
 
     // 微调歌词时间：stepMs 正值延后，负值提前（同时作用于逐字时间轴）
-    fun adjustLyricsOffset(stepMs: Long) {
+    override fun adjustLyricsOffset(stepMs: Long) {
         val track = currentTrack ?: return
         if (track.lyricLines.isEmpty()) return
         val shifted = MusicMetadataCache.shiftLyrics(track.lyricLines, stepMs)
@@ -955,33 +971,28 @@ class MusicPlaybackState(val ui: MusicPanelUiState) {
     private fun autoNextIndex(): Int = calculateIndex(direction = 1, repeatOne = true)
 
     // 下一首索引
-    fun nextIndex(): Int = calculateIndex(direction = 1, repeatOne = false)
+    override fun nextIndex(): Int = calculateIndex(direction = 1, repeatOne = false)
 
     // 上一首索引
-    fun previousIndex(): Int = calculateIndex(direction = -1, repeatOne = false)
+    override fun previousIndex(): Int = calculateIndex(direction = -1, repeatOne = false)
 
     // ===== UI 层状态写入口：悬浮窗 UI 统一通过这些方法写入状态，避免直接对 public var 赋值 =====
-    // 方法与属性 setter 同名会冲突，故用 @JvmName 指定不同 JVM 名
-    @JvmName("updatePlayMode")
-    fun setPlayMode(mode: PlayMode) { playMode = mode }
-    @JvmName("updatePlaybackSpeed")
-    fun setPlaybackSpeed(speed: Float) {
+    override fun updatePlayMode(mode: PlayMode) {
+        playMode = mode
+        // 同步应用到播放器：播放模式修改即时生效，无需 UI 再经控制器下发
+        mediaController?.let { applyPlaybackMode(it, mode) }
+    }
+    override fun updatePlaybackSpeed(speed: Float) {
         playbackSpeed = speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
         mediaController?.setPlaybackSpeed(playbackSpeed)
         persistPlaybackSpeed()
     }
-    @JvmName("updateLyricsVisible")
-    fun setLyricsVisible(visible: Boolean) { isLyricsVisible = visible }
-    @JvmName("updateErrorMsg")
-    fun setErrorMsg(message: String?) { errorMsg = message }
-    @JvmName("updateTimerMinutes")
-    fun setTimerMinutes(minutes: Int) { timerMinutes = minutes }
-    @JvmName("updateTimerAutoStopped")
-    fun setTimerAutoStopped(stopped: Boolean) { timerAutoStopped = stopped }
-    @JvmName("updateSleepTimerExpired")
-    fun setSleepTimerExpired(expired: Boolean) { sleepTimerExpired = expired }
-    @JvmName("updateCurrentPosition")
-    fun setCurrentPosition(position: Long) {
+    override fun updateLyricsVisible(visible: Boolean) { isLyricsVisible = visible }
+    override fun updateErrorMsg(message: String?) { errorMsg = message }
+    override fun updateTimerMinutes(minutes: Int) { timerMinutes = minutes }
+    override fun updateTimerAutoStopped(stopped: Boolean) { timerAutoStopped = stopped }
+    override fun updateSleepTimerExpired(expired: Boolean) { sleepTimerExpired = expired }
+    override fun updateCurrentPosition(position: Long) {
         // 拖动进度条直接改写位置：复位单调基准，避免被钳回拖动前的位置
         lastMonoMediaId = null
         currentPosition = position

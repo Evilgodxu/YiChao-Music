@@ -186,7 +186,7 @@ internal class HomeSwipeController(
                         showOnlineSearch = searchOpen
                         if (!searchOpen) {
                             ui.setSearchResultsVisible(false)
-                            playbackState.setErrorMsg(null)
+                            playbackState.updateErrorMsg(null)
                         }
                     }
                     val playlistOpen = if (gesturePlaylistOpen) {

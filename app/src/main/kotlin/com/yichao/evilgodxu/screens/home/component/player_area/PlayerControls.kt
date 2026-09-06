@@ -25,6 +25,7 @@ import com.yichao.evilgodxu.data.music.model.PlayMode
 import com.yichao.evilgodxu.dialog.SpeedDialog
 import com.yichao.evilgodxu.domain.music.applyPlaybackMode
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.domain.music.togglePlayPause
 import com.yichao.evilgodxu.R
@@ -34,7 +35,7 @@ import kotlinx.coroutines.launch
 // 底部控制栏：与迷你播放器控件布局一致（播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表）
 @Composable
 internal fun PlayerControls(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onPlaylistClick: () -> Unit,
     onPlaylistLongClick: () -> Unit = {},
 ) {
@@ -55,16 +56,13 @@ internal fun PlayerControls(
             },
             contentDescription = stringResource(R.string.music_panel_play_mode),
             onClick = {
-                playbackState.setPlayMode(
+                playbackState.updatePlayMode(
                     when (playbackState.playMode) {
                         PlayMode.RepeatAll -> PlayMode.RepeatOne
                         PlayMode.RepeatOne -> PlayMode.Shuffle
                         PlayMode.Shuffle -> PlayMode.RepeatAll
                     }
                 )
-                playbackState.mediaController?.let { controller ->
-                    applyPlaybackMode(controller, playbackState.playMode)
-                }
                 playbackState.persistState()
             },
         )
@@ -74,7 +72,7 @@ internal fun PlayerControls(
             enabled = playbackState.playlist.isNotEmpty(),
             onClick = {
                 val prev = playbackState.previousIndex()
-                if (prev >= 0) scope.launch { playTrackAt(context, playbackState, prev) }
+                if (prev >= 0) scope.launch { playbackState.playTrackAt(prev) }
             },
             onLongClick = { showSpeedDialog = true },
         )
@@ -84,7 +82,7 @@ internal fun PlayerControls(
                 if (playbackState.isPlaying) R.string.home_player_pause else R.string.home_player_play
             ),
             enabled = playbackState.playlist.isNotEmpty(),
-            onClick = { togglePlayPause(playbackState) },
+            onClick = { playbackState.togglePlayPause() },
         )
         PlayerControlButton(
             icon = AppIcons.SkipNext,
@@ -92,7 +90,7 @@ internal fun PlayerControls(
             enabled = playbackState.playlist.isNotEmpty(),
             onClick = {
                 val next = playbackState.nextIndex()
-                if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
+                if (next >= 0) scope.launch { playbackState.playTrackAt(next) }
             },
             onLongClick = { showSpeedDialog = true },
         )
@@ -106,7 +104,7 @@ internal fun PlayerControls(
     SpeedDialog(
         visible = showSpeedDialog,
         speed = playbackState.playbackSpeed,
-        onSpeedChange = { playbackState.setPlaybackSpeed(it) },
+        onSpeedChange = { playbackState.updatePlaybackSpeed(it) },
         onDismiss = { showSpeedDialog = false },
     )
 }

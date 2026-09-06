@@ -96,11 +96,11 @@ fun HomeAssembly(
             ui.searchPending = emptyList()
             ui.searchPendingFull = false
             ui.setSearchResultsVisible(false)
-            playbackState.setErrorMsg(null)
+            playbackState.updateErrorMsg(null)
         } else {
             swipeController.showOnlineSearch = false
             ui.setSearchResultsVisible(false)
-            playbackState.setErrorMsg(null)
+            playbackState.updateErrorMsg(null)
         }
     }
     // 歌单面板打开时返回键关闭面板
@@ -286,7 +286,7 @@ fun HomeAssembly(
                 TimerDialog(
                     visible = showTimer,
                     minutes = playbackState.timerMinutes,
-                    onMinutesChange = { playbackState.setTimerMinutes(it) },
+                    onMinutesChange = { playbackState.updateTimerMinutes(it) },
                     onConfirm = {
                         playbackState.startTimer(playbackState.timerMinutes)
                         showTimer = false

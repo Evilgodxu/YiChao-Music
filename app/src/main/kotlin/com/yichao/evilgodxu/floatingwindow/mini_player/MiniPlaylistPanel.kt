@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -51,7 +52,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun MiniPlaylistPanel(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     context: android.content.Context,
     scrollReady: Int,
     onClose: () -> Unit,
@@ -100,7 +101,7 @@ internal fun MiniPlaylistPanel(
                     isQueued = playbackState.isInPlayNext(track.id),
                     onClick = {
                         // 使用应用级作用域：面板收起离开组合时，播放命令不会被协程取消
-                        playbackState.playbackScope.launch { playTrackAt(context, playbackState, index) }
+                        playbackState.playTrackAt(index)
                         onClose()
                     },
                     onFavoriteClick = { playbackState.toggleFavorite(track.id) },

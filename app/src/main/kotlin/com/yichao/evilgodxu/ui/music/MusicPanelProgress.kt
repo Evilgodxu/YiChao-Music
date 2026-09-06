@@ -33,11 +33,12 @@ import com.yichao.evilgodxu.domain.music.AudioSignalPathFormat
 import com.yichao.evilgodxu.domain.music.formatTime
 import com.yichao.evilgodxu.domain.music.isLosslessFormatName
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.seekTo
 
 @Composable
 internal fun ProgressSection(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     contentColor: Color? = null,
     onFormatClick: (() -> Unit)? = null,
 ) {
@@ -96,8 +97,8 @@ internal fun ProgressSection(
                                 seekFraction = pos.coerceIn(0f, 1f)
                                 isSeeking = true
                                 if (event.changes.first().pressed) {
-                                    seekTo(playbackState, (seekFraction * playbackState.duration).toLong())
-                                    playbackState.setCurrentPosition((seekFraction * playbackState.duration).toLong().coerceIn(0L, playbackState.duration))
+                                    playbackState.seekTo((seekFraction * playbackState.duration).toLong())
+                                    playbackState.updateCurrentPosition((seekFraction * playbackState.duration).toLong().coerceIn(0L, playbackState.duration))
                                 }
                                 if (event.changes.all { !it.pressed }) {
                                     isSeeking = false
@@ -134,7 +135,7 @@ internal fun ProgressSection(
 // 竖向进度条：复用横向进度条样式（圆角轨道 + 主色填充），不带时间文本
 @Composable
 internal fun VerticalProgressBar(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     modifier: Modifier = Modifier,
     contentColor: Color? = null,
 ) {
@@ -163,8 +164,8 @@ internal fun VerticalProgressBar(
                         seekFraction = (1f - pos).coerceIn(0f, 1f)
                         isSeeking = true
                         if (event.changes.first().pressed) {
-                            seekTo(playbackState, (seekFraction * playbackState.duration).toLong())
-                            playbackState.setCurrentPosition(
+                            playbackState.seekTo((seekFraction * playbackState.duration).toLong())
+                            playbackState.updateCurrentPosition(
                                 (seekFraction * playbackState.duration).toLong().coerceIn(0L, playbackState.duration)
                             )
                         }
@@ -195,7 +196,7 @@ internal fun VerticalProgressBar(
 // 传入 onClick 时整条可点击（首页用于触发无损升级）
 @Composable
 internal fun TrackFormatInfoSection(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     modifier: Modifier = Modifier,
     contentColor: Color? = null,
     onClick: (() -> Unit)? = null,
@@ -231,7 +232,7 @@ internal fun isLosslessFormat(format: AudioSignalPathFormat): Boolean =
     isLosslessFormatName(format.format.removePrefix("audio/"))
 
 // 当前曲目是否触发无损升级：展示格式低于无损且该曲目可升级
-internal fun currentTrackNeedsLosslessUpgrade(playbackState: MusicPlaybackState): Boolean {
+internal fun currentTrackNeedsLosslessUpgrade(playbackState: PlaybackController): Boolean {
     val format = playbackState.audioSignalPathFormat
         .takeIf { playbackState.audioSignalPathTrackId == playbackState.currentTrack?.id }
         ?: return false

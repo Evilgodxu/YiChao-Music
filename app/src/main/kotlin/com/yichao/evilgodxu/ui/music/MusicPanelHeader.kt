@@ -20,12 +20,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
 @Composable
 internal fun HeaderRow(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     timerRemaining: Int,
     onTimerClick: () -> Unit,
     modifier: Modifier = Modifier,

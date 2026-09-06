@@ -321,7 +321,7 @@ internal fun SearchResultsOverlay(
                 if (errorMsg != null) {
                     MusicErrorBanner(
                         message = errorMsg,
-                        onDismiss = { playbackState.setErrorMsg(null) }
+                        onDismiss = { playbackState.updateErrorMsg(null) }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                 }

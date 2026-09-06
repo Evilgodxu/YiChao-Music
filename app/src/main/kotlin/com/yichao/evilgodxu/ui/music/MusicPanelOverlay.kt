@@ -118,7 +118,7 @@ fun MusicPanelOverlay(
     // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
     LaunchedEffect(playbackState.timerAutoStopped) {
         if (playbackState.timerAutoStopped) {
-            playbackState.setTimerAutoStopped(false)
+            playbackState.updateTimerAutoStopped(false)
             onDismiss()
         }
     }
@@ -179,7 +179,7 @@ fun MusicPanelOverlay(
                                 showRename -> showRename = false
                             ui.showSearchResults -> {
                                 ui.setSearchResultsVisible(false)
-                            playbackState.setErrorMsg(null)
+                            playbackState.updateErrorMsg(null)
                         }
                         ui.isSearchMode -> {
                             ui.setSearchMode(false)
@@ -297,7 +297,7 @@ fun MusicPanelOverlay(
                                         LyricsPanel(
                                             playbackState = playbackState,
                                             modifier = Modifier.fillMaxSize(),
-                                            onClick = { playbackState.setLyricsVisible(false) },
+                                            onClick = { playbackState.updateLyricsVisible(false) },
                                             fontSize = musicPanelLayout.fontSizeSp.sp,
                                             visibleLines = musicPanelLayout.visibleLines,
                                         )
@@ -305,7 +305,7 @@ fun MusicPanelOverlay(
                                         CurrentCover(
                                             track = playbackState.currentTrack,
                                             isPlaying = playbackState.isPlaying,
-                                            onClick = { playbackState.setLyricsVisible(true) },
+                                            onClick = { playbackState.updateLyricsVisible(true) },
                                             onOnlineCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
                                                 showCoverRefresh = true
@@ -323,7 +323,7 @@ fun MusicPanelOverlay(
                                 if (!playbackState.isLyricsVisible) {
                                     TrackInfo(
                                         playbackState = playbackState,
-                                        onClick = { playbackState.setLyricsVisible(true) },
+                                        onClick = { playbackState.updateLyricsVisible(true) },
                                         onRenameRequest = { isTitle, text ->
                                             renameIsTitle = isTitle
                                             renameInitValue = text
@@ -353,7 +353,7 @@ fun MusicPanelOverlay(
                         onScan = onScan,
                         onTrackSelected = { index ->
                             scope.launch {
-                                playTrackAt(context, playbackState, index)
+                                playbackState.playTrackAt(index)
                             }
                             showPlaylist = false
                         },
@@ -367,7 +367,7 @@ fun MusicPanelOverlay(
                     TimerOverlay(
                         visible = showTimer,
                         minutes = playbackState.timerMinutes,
-                        onMinutesChange = { playbackState.setTimerMinutes(it) },
+                        onMinutesChange = { playbackState.updateTimerMinutes(it) },
                         onConfirm = {
                             playbackState.startTimer(playbackState.timerMinutes)
                             showTimer = false
@@ -381,7 +381,7 @@ fun MusicPanelOverlay(
                         context = context,
                         onClose = {
                             ui.setSearchResultsVisible(false)
-                            playbackState.setErrorMsg(null)
+                            playbackState.updateErrorMsg(null)
                         },
                         onRefresh = {
                             scope.launch {

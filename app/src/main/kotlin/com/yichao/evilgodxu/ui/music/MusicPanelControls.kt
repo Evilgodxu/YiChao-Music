@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.data.music.model.PlayMode
 import com.yichao.evilgodxu.domain.music.applyPlaybackMode
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.PlaybackController
 import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.domain.music.togglePlayPause
 import com.yichao.evilgodxu.R
@@ -31,7 +32,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun ControlBar(
-    playbackState: MusicPlaybackState,
+    playbackState: PlaybackController,
     onPlaylistClick: () -> Unit,
     onLyricsRefreshClick: () -> Unit,
 ) {
@@ -55,14 +56,11 @@ internal fun ControlBar(
             icon = modeIcon,
             contentDescription = stringResource(R.string.music_panel_play_mode),
             onClick = {
-                playbackState.setPlayMode(when (playbackState.playMode) {
+                playbackState.updatePlayMode(when (playbackState.playMode) {
                     PlayMode.RepeatAll -> PlayMode.RepeatOne
                     PlayMode.RepeatOne -> PlayMode.Shuffle
                     PlayMode.Shuffle -> PlayMode.RepeatAll
                 })
-                playbackState.mediaController?.let { controller ->
-                    applyPlaybackMode(controller, playbackState.playMode)
-                }
                 playbackState.persistState()
             },
             size = 32.dp,
@@ -74,7 +72,7 @@ internal fun ControlBar(
             contentDescription = stringResource(R.string.music_panel_previous_track),
             onClick = {
                 val prev = playbackState.previousIndex()
-                if (prev >= 0) scope.launch { playTrackAt(context, playbackState, prev) }
+                if (prev >= 0) scope.launch { playbackState.playTrackAt(prev) }
             },
             enabled = playbackState.playlist.isNotEmpty(),
             size = 32.dp,
@@ -87,7 +85,7 @@ internal fun ControlBar(
             modifier = Modifier.size(36.dp),
             shadowElevation = 0.dp,
             onClick = {
-                togglePlayPause(playbackState)
+                playbackState.togglePlayPause()
             }
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -107,7 +105,7 @@ internal fun ControlBar(
             contentDescription = stringResource(R.string.music_panel_next_track),
             onClick = {
                 val next = playbackState.nextIndex()
-                if (next >= 0) scope.launch { playTrackAt(context, playbackState, next) }
+                if (next >= 0) scope.launch { playbackState.playTrackAt(next) }
             },
             enabled = playbackState.playlist.isNotEmpty(),
             size = 32.dp,

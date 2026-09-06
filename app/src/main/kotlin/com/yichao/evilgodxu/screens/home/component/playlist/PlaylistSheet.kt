@@ -319,9 +319,9 @@ internal fun PlaylistSheet(
                                         onClick = {
                                             keyboardController?.hide()
                                             if (isActive) {
-                                                togglePlayPause(playbackState)
+                                                playbackState.togglePlayPause()
                                             } else {
-                                                scope.launch { playTrackAt(context, playbackState, index) }
+                                                scope.launch { playbackState.playTrackAt(index) }
                                             }
                                             onDismiss()
                                         },

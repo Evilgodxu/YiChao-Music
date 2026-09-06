@@ -223,7 +223,7 @@ internal fun MiniPlayerBar(
                 },
                 contentDescription = stringResource(R.string.music_panel_play_mode),
                 onClick = {
-                    playbackState.setPlayMode(
+                    playbackState.updatePlayMode(
                         when (playbackState.playMode) {
                             PlayMode.RepeatAll -> PlayMode.RepeatOne
                             PlayMode.RepeatOne -> PlayMode.Shuffle
