@@ -274,4 +274,7 @@
     <string name="update_dialog_open_browser">在浏览器中打开</string>
     <string name="update_toast_up_to_date">已是最新版本</string>
     <string name="update_toast_error">检查更新失败，请稍后重试</string>
+    <string name="update_notification_title">忆潮音乐更新</string>
+    <string name="update_notification_description">正在下载 %1$s</string>
+    <string name="copy_success">已复制: %1$s</string>
 </resources>

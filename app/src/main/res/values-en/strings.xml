@@ -274,4 +274,7 @@
     <string name="update_dialog_open_browser">Open in browser</string>
     <string name="update_toast_up_to_date">You are up to date</string>
     <string name="update_toast_error">Check for update failed, try again later</string>
+    <string name="update_notification_title">YiChao Music Update</string>
+    <string name="update_notification_description">Downloading %1$s</string>
+    <string name="copy_success">Copied: %1$s</string>
 </resources>
