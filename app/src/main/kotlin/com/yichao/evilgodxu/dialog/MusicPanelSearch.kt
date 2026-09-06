@@ -71,6 +71,7 @@ import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.domain.music.loadMoreSearchResults
 import com.yichao.evilgodxu.ui.music.MusicErrorBanner
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.R
@@ -89,12 +90,13 @@ internal fun SearchOverlay(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val ui = MusicPanelStateHolder.ui
     Column(
         modifier = modifier.pointerInput(Unit) {
             detectHorizontalDragGestures { _, dragAmount ->
                 if (dragAmount < -50f) {
-                    playbackState.setSearchMode(false)
-                    playbackState.setSearchResultsVisible(false)
+                    ui.setSearchMode(false)
+                    ui.setSearchResultsVisible(false)
                 }
             }
         }
@@ -132,8 +134,8 @@ internal fun SearchOverlay(
                     .size(20.dp)
             )
             BasicTextField(
-                value = playbackState.searchQuery,
-                onValueChange = { playbackState.searchQuery = it },
+                value = ui.searchQuery,
+                onValueChange = { ui.searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 48.dp, end = 44.dp),
@@ -145,17 +147,17 @@ internal fun SearchOverlay(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
-                        val query = playbackState.searchQuery.trim()
+                        val query = ui.searchQuery.trim()
                         if (query.isNotBlank()) {
                             scope.launch {
-                                performSearch(playbackState, context)
+                                performSearch(ui, playbackState, context)
                             }
                         }
                     }
                 ),
                 decorationBox = { innerTextField ->
                     Box {
-                        if (playbackState.searchQuery.isEmpty()) {
+                        if (ui.searchQuery.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.music_panel_search_placeholder),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
@@ -166,9 +168,9 @@ internal fun SearchOverlay(
                     }
                 }
             )
-            if (playbackState.searchQuery.isNotEmpty()) {
+            if (ui.searchQuery.isNotEmpty()) {
                 IconButton(
-                    onClick = { playbackState.setSearchQuery("") },
+                    onClick = { ui.setSearchQuery("") },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .size(32.dp)
@@ -183,7 +185,7 @@ internal fun SearchOverlay(
             }
         }
 
-        if (playbackState.searchHistory.isNotEmpty()) {
+        if (ui.searchHistory.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -198,7 +200,7 @@ internal fun SearchOverlay(
                     fontWeight = FontWeight.Medium
                 )
                 IconButton(
-                    onClick = { playbackState.clearSearchHistory() },
+                    onClick = { ui.clearSearchHistory() },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
@@ -215,14 +217,14 @@ internal fun SearchOverlay(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(playbackState.searchHistory, key = { it }) { query ->
+                items(ui.searchHistory, key = { it }) { query ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .clickable {
-                                playbackState.setSearchQuery(query)
-                                scope.launch { performSearch(playbackState, context) }
+                                ui.setSearchQuery(query)
+                                scope.launch { performSearch(ui, playbackState, context) }
                             }
                             .padding(start = 8.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -236,7 +238,7 @@ internal fun SearchOverlay(
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(
-                            onClick = { playbackState.removeSearchHistory(query) },
+                            onClick = { ui.removeSearchHistory(query) },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
@@ -262,6 +264,7 @@ internal fun SearchResultsOverlay(
     onRefresh: () -> Unit,
     onTrackSelected: (NeteaseSongSearchResult) -> Unit,
 ) {
+    val ui = MusicPanelStateHolder.ui
     AnimatedContent(
         targetState = visible,
         transitionSpec = {
@@ -294,15 +297,15 @@ internal fun SearchResultsOverlay(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = stringResource(R.string.music_panel_track_count, playbackState.searchResults.size),
+                            text = stringResource(R.string.music_panel_track_count, ui.searchResults.size),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp
                         )
                         HeaderIconButton(
                             icon = AppIcons.Refresh,
-                            onClick = { if (!playbackState.isSearching) onRefresh() },
+                            onClick = { if (!ui.isSearching) onRefresh() },
                             modifier = Modifier.size(24.dp),
-                            enabled = !playbackState.isSearching
+                            enabled = !ui.isSearching
                         )
                         HeaderIconButton(
                             icon = AppIcons.Close,
@@ -323,11 +326,11 @@ internal fun SearchResultsOverlay(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                if (playbackState.isSearching) {
+                if (ui.isSearching) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     }
-                } else if (playbackState.searchResults.isEmpty()) {
+                } else if (ui.searchResults.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = stringResource(R.string.music_panel_search_no_results),
@@ -443,8 +446,9 @@ internal fun SearchLoadMoreFooter(
     playbackState: MusicPlaybackState,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
+    val ui = MusicPanelStateHolder.ui
     when {
-        playbackState.isLoadingMore -> Row(
+        ui.isLoadingMore -> Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 10.dp),
@@ -463,7 +467,7 @@ internal fun SearchLoadMoreFooter(
                 fontSize = 11.sp
             )
         }
-        !playbackState.hasMoreSearchResults && playbackState.searchResults.isNotEmpty() -> Text(
+        !ui.hasMoreSearchResults && ui.searchResults.isNotEmpty() -> Text(
             text = stringResource(R.string.music_panel_search_load_all),
             color = tint.copy(alpha = 0.7f),
             fontSize = 11.sp,
@@ -487,10 +491,11 @@ internal fun SearchResultsLazyList(
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
+    val ui = MusicPanelStateHolder.ui
     val listState = rememberLazyListState()
     // 兜底去重：上游即使仍重复下发同一条目，渲染前按键过滤，杜绝 LazyColumn key 冲突
-    val uniqueResults = remember(playbackState.searchResults) {
-        playbackState.searchResults.distinctBy { it.source to it.id }
+    val uniqueResults = remember(ui.searchResults) {
+        ui.searchResults.distinctBy { it.source to it.id }
     }
     // 累计的底部上拉距离，达到阈值松手后触发加载下一页
     var pullDistance by remember { mutableFloatStateOf(0f) }
@@ -516,10 +521,10 @@ internal fun SearchResultsLazyList(
             .distinctUntilChanged()
             .filter { !it }
             .collect {
-                if (pullDistance >= loadThreshold && playbackState.hasMoreSearchResults &&
-                    !playbackState.isSearching && playbackState.searchResults.isNotEmpty()
+                if (pullDistance >= loadThreshold && ui.hasMoreSearchResults &&
+                    !ui.isSearching && ui.searchResults.isNotEmpty()
                 ) {
-                    loadMoreSearchResults(playbackState, context)
+                    loadMoreSearchResults(ui, playbackState, context)
                 }
                 pullDistance = 0f
             }
@@ -545,8 +550,8 @@ internal fun SearchResultsLazyList(
         // 底部脚注：加载中 / 上拉加载提示 / 全部加载完成
         item(key = "load-more-footer") {
             when {
-                playbackState.isLoadingMore -> SearchLoadMoreFooter(playbackState, tint)
-                playbackState.hasMoreSearchResults -> SearchPullLoadHint(pullDistance, loadThreshold, tint)
+                ui.isLoadingMore -> SearchLoadMoreFooter(playbackState, tint)
+                ui.hasMoreSearchResults -> SearchPullLoadHint(pullDistance, loadThreshold, tint)
                 else -> SearchLoadMoreFooter(playbackState, tint)
             }
         }

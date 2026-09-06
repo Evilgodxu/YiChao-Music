@@ -24,15 +24,12 @@ import com.yichao.evilgodxu.data.music.RecentPlayedStore
 import com.yichao.evilgodxu.data.music.SearchHistoryStore
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
-import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.data.music.model.PlayMode
 import com.yichao.evilgodxu.data.music.trackIdentityKey
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
-import com.yichao.evilgodxu.data.music.model.RecentCover
 import java.io.File
 import kotlin.jvm.JvmName
 import kotlinx.coroutines.CoroutineScope
@@ -47,7 +44,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // 音乐播放器状态持有者（悬浮窗级共享状态）
-class MusicPlaybackState {
+class MusicPlaybackState(val ui: MusicPanelUiState) {
 
     // 常听收录窗口：统计 3 天内完整播放次数不少于 2 次的歌曲
     companion object {
@@ -167,22 +164,22 @@ class MusicPlaybackState {
                 Player.STATE_READY -> {
                     isPrepared = true
                     ensurePositionTicker()
-                    if (closeSearchResultsOnReady) {
-                        closeSearchResultsOnReady = false
-                        isSearchMode = false
-                        showSearchResults = false
-                        searchQuery = ""
-                        searchResults = emptyList()
-                        searchPending = emptyList()
-                        searchPendingFull = false
-                        pendingSearchResults = emptyList()
+                    if (ui.closeSearchResultsOnReady) {
+                        ui.closeSearchResultsOnReady = false
+                        ui.isSearchMode = false
+                        ui.showSearchResults = false
+                        ui.searchQuery = ""
+                        ui.searchResults = emptyList()
+                        ui.searchPending = emptyList()
+                        ui.searchPendingFull = false
+                        ui.pendingSearchResults = emptyList()
                     }
                     // 音质试播就绪即播放成功：关闭音质对话框并清除待确认标记
-                    if (pendingQualityPlayTrackId != null) {
-                        pendingQualityPlayTrackId = null
-                        qualityBusy = false
-                        qualityPickTrack = null
-                        qualityError = null
+                    if (ui.pendingQualityPlayTrackId != null) {
+                        ui.pendingQualityPlayTrackId = null
+                        ui.qualityBusy = false
+                        ui.qualityPickTrack = null
+                        ui.qualityError = null
                     }
                     syncPlaybackState()
                 }
@@ -213,11 +210,11 @@ class MusicPlaybackState {
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             // 音质试播失败：移除刚加入的试播曲目（不残留播放列表），保留对话框供用户换其它音质
-            val pendingId = pendingQualityPlayTrackId
-            if (pendingId != null && qualityPickTrack != null) {
-                pendingQualityPlayTrackId = null
-                qualityBusy = false
-                qualityError = appContext?.getString(R.string.music_panel_quality_failed)
+            val pendingId = ui.pendingQualityPlayTrackId
+            if (pendingId != null && ui.qualityPickTrack != null) {
+                ui.pendingQualityPlayTrackId = null
+                ui.qualityBusy = false
+                ui.qualityError = appContext?.getString(R.string.music_panel_quality_failed)
                 removeTrack(pendingId)
             }
             // errorMsg 为可空类型，appContext 为空时置 null（播放不会发生，正常显示无错误）
@@ -225,8 +222,8 @@ class MusicPlaybackState {
             isPlaying = false
             isPrepared = false
             stopPositionTicker()
-            closeSearchResultsOnReady = false
-            pendingSearchResults = emptyList()
+            ui.closeSearchResultsOnReady = false
+            ui.pendingSearchResults = emptyList()
             suppressAutoNext = true
             mediaController?.stop()
         }
@@ -259,59 +256,6 @@ class MusicPlaybackState {
     var errorMsg by mutableStateOf<String?>(null)
     var isScanning by mutableStateOf(false)
     var isLyricsVisible by mutableStateOf(false)
-
-    // 在线搜索相关状态
-    var isSearchMode by mutableStateOf(false)
-    var searchQuery by mutableStateOf("")
-    // 当前选中的在线搜索平台，单平台搜索时使用
-    var searchSource by mutableStateOf(MusicSearchSource.NETEASE)
-    var searchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
-    var searchHistory by mutableStateOf<List<String>>(emptyList())
-    var isSearching by mutableStateOf(false)
-    // 当前搜索协程句柄：新搜索发起时取消上一次，避免过期响应覆盖新查询结果
-    var searchJob: Job? = null
-    // 搜索结果分页：已加载页数、是否正在加载更多、是否还有更多
-    var searchPage by mutableIntStateOf(0)
-    var isLoadingMore by mutableStateOf(false)
-    var hasMoreSearchResults by mutableStateOf(true)
-    // 代理音源一次拉取的全量结果缓冲：本地按页切分展示，避免不支持分页的代理重复请求
-    var searchPending by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
-    // 代理音源首次请求是否拉满（可能支持分页，缓冲耗尽后继续请求下一页）
-    var searchPendingFull by mutableStateOf(false)
-    // 加载更多分页的协程句柄：新搜索发起时取消，避免过期分页混入新结果
-    var searchLoadJob: Job? = null
-    var showSearchResults by mutableStateOf(false)
-    var pendingSearchResults by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
-    var closeSearchResultsOnReady by mutableStateOf(false)
-    // 首页音质选择对话框：非空时显示，目标为待播在线歌曲
-    var qualityPickTrack by mutableStateOf<NeteaseSongSearchResult?>(null)
-    // 音质尝试中：解析地址与等待播放结果期间置 true，阻止重复点击/误关对话框
-    var qualityBusy by mutableStateOf(false)
-    // 最近一次音质尝试失败提示（失败时保留对话框展示，供用户换其它音质）
-    var qualityError by mutableStateOf<String?>(null)
-    // 音质试播曲目 ID：播放就绪(READY)后清空；播放失败时据此移除试播曲目并保留对话框
-    var pendingQualityPlayTrackId by mutableStateOf<Long?>(null)
-    // 无损升级进行中：阻止重复触发与误关对话框
-    var losslessUpgradeBusy by mutableStateOf(false)
-    // 最近一次无损升级失败提示：升级失败时保留对话框展示，供用户重试
-    var losslessUpgradeError by mutableStateOf<String?>(null)
-    // 无损升级候选：按来源搜索的在线原曲，用户确认选中后下载无损替换本地文件
-    var losslessUpgradeCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
-    var isLosslessUpgradeSearching by mutableStateOf(false)
-    // 无损升级候选搜索来源
-    var losslessUpgradeSource by mutableStateOf(MusicSearchSource.NETEASE)
-    var coverCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
-    var isCoverSearching by mutableStateOf(false)
-    var localCoverCandidates by mutableStateOf<List<RecentCover>>(emptyList())
-    // 封面写入版本号：每次成功写入新封面自增，驱动封面组件重新加载最新图
-    var coverRevision by mutableIntStateOf(0)
-    var lyricsCandidates by mutableStateOf<List<NeteaseSongSearchResult>>(emptyList())
-    var isLyricsSearching by mutableStateOf(false)
-    var isLyricsRefreshing by mutableStateOf(false)
-    var lyricsRefreshError by mutableStateOf<String?>(null)
-    // 歌词/封面刷新当前来源：按来源独立搜索，切换来源时轮换并重新搜索
-    var lyricsRefreshSource by mutableStateOf(MusicSearchSource.NETEASE)
-    var coverRefreshSource by mutableStateOf(MusicSearchSource.NETEASE)
 
     private fun hasUriAccess(context: Context, audioUri: String): Boolean {
         val uri = Uri.parse(audioUri)
@@ -619,7 +563,8 @@ class MusicPlaybackState {
 
     suspend fun restoreSavedState(context: Context) {
         appContext = context.applicationContext
-        searchHistory = withContext(Dispatchers.IO) {
+        ui.appContext = context.applicationContext
+        ui.searchHistory = withContext(Dispatchers.IO) {
             SearchHistoryStore.load(context)
         }
         recentPlayEvents = withContext(Dispatchers.IO) {
@@ -715,30 +660,11 @@ class MusicPlaybackState {
         }
     }
 
-    fun addSearchHistory(query: String) {
-        val normalized = query.trim()
-        if (normalized.isBlank()) return
-        searchHistory = listOf(normalized) + searchHistory.filterNot { it == normalized }
-        searchHistory = searchHistory.take(10)
-        persistSearchHistory()
-    }
+    fun addSearchHistory(query: String) = ui.addSearchHistory(query)
 
-    fun removeSearchHistory(query: String) {
-        searchHistory = searchHistory.filterNot { it == query }
-        persistSearchHistory()
-    }
+    fun removeSearchHistory(query: String) = ui.removeSearchHistory(query)
 
-    fun clearSearchHistory() {
-        searchHistory = emptyList()
-        persistSearchHistory()
-    }
-
-    private fun persistSearchHistory() {
-        val context = appContext ?: return
-        playbackScope.launch(Dispatchers.IO) {
-            SearchHistoryStore.save(context, searchHistory)
-        }
-    }
+    fun clearSearchHistory() = ui.clearSearchHistory()
 
     var pendingSavedUri: String? = null
     var pendingResumePosition: Long = 0L
@@ -885,9 +811,9 @@ class MusicPlaybackState {
         persistPlaylist()
     }
 
-    // 封面写入成功后自增，通知封面组件强制重载最新封面
+    // 封面写入成功后自增，通知封面组件强制重载最新图
     fun bumpCoverRevision() {
-        coverRevision++
+        ui.coverRevision++
     }
 
     // 批量更新曲目元数据（封面等），一次触发重组 + 一次持久化；
@@ -1044,28 +970,8 @@ class MusicPlaybackState {
         mediaController?.setPlaybackSpeed(playbackSpeed)
         persistPlaybackSpeed()
     }
-    @JvmName("updateSearchMode")
-    fun setSearchMode(enabled: Boolean) { isSearchMode = enabled }
-    @JvmName("updateSearchResultsVisible")
-    fun setSearchResultsVisible(visible: Boolean) { showSearchResults = visible }
-    @JvmName("updateSearchQuery")
-    fun setSearchQuery(query: String) { searchQuery = query }
-    @JvmName("updateSearchSource")
-    fun setSearchSource(source: MusicSearchSource) { searchSource = source }
     @JvmName("updateLyricsVisible")
     fun setLyricsVisible(visible: Boolean) { isLyricsVisible = visible }
-    @JvmName("updateLocalCoverCandidates")
-    fun setLocalCoverCandidates(candidates: List<RecentCover>) { localCoverCandidates = candidates }
-    @JvmName("updateCoverCandidates")
-    fun setCoverCandidates(candidates: List<NeteaseSongSearchResult>) { coverCandidates = candidates }
-    @JvmName("updateLyricsCandidates")
-    fun setLyricsCandidates(candidates: List<NeteaseSongSearchResult>) { lyricsCandidates = candidates }
-    @JvmName("updateLyricsRefreshError")
-    fun setLyricsRefreshError(error: String?) { lyricsRefreshError = error }
-    @JvmName("updateLyricsRefreshSource")
-    fun setLyricsRefreshSource(source: MusicSearchSource) { lyricsRefreshSource = source }
-    @JvmName("updateCoverRefreshSource")
-    fun setCoverRefreshSource(source: MusicSearchSource) { coverRefreshSource = source }
     @JvmName("updateErrorMsg")
     fun setErrorMsg(message: String?) { errorMsg = message }
     @JvmName("updateTimerMinutes")

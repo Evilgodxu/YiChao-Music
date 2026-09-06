@@ -58,33 +58,34 @@ private fun matchesTrackTitle(title: String, result: NeteaseSongSearchResult): B
 }
 
 internal suspend fun searchLyricsCandidates(
-    playbackState: MusicPlaybackState,
+    ui: MusicPanelUiState,
     track: MusicTrack,
     source: MusicSearchSource,
 ) {
-    playbackState.isLyricsSearching = true
-    playbackState.lyricsCandidates = emptyList()
-    playbackState.lyricsRefreshError = null
+    ui.isLyricsSearching = true
+    ui.lyricsCandidates = emptyList()
+    ui.lyricsRefreshError = null
     try {
-        playbackState.lyricsCandidates = searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
+        ui.lyricsCandidates = searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
             .filter { matchesTrackTitle(track.title, it) }
             .take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌词候选失败: 歌曲=${track.title}", e)
-        playbackState.lyricsCandidates = emptyList()
+        ui.lyricsCandidates = emptyList()
     } finally {
-        playbackState.isLyricsSearching = false
+        ui.isLyricsSearching = false
     }
 }
 
 internal suspend fun applyLyricsCandidate(
     context: Context,
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     track: MusicTrack,
     candidate: NeteaseSongSearchResult,
 ): Boolean {
-    playbackState.isLyricsRefreshing = true
-    playbackState.lyricsRefreshError = null
+    ui.isLyricsRefreshing = true
+    ui.lyricsRefreshError = null
     return try {
         val updated = withContext(Dispatchers.IO) {
             val lines = when (candidate.source) {
@@ -115,7 +116,7 @@ internal suspend fun applyLyricsCandidate(
         false
     } finally {
         withContext(Dispatchers.Main) {
-            playbackState.isLyricsRefreshing = false
+            ui.isLyricsRefreshing = false
         }
     }
 }
@@ -181,21 +182,21 @@ internal suspend fun applyLyricsLineEdit(
 }
 
 internal suspend fun searchCoverCandidates(
-    playbackState: MusicPlaybackState,
+    ui: MusicPanelUiState,
     track: MusicTrack,
     source: MusicSearchSource,
 ) {
-    playbackState.isCoverSearching = true
-    playbackState.coverCandidates = emptyList()
+    ui.isCoverSearching = true
+    ui.coverCandidates = emptyList()
     try {
-        playbackState.coverCandidates = searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
+        ui.coverCandidates = searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
             .filter { matchesTrackTitle(track.title, it) && !it.coverUrl.isNullOrBlank() }
             .take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索封面候选失败: 歌曲=${track.title}", e)
-        playbackState.coverCandidates = emptyList()
+        ui.coverCandidates = emptyList()
     } finally {
-        playbackState.isCoverSearching = false
+        ui.isCoverSearching = false
     }
 }
 
@@ -203,13 +204,13 @@ internal suspend fun searchCoverCandidates(
 // 按标题/歌手搜索在线原曲，供用户确认选中后下载无损版本替换本地文件
 internal suspend fun searchLosslessUpgradeCandidates(
     context: Context,
-    playbackState: MusicPlaybackState,
+    ui: MusicPanelUiState,
     track: MusicTrack,
     source: MusicSearchSource,
 ) {
-    playbackState.isLosslessUpgradeSearching = true
-    playbackState.losslessUpgradeCandidates = emptyList()
-    playbackState.losslessUpgradeError = null
+    ui.isLosslessUpgradeSearching = true
+    ui.losslessUpgradeCandidates = emptyList()
+    ui.losslessUpgradeError = null
     try {
         val keyword = listOf(track.title, track.artist).filter { it.isNotBlank() }.joinToString(" ")
         val proxyResults = runCatching {
@@ -218,19 +219,20 @@ internal suspend fun searchLosslessUpgradeCandidates(
         val candidates = if (proxyResults.isNullOrEmpty()) {
             searchSingleSourceCandidates(sourceOf(source), track.title, track.artist)
         } else proxyResults
-        playbackState.losslessUpgradeCandidates = candidates
+        ui.losslessUpgradeCandidates = candidates
             .filter { matchesTrackTitle(track.title, it) }
             .take(30)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索无损升级候选失败: 歌曲=${track.title}", e)
-        playbackState.losslessUpgradeCandidates = emptyList()
+        ui.losslessUpgradeCandidates = emptyList()
     } finally {
-        playbackState.isLosslessUpgradeSearching = false
+        ui.isLosslessUpgradeSearching = false
     }
 }
 
 internal suspend fun applyCoverCandidate(
     context: Context,
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     track: MusicTrack,
     candidate: NeteaseSongSearchResult,
@@ -252,7 +254,7 @@ internal suspend fun applyCoverCandidate(
         withContext(Dispatchers.Main) {
             playbackState.updateTrack(updated)
             playbackState.bumpCoverRevision()
-            playbackState.coverCandidates = emptyList()
+            ui.coverCandidates = emptyList()
         }
         true
     } catch (e: Exception) {
@@ -262,31 +264,32 @@ internal suspend fun applyCoverCandidate(
 }
 
 internal suspend fun performSearch(
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     context: Context,
 ) {
-    val query = playbackState.searchQuery.trim()
+    val query = ui.searchQuery.trim()
     if (query.isBlank()) return
     // 取消上一次未完成的搜索与分页加载，避免过期响应覆盖新查询结果
-    playbackState.searchJob?.cancel()
-    playbackState.searchLoadJob?.cancel()
-    playbackState.searchJob = currentCoroutineContext()[Job] ?: return
-    playbackState.isSearching = true
-    playbackState.searchResults = emptyList()
-    playbackState.searchPending = emptyList()
-    playbackState.searchPendingFull = false
+    ui.searchJob?.cancel()
+    ui.searchLoadJob?.cancel()
+    ui.searchJob = currentCoroutineContext()[Job] ?: return
+    ui.isSearching = true
+    ui.searchResults = emptyList()
+    ui.searchPending = emptyList()
+    ui.searchPendingFull = false
     playbackState.errorMsg = null
     // 重置分页状态，从第一页开始
-    playbackState.searchPage = 0
-    playbackState.hasMoreSearchResults = true
-    playbackState.isLoadingMore = false
+    ui.searchPage = 0
+    ui.hasMoreSearchResults = true
+    ui.isLoadingMore = false
     // 立即切到结果视图，使加载指示器在搜索期间可见
-    playbackState.showSearchResults = true
+    ui.showSearchResults = true
     try {
         // 代理音源一次拉取全量（多数代理不支持分页），本地按页切分展示
         val proxyResults = ProxySourceEngine.search(
             context,
-            playbackState.searchSource,
+            ui.searchSource,
             query,
             page = 1,
             pageSize = PROXY_FETCH_COUNT,
@@ -294,47 +297,47 @@ internal suspend fun performSearch(
         if (proxyResults != null) {
             // 代理音源可能返回重复条目（同一首歌多种音质/hash 相同），按 source+id 去重防止列表 key 冲突
             val deduped = proxyResults.distinctBy { it.source to it.id }
-            playbackState.searchResults = deduped.take(SEARCH_PAGE_SIZE)
-            playbackState.searchPending = deduped.drop(SEARCH_PAGE_SIZE)
-            playbackState.searchPendingFull = proxyResults.size >= PROXY_FETCH_COUNT
-            playbackState.hasMoreSearchResults =
-                playbackState.searchPending.isNotEmpty() || playbackState.searchPendingFull
+            ui.searchResults = deduped.take(SEARCH_PAGE_SIZE)
+            ui.searchPending = deduped.drop(SEARCH_PAGE_SIZE)
+            ui.searchPendingFull = proxyResults.size >= PROXY_FETCH_COUNT
+            ui.hasMoreSearchResults =
+                ui.searchPending.isNotEmpty() || ui.searchPendingFull
         } else {
             // 内置平台按页请求，首屏一页
-            val results = runCatching { sourceOf(playbackState.searchSource).search(query, 1, SEARCH_PAGE_SIZE) }
+            val results = runCatching { sourceOf(ui.searchSource).search(query, 1, SEARCH_PAGE_SIZE) }
                 .getOrDefault(emptyList())
-            playbackState.searchResults = results.distinctBy { it.source to it.id }
-            playbackState.hasMoreSearchResults = results.size >= SEARCH_PAGE_SIZE
+            ui.searchResults = results.distinctBy { it.source to it.id }
+            ui.hasMoreSearchResults = results.size >= SEARCH_PAGE_SIZE
         }
-        playbackState.searchPage = 1
-        if (playbackState.searchResults.isNotEmpty()) playbackState.addSearchHistory(query)
-        playbackState.showSearchResults = true
+        ui.searchPage = 1
+        if (ui.searchResults.isNotEmpty()) ui.addSearchHistory(query)
+        ui.showSearchResults = true
         // 代理搜索结果的封面为逐条经 pic 动作换取，后台渐进补齐
-        if (playbackState.searchResults.isNotEmpty()) fillProxySearchCovers(playbackState, context)
+        if (ui.searchResults.isNotEmpty()) fillProxySearchCovers(ui, playbackState, context)
     } catch (e: kotlinx.coroutines.CancellationException) {
         // 搜索界面退出导致的协程取消，不是失败，向上传递取消
         throw e
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "搜索歌曲失败", e)
-        playbackState.searchResults = emptyList()
+        ui.searchResults = emptyList()
     } finally {
         // 仅当前搜索协程复位搜索状态，避免被取消的旧协程提前清掉新搜索的加载态
-        if (playbackState.searchJob == currentCoroutineContext()[Job]) {
-            playbackState.isSearching = false
+        if (ui.searchJob == currentCoroutineContext()[Job]) {
+            ui.isSearching = false
         }
     }
 }
 
 // 分页获取搜索结果：代理音源优先，失败或未配置时回退内置平台
 private suspend fun fetchSearchPage(
-    playbackState: MusicPlaybackState,
+    ui: MusicPanelUiState,
     context: Context,
     query: String,
     page: Int,
 ): List<NeteaseSongSearchResult> {
     val proxyResults = ProxySourceEngine.search(
         context,
-        playbackState.searchSource,
+        ui.searchSource,
         query,
         page = page,
         pageSize = SEARCH_PAGE_SIZE,
@@ -342,68 +345,69 @@ private suspend fun fetchSearchPage(
     return if (proxyResults != null) {
         proxyResults
     } else {
-        runCatching { sourceOf(playbackState.searchSource).search(query, page, SEARCH_PAGE_SIZE) }
+        runCatching { sourceOf(ui.searchSource).search(query, page, SEARCH_PAGE_SIZE) }
             .getOrDefault(emptyList())
     }.distinctBy { it.source to it.id }
 }
 
 // 上拉加载下一页：优先消费代理全量缓冲，缓冲耗尽或内置平台再请求下一页
 internal suspend fun loadMoreSearchResults(
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     context: Context,
 ) {
-    if (playbackState.isLoadingMore || playbackState.isSearching || !playbackState.hasMoreSearchResults) return
-    if (playbackState.searchResults.isEmpty()) return
+    if (ui.isLoadingMore || ui.isSearching || !ui.hasMoreSearchResults) return
+    if (ui.searchResults.isEmpty()) return
     // 代理音源全量缓冲：本地切分追加，无需重复请求（不支持分页的代理每次返回相同结果）
-    if (playbackState.searchPending.isNotEmpty()) {
+    if (ui.searchPending.isNotEmpty()) {
         // 缓冲内仍可能与已加载条目重复，追加前按 source+id 去重
-        val existingKeys = playbackState.searchResults.map { it.source to it.id }.toMutableSet()
-        val batch = playbackState.searchPending.take(SEARCH_PAGE_SIZE).filter { item ->
+        val existingKeys = ui.searchResults.map { it.source to it.id }.toMutableSet()
+        val batch = ui.searchPending.take(SEARCH_PAGE_SIZE).filter { item ->
             existingKeys.add(item.source to item.id)
         }
-        playbackState.searchResults = playbackState.searchResults + batch
-        playbackState.searchPending = playbackState.searchPending.drop(SEARCH_PAGE_SIZE)
-        playbackState.searchPage++
-        playbackState.hasMoreSearchResults =
-            playbackState.searchPending.isNotEmpty() || playbackState.searchPendingFull
-        if (batch.isNotEmpty()) fillProxySearchCovers(playbackState, context)
+        ui.searchResults = ui.searchResults + batch
+        ui.searchPending = ui.searchPending.drop(SEARCH_PAGE_SIZE)
+        ui.searchPage++
+        ui.hasMoreSearchResults =
+            ui.searchPending.isNotEmpty() || ui.searchPendingFull
+        if (batch.isNotEmpty()) fillProxySearchCovers(ui, playbackState, context)
         return
     }
-    val query = playbackState.searchQuery.trim()
+    val query = ui.searchQuery.trim()
     if (query.isBlank()) return
-    playbackState.searchLoadJob = currentCoroutineContext()[Job] ?: return
-    playbackState.isLoadingMore = true
+    ui.searchLoadJob = currentCoroutineContext()[Job] ?: return
+    ui.isLoadingMore = true
     try {
-        val nextPage = playbackState.searchPage + 1
-        val pageResults = fetchSearchPage(playbackState, context, query, page = nextPage)
+        val nextPage = ui.searchPage + 1
+        val pageResults = fetchSearchPage(ui, context, query, page = nextPage)
         // 新搜索已取代本次加载时丢弃过期分页
-        if (playbackState.searchLoadJob != currentCoroutineContext()[Job]) return
-        val existingKeys = playbackState.searchResults.map { it.source to it.id }.toSet()
+        if (ui.searchLoadJob != currentCoroutineContext()[Job]) return
+        val existingKeys = ui.searchResults.map { it.source to it.id }.toSet()
         val newItems = pageResults.filter { (it.source to it.id) !in existingKeys }
         if (newItems.isEmpty()) {
             // 本页无新增条目（全部与已加载重复）时视为已加载完全部结果，避免重复请求
-            playbackState.hasMoreSearchResults = false
+            ui.hasMoreSearchResults = false
             return
         }
-        playbackState.searchResults = playbackState.searchResults + newItems
-        playbackState.searchPage = nextPage
-        playbackState.hasMoreSearchResults = pageResults.size >= SEARCH_PAGE_SIZE
+        ui.searchResults = ui.searchResults + newItems
+        ui.searchPage = nextPage
+        ui.hasMoreSearchResults = pageResults.size >= SEARCH_PAGE_SIZE
         // 代理搜索结果的封面为逐条经 pic 动作换取，后台渐进补齐
-        if (newItems.isNotEmpty()) fillProxySearchCovers(playbackState, context)
+        if (newItems.isNotEmpty()) fillProxySearchCovers(ui, playbackState, context)
     } catch (e: kotlinx.coroutines.CancellationException) {
         // 新搜索发起导致的分页协程取消，不是失败，向上传递取消
         throw e
     } catch (e: Exception) {
         CrashLogManager.logException("MusicPanelSearchLogic", "加载更多搜索结果失败", e)
     } finally {
-        playbackState.isLoadingMore = false
-        playbackState.searchLoadJob = null
+        ui.isLoadingMore = false
+        ui.searchLoadJob = null
     }
 }
 
 // 代理搜索结果的封面为逐条经 pic 动作换取：串行补齐前 N 条，控制聚合接口调用频率
-private fun fillProxySearchCovers(playbackState: MusicPlaybackState, context: Context) {
-    val pending = playbackState.searchResults
+private fun fillProxySearchCovers(ui: MusicPanelUiState, playbackState: MusicPlaybackState, context: Context) {
+    val pending = ui.searchResults
         .filter { it.coverUrl.isNullOrBlank() && !it.coverId.isNullOrBlank() }
         .take(MAX_PROXY_COVER_FILL)
     if (pending.isEmpty()) return
@@ -411,11 +415,11 @@ private fun fillProxySearchCovers(playbackState: MusicPlaybackState, context: Co
         pending.forEach { result ->
             val url = ProxySourceEngine.coverUrl(context, result) ?: return@forEach
             withContext(Dispatchers.Main) {
-                val index = playbackState.searchResults.indexOfFirst { it.id == result.id }
+                val index = ui.searchResults.indexOfFirst { it.id == result.id }
                 if (index >= 0) {
-                    val list = playbackState.searchResults.toMutableList()
+                    val list = ui.searchResults.toMutableList()
                     list[index] = result.copy(coverUrl = url)
-                    playbackState.searchResults = list
+                    ui.searchResults = list
                 }
             }
         }
@@ -557,6 +561,7 @@ internal suspend fun enrichOnlineMetadata(
 // 本地曲库命中同曲时直接播放；命中返回 true
 internal suspend fun tryPlayLocalMatch(
     target: NeteaseSongSearchResult,
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     context: Context,
     scope: kotlinx.coroutines.CoroutineScope,
@@ -578,25 +583,26 @@ internal suspend fun tryPlayLocalMatch(
     playbackState.errorMsg = null
     playbackState.currentIndex = idx
     playbackState.currentTrack = playbackState.playlist[idx]
-    playbackState.isSearchMode = false
-    playbackState.showSearchResults = false
-    playbackState.searchQuery = ""
-    playbackState.searchResults = emptyList()
-    playbackState.searchPending = emptyList()
-    playbackState.searchPendingFull = false
+    ui.isSearchMode = false
+    ui.showSearchResults = false
+    ui.searchQuery = ""
+    ui.searchResults = emptyList()
+    ui.searchPending = emptyList()
+    ui.searchPendingFull = false
     playTrackAt(context, playbackState, idx)
     return true
 }
 
 internal suspend fun playSearchResult(
     target: NeteaseSongSearchResult,
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     context: Context,
     scope: kotlinx.coroutines.CoroutineScope,
 ) {
-    if (tryPlayLocalMatch(target, playbackState, context, scope)) return
+    if (tryPlayLocalMatch(target, ui, playbackState, context, scope)) return
 
-    playbackState.pendingSearchResults = emptyList()
+    ui.pendingSearchResults = emptyList()
 
     // 代理音源优先解析播放地址，失败时回退内置解析；缓存下载沿用同一直链
     val playTarget: NeteaseSongSearchResult
@@ -638,11 +644,11 @@ internal suspend fun playSearchResult(
 
     if (url != null) {
         playbackState.errorMsg = null
-        playbackState.closeSearchResultsOnReady = true
+        ui.closeSearchResultsOnReady = true
         downloadAndPlay(context, playbackState, playTarget, url)
     } else {
         playbackState.errorMsg = context.getString(R.string.music_panel_play_error)
-        playbackState.pendingSearchResults = emptyList()
+        ui.pendingSearchResults = emptyList()
     }
 }
 
@@ -666,12 +672,13 @@ internal suspend fun resolvePlayUrlByQuality(
 internal suspend fun playSearchResultWithQuality(
     target: NeteaseSongSearchResult,
     quality: MusicQuality,
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     context: Context,
 ): Boolean {
     val url = resolvePlayUrlByQuality(context, target, quality) ?: return false
-    playbackState.pendingQualityPlayTrackId = target.id + 1000000L
-    playbackState.closeSearchResultsOnReady = true
+    ui.pendingQualityPlayTrackId = target.id + 1000000L
+    ui.closeSearchResultsOnReady = true
     downloadAndPlay(context, playbackState, target, url)
     return true
 }

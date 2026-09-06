@@ -63,6 +63,7 @@ fun HomeAssembly(
     onStopPermissionMonitor: () -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
+    val ui = MusicPanelStateHolder.ui
     val context = LocalContext.current
     // 播放偏好：滑动切歌开关
     val swipeToChangeTrack by context.swipeToChangeTrackFlow()
@@ -86,19 +87,19 @@ fun HomeAssembly(
     var homeBackgroundColor by remember { mutableStateOf(md_theme_dark_surface) }
     // 覆盖层打开时返回键：优先清空搜索结果与输入框；搜索状态已清空时才关闭覆盖层返回播放器
     BackHandler(enabled = swipeController.showOnlineSearch) {
-        val hasSearchContent = playbackState.searchQuery.isNotBlank() ||
-            playbackState.searchResults.isNotEmpty() ||
-            playbackState.showSearchResults
+        val hasSearchContent = ui.searchQuery.isNotBlank() ||
+            ui.searchResults.isNotEmpty() ||
+            ui.showSearchResults
         if (hasSearchContent) {
-            playbackState.setSearchQuery("")
-            playbackState.searchResults = emptyList()
-            playbackState.searchPending = emptyList()
-            playbackState.searchPendingFull = false
-            playbackState.setSearchResultsVisible(false)
+            ui.setSearchQuery("")
+            ui.searchResults = emptyList()
+            ui.searchPending = emptyList()
+            ui.searchPendingFull = false
+            ui.setSearchResultsVisible(false)
             playbackState.setErrorMsg(null)
         } else {
             swipeController.showOnlineSearch = false
-            playbackState.setSearchResultsVisible(false)
+            ui.setSearchResultsVisible(false)
             playbackState.setErrorMsg(null)
         }
     }
@@ -222,10 +223,10 @@ fun HomeAssembly(
                             playlistVisible = playlistVisible,
                             onPlaylistVisibilityChange = { playlistVisible = it },
                             onOpenOnlineSearch = { query ->
-                                playbackState.setSearchQuery(query)
-                                playbackState.setSearchResultsVisible(true)
+                                ui.setSearchQuery(query)
+                                ui.setSearchResultsVisible(true)
                                 swipeController.showOnlineSearch = true
-                                scope.launch { performSearch(playbackState, context) }
+                                scope.launch { performSearch(ui, playbackState, context) }
                             },
                         )
                     }

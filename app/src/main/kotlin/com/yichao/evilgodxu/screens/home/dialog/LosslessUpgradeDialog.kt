@@ -48,6 +48,7 @@ import com.yichao.evilgodxu.data.music.api.sourceNameRes
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.searchLosslessUpgradeCandidates
 import com.yichao.evilgodxu.domain.music.upgradeTrackToLossless
@@ -65,19 +66,20 @@ internal fun LosslessUpgradeDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val ui = MusicPanelStateHolder.ui
     val track = playbackState.currentTrack
     var selectedCandidate by remember { mutableStateOf<NeteaseSongSearchResult?>(null) }
 
     // 打开且曲目/来源变化时自动搜索候选
-    LaunchedEffect(visible, track?.id, playbackState.losslessUpgradeSource) {
+    LaunchedEffect(visible, track?.id, ui.losslessUpgradeSource) {
         if (visible && track != null) {
             selectedCandidate = null
-            searchLosslessUpgradeCandidates(context, playbackState, track, playbackState.losslessUpgradeSource)
+            searchLosslessUpgradeCandidates(context, ui, track, ui.losslessUpgradeSource)
         }
     }
 
     if (!visible || track == null) return
-    MetadataDialogCard(onDismiss = { if (!playbackState.losslessUpgradeBusy) onDismiss() }) {
+    MetadataDialogCard(onDismiss = { if (!ui.losslessUpgradeBusy) onDismiss() }) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -92,14 +94,14 @@ internal fun LosslessUpgradeDialog(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable(enabled = !playbackState.isLosslessUpgradeSearching && !playbackState.losslessUpgradeBusy) {
+                        .clickable(enabled = !ui.isLosslessUpgradeSearching && !ui.losslessUpgradeBusy) {
                             sourceMenuExpanded = true
                         }
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = stringResource(playbackState.losslessUpgradeSource.sourceNameRes()),
+                            text = stringResource(ui.losslessUpgradeSource.sourceNameRes()),
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 16.sp,
                         )
@@ -119,12 +121,12 @@ internal fun LosslessUpgradeDialog(
                                 text = { Text(stringResource(source.sourceNameRes())) },
                                 onClick = {
                                     sourceMenuExpanded = false
-                                    if (source != playbackState.losslessUpgradeSource) {
-                                        playbackState.losslessUpgradeSource = source
+                                    if (source != ui.losslessUpgradeSource) {
+                                        ui.losslessUpgradeSource = source
                                     }
                                 },
                                 trailingIcon = {
-                                    if (source == playbackState.losslessUpgradeSource) {
+                                    if (source == ui.losslessUpgradeSource) {
                                         Icon(
                                             imageVector = AppIcons.Check,
                                             contentDescription = null,
@@ -140,10 +142,10 @@ internal fun LosslessUpgradeDialog(
                     onClick = {
                         selectedCandidate = null
                         scope.launch {
-                            searchLosslessUpgradeCandidates(context, playbackState, track, playbackState.losslessUpgradeSource)
+                            searchLosslessUpgradeCandidates(context, ui, track, ui.losslessUpgradeSource)
                         }
                     },
-                    enabled = !playbackState.isLosslessUpgradeSearching && !playbackState.losslessUpgradeBusy,
+                    enabled = !ui.isLosslessUpgradeSearching && !ui.losslessUpgradeBusy,
                     modifier = Modifier.align(Alignment.CenterEnd),
                 ) {
                     Icon(
@@ -155,10 +157,10 @@ internal fun LosslessUpgradeDialog(
             }
             // 候选或状态：展示封面/标题/艺术家，点击选中
             when {
-                playbackState.isLosslessUpgradeSearching -> {
+                ui.isLosslessUpgradeSearching -> {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 }
-                playbackState.losslessUpgradeCandidates.isEmpty() -> {
+                ui.losslessUpgradeCandidates.isEmpty() -> {
                     Text(
                         stringResource(R.string.home_upgrade_lossless_no_candidates),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -168,12 +170,12 @@ internal fun LosslessUpgradeDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(playbackState.losslessUpgradeCandidates, key = { it.id }) { candidate ->
+                    items(ui.losslessUpgradeCandidates, key = { it.id }) { candidate ->
                         val selected = candidate.id == selectedCandidate?.id
                         Column(
                             modifier = Modifier
                                 .width(112.dp)
-                                .clickable { if (!playbackState.losslessUpgradeBusy) selectedCandidate = candidate },
+                                .clickable { if (!ui.losslessUpgradeBusy) selectedCandidate = candidate },
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Surface(
@@ -231,7 +233,7 @@ internal fun LosslessUpgradeDialog(
                 }
             }
             // 最近一次升级失败提示
-            playbackState.losslessUpgradeError?.let { error ->
+            ui.losslessUpgradeError?.let { error ->
                 Text(
                     text = error,
                     color = MaterialTheme.colorScheme.error,
@@ -245,7 +247,7 @@ internal fun LosslessUpgradeDialog(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f),
-                    onClick = { if (!playbackState.losslessUpgradeBusy) onDismiss() },
+                    onClick = { if (!ui.losslessUpgradeBusy) onDismiss() },
                 ) {
                     Text(
                         stringResource(R.string.home_upgrade_cancel),
@@ -255,25 +257,25 @@ internal fun LosslessUpgradeDialog(
                 }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (selectedCandidate != null && !playbackState.losslessUpgradeBusy) {
+                    color = if (selectedCandidate != null && !ui.losslessUpgradeBusy) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.surfaceVariant
                     },
                     onClick = {
                         val candidate = selectedCandidate
-                        if (candidate != null && !playbackState.losslessUpgradeBusy) {
+                        if (candidate != null && !ui.losslessUpgradeBusy) {
                             scope.launch {
-                                playbackState.losslessUpgradeBusy = true
-                                playbackState.losslessUpgradeError = null
+                                ui.losslessUpgradeBusy = true
+                                ui.losslessUpgradeError = null
                                 val success = upgradeTrackToLossless(context, playbackState, track, candidate)
-                                playbackState.losslessUpgradeBusy = false
+                                ui.losslessUpgradeBusy = false
                                 if (success) {
-                                    playbackState.losslessUpgradeError = null
-                                    playbackState.losslessUpgradeCandidates = emptyList()
+                                    ui.losslessUpgradeError = null
+                                    ui.losslessUpgradeCandidates = emptyList()
                                     onDismiss()
                                 } else {
-                                    playbackState.losslessUpgradeError =
+                                    ui.losslessUpgradeError =
                                         context.getString(R.string.home_upgrade_lossless_failed)
                                 }
                             }
@@ -286,7 +288,7 @@ internal fun LosslessUpgradeDialog(
                     ) {
                         Text(
                             stringResource(R.string.home_upgrade_lossless_confirm),
-                            color = if (playbackState.losslessUpgradeBusy) {
+                            color = if (ui.losslessUpgradeBusy) {
                                 Color.Transparent
                             } else if (selectedCandidate != null) {
                                 MaterialTheme.colorScheme.onPrimary
@@ -294,7 +296,7 @@ internal fun LosslessUpgradeDialog(
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
                         )
-                        if (playbackState.losslessUpgradeBusy) {
+                        if (ui.losslessUpgradeBusy) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,

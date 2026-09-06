@@ -64,6 +64,7 @@ import com.yichao.evilgodxu.dialog.TimerOverlay
 import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.domain.music.applyCoverCandidate
 import com.yichao.evilgodxu.domain.music.applyLyricsCandidate
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.domain.music.playSearchResult
@@ -92,6 +93,7 @@ fun MusicPanelOverlay(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val ui = MusicPanelStateHolder.ui
 
     val settings by context.settingsFlow().collectAsStateWithLifecycle(initialValue = null)
     // 音乐面板歌词排版：字号与可见行数独立可调
@@ -154,8 +156,8 @@ fun MusicPanelOverlay(
                         if (showLyricsRefresh) {
                             showLyricsRefresh = false
                             selectedLyricsCandidate = null
-                            playbackState.setLyricsCandidates(emptyList())
-                            playbackState.setLyricsRefreshError(null)
+                            ui.setLyricsCandidates(emptyList())
+                            ui.setLyricsRefreshError(null)
                         } else onDismiss()
                         true
                     } else false
@@ -175,13 +177,13 @@ fun MusicPanelOverlay(
                                 showAudioSignalPath -> showAudioSignalPath = false
                                 showSettings -> showSettings = false
                                 showRename -> showRename = false
-                            playbackState.showSearchResults -> {
-                                playbackState.setSearchResultsVisible(false)
+                            ui.showSearchResults -> {
+                                ui.setSearchResultsVisible(false)
                             playbackState.setErrorMsg(null)
                         }
-                        playbackState.isSearchMode -> {
-                            playbackState.setSearchMode(false)
-                            playbackState.setSearchResultsVisible(false)
+                        ui.isSearchMode -> {
+                            ui.setSearchMode(false)
+                            ui.setSearchResultsVisible(false)
                         }
                             else -> onDismiss()
                         }
@@ -224,7 +226,7 @@ fun MusicPanelOverlay(
                     val scale = (maxHeight / designHeight).coerceAtMost(1f)
 
                     AnimatedContent(
-                        targetState = playbackState.isSearchMode && !playbackState.showSearchResults,
+                        targetState = ui.isSearchMode && !ui.showSearchResults,
                         transitionSpec = {
                             (slideInVertically { it } + fadeIn()).togetherWith(
                                 slideOutVertically { it } + fadeOut()
@@ -268,7 +270,7 @@ fun MusicPanelOverlay(
                                                 if (!showPlaylist && !showTimer && !showSettings) {
                                                     when {
                                                         totalDy < -80f && kotlin.math.abs(totalDy) > kotlin.math.abs(totalDx) -> showAudioSignalPath = true
-                                                        totalDx > 50f && kotlin.math.abs(totalDx) > kotlin.math.abs(totalDy) -> playbackState.setSearchMode(true)
+                                                        totalDx > 50f && kotlin.math.abs(totalDx) > kotlin.math.abs(totalDy) -> ui.setSearchMode(true)
                                                         totalDx < -50f && kotlin.math.abs(totalDx) > kotlin.math.abs(totalDy) -> showSettings = true
                                                     }
                                                 } else if (showAudioSignalPath && totalDy > 80f) {
@@ -307,13 +309,13 @@ fun MusicPanelOverlay(
                                             onOnlineCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
                                                 showCoverRefresh = true
-                                                scope.launch { searchCoverCandidates(playbackState, playbackState.currentTrack!!, playbackState.coverRefreshSource) }
+                                                scope.launch { searchCoverCandidates(ui, playbackState.currentTrack!!, ui.coverRefreshSource) }
                                             },
                                             onLocalCover = {
                                                 coverTargetId = playbackState.currentTrack?.id
                                                 selectedLocalCover = null
                                                 showLocalCover = true
-                                                scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
+                                                scope.launch { ui.setLocalCoverCandidates(loadRecentCovers(context)) }
                                             }
                                         )
                                     }
@@ -338,7 +340,7 @@ fun MusicPanelOverlay(
                                     onLyricsRefreshClick = {
                                         lyricsTargetId = playbackState.currentTrack?.id
                                         showLyricsRefresh = true
-                                        playbackState.currentTrack?.let { track -> scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) } }
+                                        playbackState.currentTrack?.let { track -> scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) } }
                                     }
                                 )
                             }
@@ -374,21 +376,21 @@ fun MusicPanelOverlay(
                     )
 
                     SearchResultsOverlay(
-                        visible = playbackState.showSearchResults,
+                        visible = ui.showSearchResults,
                         playbackState = playbackState,
                         context = context,
                         onClose = {
-                            playbackState.setSearchResultsVisible(false)
+                            ui.setSearchResultsVisible(false)
                             playbackState.setErrorMsg(null)
                         },
                         onRefresh = {
                             scope.launch {
-                                performSearch(playbackState, context)
+                                performSearch(ui, playbackState, context)
                             }
                         },
                         onTrackSelected = { result ->
                             scope.launch {
-                                playSearchResult(result, playbackState, context, scope)
+                                playSearchResult(result, ui, playbackState, context, scope)
                             }
                         }
                     )
@@ -449,7 +451,7 @@ fun MusicPanelOverlay(
                                 coverSaving = true
                                 coverSaveFailed = false
                                 scope.launch {
-                                    if (applyLocalCover(context, playbackState, track, cover)) {
+                                    if (applyLocalCover(context, ui, playbackState, track, cover)) {
                                         showLocalCover = false
                                         selectedLocalCover = null
                                     } else {
@@ -462,7 +464,7 @@ fun MusicPanelOverlay(
                         onCancel = {
                             showLocalCover = false
                             selectedLocalCover = null
-                            playbackState.setLocalCoverCandidates(emptyList())
+                            ui.setLocalCoverCandidates(emptyList())
                         }
                     )
 
@@ -476,17 +478,17 @@ fun MusicPanelOverlay(
                         onCandidateSelected = { selectedCoverCandidate = it },
                         onSourceSelected = { source ->
                             val track = playbackState.currentTrack
-                            if (track != null && track.id == coverTargetId && source != playbackState.coverRefreshSource) {
-                                playbackState.setCoverRefreshSource(source)
+                            if (track != null && track.id == coverTargetId && source != ui.coverRefreshSource) {
+                                ui.setCoverRefreshSource(source)
                                 selectedCoverCandidate = null
-                                scope.launch { searchCoverCandidates(playbackState, track, source) }
+                                scope.launch { searchCoverCandidates(ui, track, source) }
                             }
                         },
                         onRefresh = {
                             val track = playbackState.currentTrack
                             if (track != null && track.id == coverTargetId) {
                                 selectedCoverCandidate = null
-                                scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
+                                scope.launch { searchCoverCandidates(ui, track, ui.coverRefreshSource) }
                             }
                         },
                         onConfirm = {
@@ -500,7 +502,7 @@ fun MusicPanelOverlay(
                                     coverSaving = true
                                     coverSaveFailed = false
                                     scope.launch {
-                                        coverSaveFailed = !applyCoverCandidate(context, playbackState, track, candidate)
+                                        coverSaveFailed = !applyCoverCandidate(context, ui, playbackState, track, candidate)
                                         if (!coverSaveFailed) {
                                             showCoverRefresh = false
                                             selectedCoverCandidate = null
@@ -513,7 +515,7 @@ fun MusicPanelOverlay(
                         onCancel = {
                             showCoverRefresh = false
                             selectedCoverCandidate = null
-                            playbackState.setCoverCandidates(emptyList())
+                            ui.setCoverCandidates(emptyList())
                         }
                     )
 
@@ -526,38 +528,38 @@ fun MusicPanelOverlay(
                         onCandidateSelected = { selectedLyricsCandidate = it },
                         onSourceSelected = { source ->
                             val track = playbackState.currentTrack
-                            if (track != null && track.id == lyricsTargetId && source != playbackState.lyricsRefreshSource) {
-                                playbackState.setLyricsRefreshSource(source)
+                            if (track != null && track.id == lyricsTargetId && source != ui.lyricsRefreshSource) {
+                                ui.setLyricsRefreshSource(source)
                                 selectedLyricsCandidate = null
-                                scope.launch { searchLyricsCandidates(playbackState, track, source) }
+                                scope.launch { searchLyricsCandidates(ui, track, source) }
                             }
                         },
                         onRefresh = {
                             val track = playbackState.currentTrack
                             if (track != null && track.id == lyricsTargetId) {
                                 selectedLyricsCandidate = null
-                                scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) }
+                                scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) }
                             }
                         },
                         onConfirm = {
                             val candidate = selectedLyricsCandidate
                             val track = playbackState.currentTrack
                             if (candidate != null && track != null && track.id == lyricsTargetId) scope.launch {
-                                val success = applyLyricsCandidate(context, playbackState, track, candidate)
+                                val success = applyLyricsCandidate(context, ui, playbackState, track, candidate)
                                 if (success) {
                                     showLyricsRefresh = false
                                     selectedLyricsCandidate = null
-                                    playbackState.setLyricsCandidates(emptyList())
+                                    ui.setLyricsCandidates(emptyList())
                                 } else {
-                                    playbackState.setLyricsRefreshError(lyricsRefreshFailedMessage)
+                                    ui.setLyricsRefreshError(lyricsRefreshFailedMessage)
                                 }
                             }
                         },
                         onCancel = {
                             showLyricsRefresh = false
                             selectedLyricsCandidate = null
-                            playbackState.setLyricsCandidates(emptyList())
-                            playbackState.setLyricsRefreshError(null)
+                            ui.setLyricsCandidates(emptyList())
+                            ui.setLyricsRefreshError(null)
                         }
                     )
 
@@ -573,7 +575,7 @@ fun MusicPanelOverlay(
                             coverSaving = true
                             coverSaveFailed = false
                             scope.launch {
-                                coverSaveFailed = !applyCoverCandidate(context, playbackState, track, candidate)
+                                coverSaveFailed = !applyCoverCandidate(context, ui, playbackState, track, candidate)
                                 if (!coverSaveFailed) {
                                     showCoverReplace = false
                                     showCoverRefresh = false

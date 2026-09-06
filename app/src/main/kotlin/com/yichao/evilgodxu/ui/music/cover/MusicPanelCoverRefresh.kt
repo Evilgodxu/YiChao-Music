@@ -58,6 +58,7 @@ import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -143,7 +144,8 @@ private fun CoverRefreshContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val searching = playbackState.isCoverSearching || saving
+    val ui = MusicPanelStateHolder.ui
+    val searching = ui.isCoverSearching || saving
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -161,7 +163,7 @@ private fun CoverRefreshContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = stringResource(playbackState.coverRefreshSource.sourceNameRes()),
+                        text = stringResource(ui.coverRefreshSource.sourceNameRes()),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp,
                     )
@@ -184,7 +186,7 @@ private fun CoverRefreshContent(
                                 onSourceSelected(source)
                             },
                             trailingIcon = {
-                                if (source == playbackState.coverRefreshSource) {
+                                if (source == ui.coverRefreshSource) {
                                     Icon(
                                         imageVector = AppIcons.Check,
                                         contentDescription = null,
@@ -208,16 +210,16 @@ private fun CoverRefreshContent(
                 )
             }
         }
-        if (playbackState.isCoverSearching) {
+        if (ui.isCoverSearching) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-        } else if (playbackState.coverCandidates.isEmpty()) {
+        } else if (ui.coverCandidates.isEmpty()) {
             Text(stringResource(R.string.music_panel_cover_no_candidates), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
             ) {
-                items(playbackState.coverCandidates, key = { it.id }) { candidate ->
+                items(ui.coverCandidates, key = { it.id }) { candidate ->
                     val selected = candidate.id == selectedId
                     Column(
                         modifier = Modifier.width(92.dp).clickable { onCandidateSelected(candidate) },

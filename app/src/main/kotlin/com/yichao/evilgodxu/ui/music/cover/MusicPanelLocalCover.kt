@@ -35,6 +35,8 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.MusicPanelUiState
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
@@ -66,6 +68,7 @@ internal suspend fun loadRecentCovers(context: Context): List<RecentCover> = wit
 
 internal suspend fun applyLocalCover(
     context: Context,
+    ui: MusicPanelUiState,
     playbackState: MusicPlaybackState,
     track: MusicTrack,
     cover: RecentCover,
@@ -79,7 +82,7 @@ internal suspend fun applyLocalCover(
         withContext(Dispatchers.Main) {
             playbackState.updateTrack(track.copy(coverCachePath = path, neteaseCoverUrl = ""))
             playbackState.bumpCoverRevision()
-            playbackState.setLocalCoverCandidates(emptyList())
+            ui.setLocalCoverCandidates(emptyList())
         }
         true
     } catch (e: Exception) {
@@ -150,6 +153,7 @@ private fun LocalCoverContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val ui = MusicPanelStateHolder.ui
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -157,7 +161,7 @@ private fun LocalCoverContent(
     ) {
         Text(stringResource(R.string.music_panel_local_cover), color = MaterialTheme.colorScheme.onSurface)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            items(playbackState.localCoverCandidates, key = { it.id }) { cover ->
+            items(ui.localCoverCandidates, key = { it.id }) { cover ->
                 Box(
                     modifier = Modifier.size(84.dp).clip(RoundedCornerShape(8.dp)).clickable { onSelected(cover) },
                     contentAlignment = Alignment.Center

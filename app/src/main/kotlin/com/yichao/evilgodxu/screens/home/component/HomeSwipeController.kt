@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.unit.dp
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.R
@@ -58,6 +59,7 @@ internal class HomeSwipeController(
     private val cancelDistancePx: Float,
     private val previewMinDistancePx: Float,
 ) {
+    private val ui = MusicPanelStateHolder.ui
     // 右滑呼出的在线搜索覆盖层显隐状态
     var showOnlineSearch by mutableStateOf(false)
     // 左滑呼出的歌单面板显隐状态
@@ -183,7 +185,7 @@ internal class HomeSwipeController(
                     if (searchOpen != showOnlineSearch) {
                         showOnlineSearch = searchOpen
                         if (!searchOpen) {
-                            playbackState.setSearchResultsVisible(false)
+                            ui.setSearchResultsVisible(false)
                             playbackState.setErrorMsg(null)
                         }
                     }

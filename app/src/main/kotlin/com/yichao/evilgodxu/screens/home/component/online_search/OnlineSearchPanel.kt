@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.api.MusicQuality
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.dialog.SearchResultsLazyList
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.domain.music.playSearchResultWithQuality
@@ -83,6 +84,7 @@ internal fun OnlineSearchPanel(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val ui = MusicPanelStateHolder.ui
     val focusManager = LocalFocusManager.current
     // 搜索输入框聚焦状态：键盘展开期间显示拦截层，点击面板空白处仅收起键盘并阻断透传
     var searchInputFocused by remember { mutableStateOf(false) }
@@ -127,13 +129,13 @@ internal fun OnlineSearchPanel(
                     scope = scope,
                     onFocusChanged = { searchInputFocused = it },
                 )
-                if (playbackState.showSearchResults) {
+                if (ui.showSearchResults) {
                     SearchResultList(
                         playbackState = playbackState,
                         context = context,
                         scope = scope,
                     )
-                } else if (playbackState.searchHistory.isNotEmpty()) {
+                } else if (ui.searchHistory.isNotEmpty()) {
                     SearchHistoryList(
                         playbackState = playbackState,
                         context = context,
@@ -160,6 +162,7 @@ private fun LandscapeSearchContent(
     scope: CoroutineScope,
     onSearchInputFocusChange: (Boolean) -> Unit,
 ) {
+    val ui = MusicPanelStateHolder.ui
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -195,7 +198,7 @@ private fun LandscapeSearchContent(
                 .weight(1f)
                 .fillMaxHeight(),
         ) {
-            if (playbackState.showSearchResults) {
+            if (ui.showSearchResults) {
                 SearchResultList(
                     playbackState = playbackState,
                     context = context,
@@ -238,6 +241,7 @@ private fun SearchInput(
     scope: CoroutineScope,
     onFocusChanged: (Boolean) -> Unit,
 ) {
+    val ui = MusicPanelStateHolder.ui
     val keyboardController = LocalSoftwareKeyboardController.current
     var sourceMenuExpanded by remember { mutableStateOf(false) }
     Box(
@@ -274,7 +278,7 @@ private fun SearchInput(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = sourceName(playbackState.searchSource),
+                        text = sourceName(ui.searchSource),
                         color = Color.White.copy(alpha = 0.75f),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 4.dp)
@@ -296,14 +300,14 @@ private fun SearchInput(
                             text = { Text(sourceName(source), color = Color.White) },
                             onClick = {
                                 sourceMenuExpanded = false
-                                playbackState.setSearchSource(source)
-                                val query = playbackState.searchQuery.trim()
+                                ui.setSearchSource(source)
+                                val query = ui.searchQuery.trim()
                                 if (query.isNotBlank()) {
-                                    scope.launch { performSearch(playbackState, context) }
+                                    scope.launch { performSearch(ui, playbackState, context) }
                                 }
                             },
                             trailingIcon = {
-                                if (source == playbackState.searchSource) {
+                                if (source == ui.searchSource) {
                                     Icon(
                                         imageVector = AppIcons.Check,
                                         contentDescription = null,
@@ -317,8 +321,8 @@ private fun SearchInput(
                 }
             }
             BasicTextField(
-                value = playbackState.searchQuery,
-                onValueChange = { playbackState.searchQuery = it },
+                value = ui.searchQuery,
+                onValueChange = { ui.searchQuery = it },
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 2.dp)
@@ -334,15 +338,15 @@ private fun SearchInput(
                     onSearch = {
                         // 回车触发搜索时收起键盘
                         keyboardController?.hide()
-                        val query = playbackState.searchQuery.trim()
+                        val query = ui.searchQuery.trim()
                         if (query.isNotBlank()) {
-                            scope.launch { performSearch(playbackState, context) }
+                            scope.launch { performSearch(ui, playbackState, context) }
                         }
                     }
                 ),
                 decorationBox = { innerTextField ->
                     Box {
-                        if (playbackState.searchQuery.isEmpty()) {
+                        if (ui.searchQuery.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.music_panel_search_placeholder),
                                 color = Color.White.copy(alpha = 0.5f),
@@ -353,9 +357,9 @@ private fun SearchInput(
                     }
                 }
             )
-            if (playbackState.searchQuery.isNotEmpty()) {
+            if (ui.searchQuery.isNotEmpty()) {
                 IconButton(
-                    onClick = { playbackState.setSearchQuery("") },
+                    onClick = { ui.setSearchQuery("") },
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
@@ -389,6 +393,7 @@ private fun SearchHistoryList(
     context: Context,
     scope: CoroutineScope,
 ) {
+    val ui = MusicPanelStateHolder.ui
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -408,7 +413,7 @@ private fun SearchHistoryList(
             fontWeight = FontWeight.Medium
         )
         IconButton(
-            onClick = { playbackState.clearSearchHistory() },
+            onClick = { ui.clearSearchHistory() },
             modifier = Modifier.size(28.dp)
         ) {
             Icon(
@@ -425,14 +430,14 @@ private fun SearchHistoryList(
             .weight(1f),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        items(playbackState.searchHistory, key = { it }) { query ->
+        items(ui.searchHistory, key = { it }) { query ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .clickable {
-                        playbackState.setSearchQuery(query)
-                        scope.launch { performSearch(playbackState, context) }
+                        ui.setSearchQuery(query)
+                        scope.launch { performSearch(ui, playbackState, context) }
                     }
                     .padding(start = 8.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -446,7 +451,7 @@ private fun SearchHistoryList(
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(
-                    onClick = { playbackState.removeSearchHistory(query) },
+                    onClick = { ui.removeSearchHistory(query) },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
@@ -469,6 +474,7 @@ private fun SearchResultList(
     context: Context,
     scope: CoroutineScope,
 ) {
+    val ui = MusicPanelStateHolder.ui
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -480,14 +486,14 @@ private fun SearchResultList(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.music_panel_track_count, playbackState.searchResults.size),
+                text = stringResource(R.string.music_panel_track_count, ui.searchResults.size),
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp
             )
             IconButton(
                 onClick = {
-                    if (!playbackState.isSearching) {
-                        scope.launch { performSearch(playbackState, context) }
+                    if (!ui.isSearching) {
+                        scope.launch { performSearch(ui, playbackState, context) }
                     }
                 },
                 modifier = Modifier.size(28.dp)
@@ -495,7 +501,7 @@ private fun SearchResultList(
                 Icon(
                     imageVector = AppIcons.Refresh,
                     contentDescription = null,
-                    tint = if (playbackState.isSearching) Color.White.copy(alpha = 0.5f)
+                    tint = if (ui.isSearching) Color.White.copy(alpha = 0.5f)
                     else Color.White
                 )
             }
@@ -503,8 +509,8 @@ private fun SearchResultList(
         // 加载/空/结果间淡入淡出过渡，避免搜索结果生硬插入
         AnimatedContent(
             targetState = when {
-                playbackState.isSearching -> 0
-                playbackState.searchResults.isEmpty() -> 1
+                ui.isSearching -> 0
+                ui.searchResults.isEmpty() -> 1
                 else -> 2
             },
             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -542,10 +548,10 @@ private fun SearchResultList(
                         onResultClick = { result ->
                             // 本地曲库命中同曲直接播放；否则弹出音质选择对话框由用户选音质
                             scope.launch {
-                                if (!tryPlayLocalMatch(result, playbackState, context, scope)) {
-                                    playbackState.qualityPickTrack = result
-                                    playbackState.qualityBusy = false
-                                    playbackState.qualityError = null
+                                if (!tryPlayLocalMatch(result, ui, playbackState, context, scope)) {
+                                    ui.qualityPickTrack = result
+                                    ui.qualityBusy = false
+                                    ui.qualityError = null
                                 }
                             }
                         },
@@ -565,12 +571,13 @@ private fun QualitySelectDialog(
     context: Context,
     scope: CoroutineScope,
 ) {
-    val track = playbackState.qualityPickTrack ?: return
+    val ui = MusicPanelStateHolder.ui
+    val track = ui.qualityPickTrack ?: return
     AlertDialog(
         onDismissRequest = {
-            if (!playbackState.qualityBusy) {
-                playbackState.qualityPickTrack = null
-                playbackState.qualityError = null
+            if (!ui.qualityBusy) {
+                ui.qualityPickTrack = null
+                ui.qualityError = null
             }
         },
         title = {
@@ -607,23 +614,23 @@ private fun QualitySelectDialog(
                                 MusicQuality.STANDARD -> R.string.music_quality_standard
                             }
                         ),
-                        enabled = !playbackState.qualityBusy,
+                        enabled = !ui.qualityBusy,
                         onClick = {
                             scope.launch {
-                                playbackState.qualityBusy = true
-                                playbackState.qualityError = null
-                                val started = playSearchResultWithQuality(track, quality, playbackState, context)
+                                ui.qualityBusy = true
+                                ui.qualityError = null
+                                val started = playSearchResultWithQuality(track, quality, ui, playbackState, context)
                                 // URL 解析失败直接提示；解析成功后保持忙碌态等待播放器就绪/失败回调结算
                                 if (!started) {
-                                    playbackState.qualityBusy = false
-                                    playbackState.qualityError = context.getString(R.string.music_panel_quality_failed)
+                                    ui.qualityBusy = false
+                                    ui.qualityError = context.getString(R.string.music_panel_quality_failed)
                                 }
                             }
                         },
                     )
                 }
                 // 尝试中加载指示
-                if (playbackState.qualityBusy) {
+                if (ui.qualityBusy) {
                     CircularProgressIndicator(
                         modifier = Modifier
                             .padding(top = 8.dp)
@@ -633,9 +640,9 @@ private fun QualitySelectDialog(
                     )
                 }
                 // 最近一次音质尝试失败提示
-                if (playbackState.qualityError != null) {
+                if (ui.qualityError != null) {
                     Text(
-                        text = playbackState.qualityError.orEmpty(),
+                        text = ui.qualityError.orEmpty(),
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center,

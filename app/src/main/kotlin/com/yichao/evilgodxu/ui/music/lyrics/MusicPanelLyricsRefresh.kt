@@ -54,6 +54,7 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.ui.music.MusicErrorBanner
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -71,19 +72,20 @@ internal fun LyricsRefreshOverlay(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val ui = MusicPanelStateHolder.ui
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically { it } + fadeIn(),
         exit = slideOutVertically { it } + fadeOut()
     ) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = .97f)).clickable { onCancel() }, contentAlignment = Alignment.Center) {
-            playbackState.lyricsRefreshError?.let { error ->
+            ui.lyricsRefreshError?.let { error ->
                 MusicErrorBanner(
                     message = error,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(horizontal = 16.dp, vertical = 10.dp),
-                    onDismiss = { playbackState.setLyricsRefreshError(null) }
+                    onDismiss = { ui.setLyricsRefreshError(null) }
                 )
             }
             LyricsRefreshContent(
@@ -114,6 +116,7 @@ internal fun LyricsRefreshDialog(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val ui = MusicPanelStateHolder.ui
     if (visible && track != null) {
         MetadataDialogCard(onDismiss = onCancel) {
             LyricsRefreshContent(
@@ -127,7 +130,7 @@ internal fun LyricsRefreshDialog(
                 onCancel = onCancel,
                 modifier = Modifier.padding(16.dp),
             )
-            playbackState.lyricsRefreshError?.let { error ->
+            ui.lyricsRefreshError?.let { error ->
                 Text(
                     text = error,
                     color = MaterialTheme.colorScheme.error,
@@ -153,7 +156,8 @@ private fun LyricsRefreshContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val searching = playbackState.isLyricsSearching || playbackState.isLyricsRefreshing
+    val ui = MusicPanelStateHolder.ui
+    val searching = ui.isLyricsSearching || ui.isLyricsRefreshing
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -171,7 +175,7 @@ private fun LyricsRefreshContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = stringResource(playbackState.lyricsRefreshSource.sourceNameRes()),
+                        text = stringResource(ui.lyricsRefreshSource.sourceNameRes()),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp,
                     )
@@ -194,7 +198,7 @@ private fun LyricsRefreshContent(
                                 onSourceSelected(source)
                             },
                             trailingIcon = {
-                                if (source == playbackState.lyricsRefreshSource) {
+                                if (source == ui.lyricsRefreshSource) {
                                     Icon(
                                         imageVector = AppIcons.Check,
                                         contentDescription = null,
@@ -220,14 +224,14 @@ private fun LyricsRefreshContent(
         }
         if (searching) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-        } else if (playbackState.lyricsCandidates.isEmpty()) {
+        } else if (ui.lyricsCandidates.isEmpty()) {
             Text(
                 stringResource(R.string.music_panel_lyrics_no_candidates),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             LazyRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(playbackState.lyricsCandidates, key = { it.id }) { candidate ->
+                items(ui.lyricsCandidates, key = { it.id }) { candidate ->
                     val selected = candidate.id == selectedId
                     Column(
                         Modifier

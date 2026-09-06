@@ -117,6 +117,7 @@ internal fun PlayerArea(
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = MusicPanelStateHolder.state
+    val ui = MusicPanelStateHolder.ui
 
     // 播放列表与曲库分析展开时，系统返回键收起面板（曲库分析关闭不中断后台任务）
     BackHandler(enabled = playlistVisible || libraryAnalysis.visible) {
@@ -251,7 +252,7 @@ internal fun PlayerArea(
                     coverTargetId = playbackState.currentTrack?.id
                     showCoverRefresh = true
                     playbackState.currentTrack?.let { track ->
-                        scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
+                        scope.launch { searchCoverCandidates(ui, track, ui.coverRefreshSource) }
                     }
                 },
                 onLocalCover = {
@@ -259,7 +260,7 @@ internal fun PlayerArea(
                     coverTargetId = playbackState.currentTrack?.id
                     selectedLocalCover = null
                     showLocalCover = true
-                    scope.launch { playbackState.setLocalCoverCandidates(loadRecentCovers(context)) }
+                    scope.launch { ui.setLocalCoverCandidates(loadRecentCovers(context)) }
                 },
                 onDismiss = { showCoverMenu = false },
             )
@@ -355,7 +356,7 @@ internal fun PlayerArea(
                             lyricsTargetId = playbackState.currentTrack?.id
                             showLyricsRefresh = true
                             playbackState.currentTrack?.let { track ->
-                                scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) }
+                                scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) }
                             }
                         },
                         onLocalImport = {
@@ -585,7 +586,7 @@ internal fun PlayerArea(
                     coverSaving = true
                     coverSaveFailed = false
                     scope.launch {
-                        if (applyLocalCover(context, playbackState, track, cover)) {
+                        if (applyLocalCover(context, ui, playbackState, track, cover)) {
                             showLocalCover = false
                             selectedLocalCover = null
                         } else {
@@ -598,7 +599,7 @@ internal fun PlayerArea(
             onCancel = {
                 showLocalCover = false
                 selectedLocalCover = null
-                playbackState.setLocalCoverCandidates(emptyList())
+                ui.setLocalCoverCandidates(emptyList())
             },
         )
 
@@ -612,17 +613,17 @@ internal fun PlayerArea(
             onCandidateSelected = { selectedCoverCandidate = it },
             onSourceSelected = { source ->
                 val track = playbackState.currentTrack
-                if (track != null && track.id == coverTargetId && source != playbackState.coverRefreshSource) {
-                    playbackState.setCoverRefreshSource(source)
+                if (track != null && track.id == coverTargetId && source != ui.coverRefreshSource) {
+                    ui.setCoverRefreshSource(source)
                     selectedCoverCandidate = null
-                    scope.launch { searchCoverCandidates(playbackState, track, source) }
+                    scope.launch { searchCoverCandidates(ui, track, source) }
                 }
             },
             onRefresh = {
                 val track = playbackState.currentTrack
                 if (track != null && track.id == coverTargetId) {
                     selectedCoverCandidate = null
-                    scope.launch { searchCoverCandidates(playbackState, track, playbackState.coverRefreshSource) }
+                    scope.launch { searchCoverCandidates(ui, track, ui.coverRefreshSource) }
                 }
             },
             onConfirm = {
@@ -636,7 +637,7 @@ internal fun PlayerArea(
                         coverSaving = true
                         coverSaveFailed = false
                         scope.launch {
-                            coverSaveFailed = !applyCoverCandidate(context, playbackState, track, candidate)
+                            coverSaveFailed = !applyCoverCandidate(context, ui, playbackState, track, candidate)
                             if (!coverSaveFailed) {
                                 showCoverRefresh = false
                                 selectedCoverCandidate = null
@@ -649,7 +650,7 @@ internal fun PlayerArea(
             onCancel = {
                 showCoverRefresh = false
                 selectedCoverCandidate = null
-                playbackState.setCoverCandidates(emptyList())
+                ui.setCoverCandidates(emptyList())
             },
         )
 
@@ -665,7 +666,7 @@ internal fun PlayerArea(
                 coverSaving = true
                 coverSaveFailed = false
                 scope.launch {
-                    coverSaveFailed = !applyCoverCandidate(context, playbackState, track, candidate)
+                    coverSaveFailed = !applyCoverCandidate(context, ui, playbackState, track, candidate)
                     if (!coverSaveFailed) {
                         showCoverReplace = false
                         showCoverRefresh = false
@@ -686,38 +687,38 @@ internal fun PlayerArea(
             onCandidateSelected = { selectedLyricsCandidate = it },
             onSourceSelected = { source ->
                 val track = playbackState.currentTrack
-                if (track != null && track.id == lyricsTargetId && source != playbackState.lyricsRefreshSource) {
-                    playbackState.setLyricsRefreshSource(source)
+                if (track != null && track.id == lyricsTargetId && source != ui.lyricsRefreshSource) {
+                    ui.setLyricsRefreshSource(source)
                     selectedLyricsCandidate = null
-                    scope.launch { searchLyricsCandidates(playbackState, track, source) }
+                    scope.launch { searchLyricsCandidates(ui, track, source) }
                 }
             },
             onRefresh = {
                 val track = playbackState.currentTrack
                 if (track != null && track.id == lyricsTargetId) {
                     selectedLyricsCandidate = null
-                    scope.launch { searchLyricsCandidates(playbackState, track, playbackState.lyricsRefreshSource) }
+                    scope.launch { searchLyricsCandidates(ui, track, ui.lyricsRefreshSource) }
                 }
             },
             onConfirm = {
                 val candidate = selectedLyricsCandidate
                 val track = playbackState.currentTrack
                 if (candidate != null && track != null && track.id == lyricsTargetId) scope.launch {
-                    val success = applyLyricsCandidate(context, playbackState, track, candidate)
+                    val success = applyLyricsCandidate(context, ui, playbackState, track, candidate)
                     if (success) {
                         showLyricsRefresh = false
                         selectedLyricsCandidate = null
-                        playbackState.setLyricsCandidates(emptyList())
+                        ui.setLyricsCandidates(emptyList())
                     } else {
-                        playbackState.setLyricsRefreshError(lyricsRefreshFailedMessage)
+                        ui.setLyricsRefreshError(lyricsRefreshFailedMessage)
                     }
                 }
             },
             onCancel = {
                 showLyricsRefresh = false
                 selectedLyricsCandidate = null
-                playbackState.setLyricsCandidates(emptyList())
-                playbackState.setLyricsRefreshError(null)
+                ui.setLyricsCandidates(emptyList())
+                ui.setLyricsRefreshError(null)
             },
         )
 

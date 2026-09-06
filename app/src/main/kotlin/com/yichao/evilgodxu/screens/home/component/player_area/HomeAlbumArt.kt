@@ -44,7 +44,7 @@ internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     // 以路径与封面写入版本号为 key：路径变化或重新写入新封面时均强制重载
     val cachePath = track?.coverCachePath?.takeIf { MusicMetadataCache.isValid(it) }
-    val cacheRevision = MusicPanelStateHolder.state.coverRevision
+    val cacheRevision = MusicPanelStateHolder.ui.coverRevision
     val cached by produceState<androidx.compose.ui.graphics.ImageBitmap?>(
         initialValue = null,
         key1 = cachePath,
