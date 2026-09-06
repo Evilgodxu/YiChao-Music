@@ -33,14 +33,13 @@ import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
-data class RecentCover(val uri: Uri, val id: Long)
 
 internal suspend fun loadRecentCovers(context: Context): List<RecentCover> = withContext(Dispatchers.IO) {
     val result = mutableListOf<RecentCover>()

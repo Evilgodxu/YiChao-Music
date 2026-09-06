@@ -27,8 +27,8 @@ import com.yichao.evilgodxu.data.music.trackIdentityKey
 import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
-import com.yichao.evilgodxu.ui.music.cover.RecentCover
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
+import com.yichao.evilgodxu.data.music.model.RecentCover
 import java.io.File
 import kotlin.jvm.JvmName
 import kotlinx.coroutines.CoroutineScope
@@ -91,7 +91,6 @@ class MusicPlaybackState {
     private val persistenceMutex = Mutex()
     var appContext: Context? = null
     var mediaController: MediaController? by mutableStateOf(null)
-    var player: Player? by mutableStateOf(null)
     private var suppressAutoNext = false
     val controllerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -918,7 +917,6 @@ class MusicPlaybackState {
             playbackScope.launch { controller.release() }
         }
         mediaController = null
-        player = null
         isPlaying = false
         // 释放播放器后复位单调基准，避免恢复播放时进度被残留基准钳到高位
         lastMonoMediaId = null
@@ -940,7 +938,6 @@ class MusicPlaybackState {
         }
 
         mediaController = null
-        player = null
         currentPosition = 0L
         isPlaying = false
         isPrepared = false

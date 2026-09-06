@@ -40,13 +40,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.playlist.PlaylistGroup
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
+import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaylistSource
 import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
-import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 import kotlinx.coroutines.launch

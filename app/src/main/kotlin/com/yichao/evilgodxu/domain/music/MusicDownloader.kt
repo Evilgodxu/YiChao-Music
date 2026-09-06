@@ -16,7 +16,6 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.log.CrashLogManager
-import com.yichao.evilgodxu.ui.music.isLosslessFormatName
 import java.io.File
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers

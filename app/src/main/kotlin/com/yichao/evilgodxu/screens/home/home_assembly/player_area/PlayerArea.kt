@@ -60,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
+import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.data.settings.homePortraitLyricLayoutFlow
 import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
 import com.yichao.evilgodxu.data.settings.LyricLayoutParams
@@ -69,7 +70,7 @@ import com.yichao.evilgodxu.domain.music.applyLocalLyrics
 import com.yichao.evilgodxu.domain.music.applyLyricsCandidate
 import com.yichao.evilgodxu.domain.music.applyLyricsLineEdit
 import com.yichao.evilgodxu.domain.music.copyToClipboard
-import com.yichao.evilgodxu.domain.music.MusicErrorBanner
+import com.yichao.evilgodxu.ui.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.searchCoverCandidates
@@ -88,7 +89,6 @@ import com.yichao.evilgodxu.ui.music.cover.loadRecentCovers
 import com.yichao.evilgodxu.ui.music.cover.LocalCoverDialog
 import com.yichao.evilgodxu.ui.music.cover.menuEdgePositionProvider
 import com.yichao.evilgodxu.ui.music.cover.MiniContextMenu
-import com.yichao.evilgodxu.ui.music.cover.RecentCover
 import com.yichao.evilgodxu.ui.music.currentTrackNeedsLosslessUpgrade
 import com.yichao.evilgodxu.ui.music.lyrics.LyricsEditDialog
 import com.yichao.evilgodxu.ui.music.lyrics.LyricsPanel

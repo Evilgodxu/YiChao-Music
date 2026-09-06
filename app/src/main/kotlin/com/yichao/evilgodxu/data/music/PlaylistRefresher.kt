@@ -9,7 +9,7 @@ import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.normalizeTitle
 import com.yichao.evilgodxu.domain.music.PlaylistSource
 import com.yichao.evilgodxu.domain.music.trackFormatCategory
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex

@@ -44,10 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.playlist.Playlist
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.data.Playlist
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 

@@ -53,7 +53,7 @@ import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.dialog.MetadataDialogCard
-import com.yichao.evilgodxu.domain.music.MusicErrorBanner
+import com.yichao.evilgodxu.ui.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons

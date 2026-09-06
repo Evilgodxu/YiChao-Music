@@ -70,7 +70,7 @@ import coil3.request.ImageRequest
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.domain.music.loadMoreSearchResults
-import com.yichao.evilgodxu.domain.music.MusicErrorBanner
+import com.yichao.evilgodxu.ui.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.R

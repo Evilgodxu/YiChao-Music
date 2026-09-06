@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.domain.music.AudioSignalPathFormat
 import com.yichao.evilgodxu.domain.music.formatTime
+import com.yichao.evilgodxu.domain.music.isLosslessFormatName
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.seekTo
 
@@ -225,20 +226,9 @@ internal fun formatDisplayLabel(format: AudioSignalPathFormat): String? {
     return listOfNotNull(formatName, bitRate, bitrate).joinToString(" · ")
 }
 
-// 无损格式集合：命中的格式已无需再升级
-private val LOSSLESS_FORMATS = setOf(
-    "FLAC", "WAV", "WAVE", "ALAC", "APE", "AIFF", "AIF", "PCM", "DSD", "DSF", "DFF",
-)
-
-// 判定展示格式是否已达到无损
+// 无损格式判定：展示格式是否已达无损
 internal fun isLosslessFormat(format: AudioSignalPathFormat): Boolean =
     isLosslessFormatName(format.format.removePrefix("audio/"))
-
-// 按格式名判定是否已达到无损
-internal fun isLosslessFormatName(name: String): Boolean {
-    val normalized = name.uppercase().trim()
-    return normalized in LOSSLESS_FORMATS || normalized.endsWith("LOSSLESS")
-}
 
 // 当前曲目是否触发无损升级：展示格式低于无损且该曲目可升级
 internal fun currentTrackNeedsLosslessUpgrade(playbackState: MusicPlaybackState): Boolean {

@@ -61,9 +61,9 @@ import com.yichao.evilgodxu.dialog.SearchOverlay
 import com.yichao.evilgodxu.dialog.SearchResultsOverlay
 import com.yichao.evilgodxu.dialog.SettingsOverlay
 import com.yichao.evilgodxu.dialog.TimerOverlay
+import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.domain.music.applyCoverCandidate
 import com.yichao.evilgodxu.domain.music.applyLyricsCandidate
-import com.yichao.evilgodxu.domain.music.MusicErrorBanner
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.performSearch
 import com.yichao.evilgodxu.domain.music.playSearchResult
@@ -80,7 +80,6 @@ import com.yichao.evilgodxu.ui.music.cover.CoverReplaceOverlay
 import com.yichao.evilgodxu.ui.music.cover.CurrentCover
 import com.yichao.evilgodxu.ui.music.cover.loadRecentCovers
 import com.yichao.evilgodxu.ui.music.cover.LocalCoverOverlay
-import com.yichao.evilgodxu.ui.music.cover.RecentCover
 import com.yichao.evilgodxu.ui.music.cover.TrackInfo
 import com.yichao.evilgodxu.ui.music.lyrics.LyricsPanel
 import com.yichao.evilgodxu.ui.music.lyrics.LyricsRefreshOverlay

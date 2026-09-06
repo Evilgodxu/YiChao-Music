@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.data
+package com.yichao.evilgodxu.data.playlist
 
 import android.content.Context
 import androidx.compose.runtime.getValue
