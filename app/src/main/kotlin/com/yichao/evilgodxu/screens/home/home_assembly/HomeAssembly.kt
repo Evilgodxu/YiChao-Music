@@ -234,6 +234,7 @@ fun HomeAssembly(
                 OnlineSearchPanel(
                     playbackState = playbackState,
                     menuBackgroundColor = homeBackgroundColor,
+                    isLandscape = isLandscapeMode,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
@@ -246,6 +247,7 @@ fun HomeAssembly(
                     visible = swipeController.showPlaylist,
                     playbackState = playbackState,
                     menuBackgroundColor = homeBackgroundColor,
+                    isLandscape = isLandscapeMode,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())

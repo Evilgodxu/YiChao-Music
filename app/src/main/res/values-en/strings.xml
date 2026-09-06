@@ -277,4 +277,5 @@
     <string name="update_notification_title">YiChao Music Update</string>
     <string name="update_notification_description">Downloading %1$s</string>
     <string name="copy_success">Copied: %1$s</string>
+    <string name="playlist_select_hint">Select a playlist to view contents</string>
 </resources>

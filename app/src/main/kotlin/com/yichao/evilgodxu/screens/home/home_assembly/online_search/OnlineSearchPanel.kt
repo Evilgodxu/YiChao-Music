@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,6 +78,7 @@ import kotlinx.coroutines.launch
 internal fun OnlineSearchPanel(
     playbackState: MusicPlaybackState,
     menuBackgroundColor: Color,
+    isLandscape: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -101,11 +104,71 @@ internal fun OnlineSearchPanel(
                     }
             )
         }
-        // imePadding 收紧面板底部：键盘弹出时仅压缩结果区，输入框保持原位不被整窗顶起
+        if (isLandscape) {
+            LandscapeSearchContent(
+                playbackState = playbackState,
+                menuBackgroundColor = menuBackgroundColor,
+                context = context,
+                scope = scope,
+                onSearchInputFocusChange = { searchInputFocused = it },
+            )
+        } else {
+            // imePadding 收紧面板底部：键盘弹出时仅压缩结果区，输入框保持原位不被整窗顶起
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding()
+            ) {
+                PanelHeader()
+                SearchInput(
+                    playbackState = playbackState,
+                    menuBackgroundColor = menuBackgroundColor,
+                    context = context,
+                    scope = scope,
+                    onFocusChanged = { searchInputFocused = it },
+                )
+                if (playbackState.showSearchResults) {
+                    SearchResultList(
+                        playbackState = playbackState,
+                        context = context,
+                        scope = scope,
+                    )
+                } else if (playbackState.searchHistory.isNotEmpty()) {
+                    SearchHistoryList(
+                        playbackState = playbackState,
+                        context = context,
+                        scope = scope,
+                    )
+                }
+            }
+        }
+        // 音质选择对话框（独立窗口，不参与面板布局）
+        QualitySelectDialog(
+            playbackState = playbackState,
+            context = context,
+            scope = scope,
+        )
+    }
+}
+
+// 横屏双列布局：左列搜索输入与历史导航，右列结果列表，避免结果横向拉伸
+@Composable
+private fun LandscapeSearchContent(
+    playbackState: MusicPlaybackState,
+    menuBackgroundColor: Color,
+    context: Context,
+    scope: CoroutineScope,
+    onSearchInputFocusChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
+    ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .imePadding()
+                .width(LANDSCAPE_NAV_WIDTH)
+                .fillMaxHeight(),
         ) {
             PanelHeader()
             SearchInput(
@@ -113,30 +176,46 @@ internal fun OnlineSearchPanel(
                 menuBackgroundColor = menuBackgroundColor,
                 context = context,
                 scope = scope,
-                onFocusChanged = { searchInputFocused = it },
+                onFocusChanged = onSearchInputFocusChange,
             )
+            SearchHistoryList(
+                playbackState = playbackState,
+                context = context,
+                scope = scope,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .background(Color.White.copy(alpha = 0.15f)),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+        ) {
             if (playbackState.showSearchResults) {
                 SearchResultList(
                     playbackState = playbackState,
                     context = context,
                     scope = scope,
                 )
-            } else if (playbackState.searchHistory.isNotEmpty()) {
-                SearchHistoryList(
-                    playbackState = playbackState,
-                    context = context,
-                    scope = scope,
-                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.music_panel_search_placeholder),
+                        color = Color.White.copy(alpha = 0.4f),
+                        fontSize = 12.sp,
+                    )
+                }
             }
-            // 音质选择对话框（独立窗口，不参与面板布局）
-            QualitySelectDialog(
-                playbackState = playbackState,
-                context = context,
-                scope = scope,
-            )
         }
     }
 }
+
+// 横屏双列左导航宽度
+private val LANDSCAPE_NAV_WIDTH = 320.dp
 
 // 面板标题栏：仅显示标题，关闭操作通过父级手势左滑或系统返回键完成
 @Composable
