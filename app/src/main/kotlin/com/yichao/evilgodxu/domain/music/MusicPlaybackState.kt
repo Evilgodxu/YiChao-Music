@@ -17,6 +17,11 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import com.yichao.evilgodxu.data.music.PlaybackStateStore
+import com.yichao.evilgodxu.data.music.PlaybackSnapshot
+import com.yichao.evilgodxu.data.music.PlaylistCacheStore
+import com.yichao.evilgodxu.data.music.RecentPlayedStore
+import com.yichao.evilgodxu.data.music.SearchHistoryStore
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
@@ -24,7 +29,6 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.data.music.model.PlayMode
 import com.yichao.evilgodxu.data.music.trackIdentityKey
-import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
@@ -34,7 +38,6 @@ import kotlin.jvm.JvmName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -42,8 +45,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 // 音乐播放器状态持有者（悬浮窗级共享状态）
 class MusicPlaybackState {
@@ -70,20 +71,8 @@ class MusicPlaybackState {
     // 上次持久化播放状态的时刻，用于播放期间节流写入
     private var lastStatePersistAt = 0L
 
-    private val savedUriKey = stringPreferencesKey("music_saved_uri")
-    private val savedPositionKey = longPreferencesKey("music_saved_position")
-    private val savedModeKey = intPreferencesKey("music_saved_mode")
-    private val savedSpeedKey = floatPreferencesKey("music_saved_speed")
-    private val playlistCacheKey = "music_playlist_cache"
-    private val playlistCachePreferences = "music_playlist_cache_preferences"
-    // 当前歌单来源与默认库备份持久化键，重启后恢复选中状态
-    private val playlistSourceKeyPref = "music_playlist_source_key"
-    private val playlistSourceNamePref = "music_playlist_source_name"
-    private val defaultPlaylistCacheKeyPref = "music_default_playlist_cache"
-    private val searchHistoryKey = "music_search_history"
-    private val searchHistoryPreferences = "music_search_history_preferences"
     // 待落盘的播放状态快照：每次调用覆盖为最新值，写入任务按需消费，合并连续写入
-    private var pendingStateSnapshot: SavedPlaybackState? = null
+    private var pendingStateSnapshot: PlaybackSnapshot? = null
     // 播放状态写入任务：在途时新调用只更新快照，由在途循环以最新快照收尾，
     // 避免取消旧任务产生"旧任务已取消、新任务未启动"的写入间隙
     private var stateWriteJob: Job? = null
@@ -375,21 +364,12 @@ class MusicPlaybackState {
     }
 
     private suspend fun clearSavedState(context: Context) {
-        withContext(Dispatchers.IO) {
-            context.settingsDataStore.edit { preferences ->
-                preferences.remove(savedUriKey)
-                preferences.remove(savedPositionKey)
-            }
-        }
+        PlaybackStateStore.clearSaved(context)
     }
 
     // 仅清除持久化的播放位置（定时关闭时使用，保留歌曲 URI）
     private suspend fun clearSavedPosition(context: Context) {
-        withContext(Dispatchers.IO) {
-            context.settingsDataStore.edit { preferences ->
-                preferences.remove(savedPositionKey)
-            }
-        }
+        PlaybackStateStore.clearPosition(context)
     }
 
     // 缓存下载进行中的曲目 ID 集合：切歌清理时保留这些曲目，等待下载完成后将索引指向本地文件
@@ -516,8 +496,6 @@ class MusicPlaybackState {
 
     // 常听：3 天内完整播放次数不少于 2 次的歌曲，按最近一次播放时间倒序
     private var recentPlayEvents by mutableStateOf<List<PlayEvent>>(emptyList())
-    private val recentPlayedPreferences = "music_recent_played_preferences"
-    private val recentPlayedKey = "music_recent_played_events"
     private val recentWindowMs: Long
         get() = RECENT_WINDOW_DAYS * 24L * 60 * 60 * 1000
 
@@ -568,12 +546,7 @@ class MusicPlaybackState {
     private fun persistRecentPlayed() {
         val context = appContext ?: return
         playbackScope.launch(Dispatchers.IO) {
-            context.getSharedPreferences(recentPlayedPreferences, Context.MODE_PRIVATE)
-                .edit()
-                .putString(
-                    recentPlayedKey,
-                    recentPlayEvents.joinToString(",") { "${it.trackId}:${it.timestamp}" },
-                ).commit()
+            RecentPlayedStore.save(context, recentPlayEvents)
         }
     }
 
@@ -647,46 +620,23 @@ class MusicPlaybackState {
     suspend fun restoreSavedState(context: Context) {
         appContext = context.applicationContext
         searchHistory = withContext(Dispatchers.IO) {
-            context.getSharedPreferences(searchHistoryPreferences, Context.MODE_PRIVATE)
-                .getString(searchHistoryKey, "")
-                ?.split("\n")
-                ?.filter(String::isNotBlank)
-                .orEmpty()
+            SearchHistoryStore.load(context)
         }
         recentPlayEvents = withContext(Dispatchers.IO) {
-            context.getSharedPreferences(recentPlayedPreferences, Context.MODE_PRIVATE)
-                .getString(recentPlayedKey, "")
-                ?.split(",")
-                ?.mapNotNull { token ->
-                    val idx = token.lastIndexOf(':')
-                    if (idx <= 0) return@mapNotNull null
-                    val id = token.substring(0, idx).toLongOrNull() ?: return@mapNotNull null
-                    val ts = token.substring(idx + 1).toLongOrNull() ?: return@mapNotNull null
-                    PlayEvent(id, ts)
-                }
-                .orEmpty()
+            RecentPlayedStore.load(context)
         }
-        val preferences = withContext(Dispatchers.IO) {
-            context.settingsDataStore.data.first()
-        }
+        val snapshot = PlaybackStateStore.load(context)
         val cachedPlaylist = withContext(Dispatchers.IO) {
             // 历史缓存可能残留同文件不同 URI 形态的重复条目，按真实文件路径去重，避免冷启动直接展示重名歌曲
-            loadCachedPlaylist(context, playlistCacheKey).distinctBy { trackIdentityKey(context, it) }
+            PlaylistCacheStore.loadPlaylist(context).distinctBy { trackIdentityKey(context, it) }
         }
         // 恢复上次选中的歌单来源与默认库备份，扫描刷新后保持选中
         val savedSource = withContext(Dispatchers.IO) {
-            val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-            prefs.getString(playlistSourceKeyPref, null)?.let { key ->
-                PlaylistSource(key, prefs.getString(playlistSourceNamePref, "") ?: "")
-            }
+            PlaylistCacheStore.loadSource(context)
         }
         val cachedBackup = withContext(Dispatchers.IO) {
-            loadCachedPlaylist(context, defaultPlaylistCacheKeyPref).distinctBy { trackIdentityKey(context, it) }
+            PlaylistCacheStore.loadBackup(context).distinctBy { trackIdentityKey(context, it) }
         }
-        val savedUri = preferences[savedUriKey]
-        val savedPosition = preferences[savedPositionKey] ?: 0L
-        val savedMode = preferences[savedModeKey] ?: PlayMode.RepeatAll.ordinal
-        val savedSpeed = preferences[savedSpeedKey] ?: PLAYBACK_SPEED_DEFAULT
         withContext(Dispatchers.Main) {
             // 无保存来源时处于全量播放列表
             playlistSource = savedSource
@@ -699,13 +649,13 @@ class MusicPlaybackState {
             if (playlist.isEmpty() && cachedPlaylist.isNotEmpty()) {
                 playlist = cachedPlaylist.map { it.copy(isFavorite = likedIds.contains(it.id)) }
             }
-            pendingSavedUri = savedUri
-            pendingResumePosition = savedPosition
+            pendingSavedUri = snapshot.audioUri
+            pendingResumePosition = snapshot.position
             if (currentTrack == null) {
-                currentPosition = savedPosition
+                currentPosition = snapshot.position
             }
-            playMode = PlayMode.entries.getOrElse(savedMode) { PlayMode.RepeatAll }
-            playbackSpeed = savedSpeed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
+            playMode = PlayMode.entries.getOrElse(snapshot.mode) { PlayMode.RepeatAll }
+            playbackSpeed = snapshot.speed.coerceIn(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
         }
     }
 
@@ -748,10 +698,8 @@ class MusicPlaybackState {
     // 持久化播放速度，供重启后恢复
     private fun persistPlaybackSpeed() {
         val context = appContext ?: return
-        playbackScope.launch(Dispatchers.IO) {
-            context.settingsDataStore.edit { preferences ->
-                preferences[savedSpeedKey] = playbackSpeed
-            }
+        playbackScope.launch {
+            PlaybackStateStore.saveSpeed(context, playbackSpeed)
         }
     }
 
@@ -761,21 +709,8 @@ class MusicPlaybackState {
         playlistPersistJob?.cancel()
         playlistPersistJob = playbackScope.launch {
             withContext(Dispatchers.IO) {
-                saveCachedPlaylist(context, playlistCacheKey, playlist)
                 // 歌单来源与默认库备份随播放列表一同持久化，重启后恢复选中状态
-                val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-                val source = playlistSource
-                // 同步写盘：播放列表缓存为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
-                prefs.edit()
-                    .putString(playlistSourceKeyPref, source?.key)
-                    .putString(playlistSourceNamePref, source?.name)
-                    .commit()
-                val backup = defaultPlaylistBackup
-                if (backup != null) {
-                    saveCachedPlaylist(context, defaultPlaylistCacheKeyPref, backup)
-                } else {
-                    prefs.edit().remove(defaultPlaylistCacheKeyPref).commit()
-                }
+                PlaylistCacheStore.save(context, playlist, playlistSource, defaultPlaylistBackup)
             }
         }
     }
@@ -801,79 +736,8 @@ class MusicPlaybackState {
     private fun persistSearchHistory() {
         val context = appContext ?: return
         playbackScope.launch(Dispatchers.IO) {
-            context.getSharedPreferences(searchHistoryPreferences, Context.MODE_PRIVATE)
-                .edit()
-                .putString(searchHistoryKey, searchHistory.joinToString("\n"))
-                .commit()
+            SearchHistoryStore.save(context, searchHistory)
         }
-    }
-
-    private fun loadCachedPlaylist(context: Context, cacheKey: String): List<MusicTrack> {
-        val json = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-            .getString(cacheKey, null) ?: return emptyList()
-        return try {
-            val array = JSONArray(json)
-            List(array.length()) { index ->
-                val item = array.getJSONObject(index)
-                val savedLyricPath = item.optString("lyricCachePath", "")
-                val lyricOffset = item.optLong("lyricOffsetMs", 0L)
-                // 歌词内容延迟到显示时按需从缓存文件读取（含偏移），
-                // 冷启动不逐首解析歌词，避免大歌单的数百次文件读取拖慢所有界面首帧
-                val lyricCachePath = savedLyricPath.takeIf { MusicMetadataCache.isValid(it) }.orEmpty()
-                MusicTrack(
-                    id = item.getLong("id"),
-                    path = item.getString("path"),
-                    audioUri = item.getString("audioUri"),
-                    title = item.getString("title"),
-                    artist = item.getString("artist"),
-                    duration = item.getLong("duration"),
-                    albumId = item.getLong("albumId"),
-                    albumName = item.optString("albumName", ""),
-                    neteaseId = item.optLong("neteaseId", 0L),
-                    neteaseCoverUrl = item.optString("neteaseCoverUrl", ""),
-                    coverCachePath = item.optString("coverCachePath", ""),
-                    isFavorite = item.optBoolean("isFavorite", false),
-                    isOnlinePlay = item.optBoolean("isOnlinePlay", false),
-                    lyricCachePath = lyricCachePath,
-                    lyricLines = emptyList(),
-                    lyricOffsetMs = lyricOffset,
-                    coverFailed = item.optBoolean("coverFailed", false),
-                    lyricFailed = item.optBoolean("lyricFailed", false),
-                )
-            }
-        } catch (e: Exception) {
-            CrashLogManager.logException("MusicPlaybackState", "读取缓存的播放列表失败", e)
-            emptyList()
-        }
-    }
-
-    private fun saveCachedPlaylist(context: Context, cacheKey: String, tracks: List<MusicTrack>) {
-        val array = JSONArray()
-        tracks.forEach { track ->
-            array.put(JSONObject().apply {
-                put("id", track.id)
-                put("path", track.path)
-                put("audioUri", track.audioUri)
-                put("title", track.title)
-                put("artist", track.artist)
-                put("duration", track.duration)
-                put("albumId", track.albumId)
-                put("albumName", track.albumName)
-                put("neteaseId", track.neteaseId)
-                put("neteaseCoverUrl", track.neteaseCoverUrl)
-                put("coverCachePath", track.coverCachePath)
-                put("lyricCachePath", track.lyricCachePath)
-                put("isOnlinePlay", track.isOnlinePlay)
-                put("isFavorite", track.isFavorite)
-                put("lyricOffsetMs", track.lyricOffsetMs)
-                put("coverFailed", track.coverFailed)
-                put("lyricFailed", track.lyricFailed)
-            })
-        }
-        context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-            .edit()
-            .putString(cacheKey, array.toString())
-            .commit()
     }
 
     var pendingSavedUri: String? = null
@@ -883,7 +747,7 @@ class MusicPlaybackState {
         val context = appContext ?: return
         val track = currentTrack ?: return
         // 调用时刻立即快照：release/softRelease 随后会清空播放状态，异步写入不能再回读内存态
-        pendingStateSnapshot = SavedPlaybackState(track.audioUri, currentPosition, playMode.ordinal)
+        pendingStateSnapshot = PlaybackSnapshot(track.audioUri, currentPosition, playMode.ordinal, playbackSpeed)
         // 写入在途时仅更新快照，由在途任务以最新快照收尾，不再取消旧任务
         if (stateWriteJob?.isActive == true) return
         stateWriteJob = playbackScope.launch {
@@ -891,13 +755,7 @@ class MusicPlaybackState {
                 while (true) {
                     val snapshot = pendingStateSnapshot ?: break
                     pendingStateSnapshot = null
-                    withContext(Dispatchers.IO) {
-                        context.settingsDataStore.edit { preferences ->
-                            preferences[savedUriKey] = snapshot.audioUri
-                            preferences[savedPositionKey] = snapshot.position
-                            preferences[savedModeKey] = snapshot.mode
-                        }
-                    }
+                    PlaybackStateStore.save(context, snapshot)
                 }
             }
         }
@@ -1223,13 +1081,6 @@ class MusicPlaybackState {
         currentPosition = position
     }
 }
-
-// 播放状态持久化快照：调用时刻即采集，避免写入协程回读时状态已被后续流程（如 release）清空
-private data class SavedPlaybackState(
-    val audioUri: String,
-    val position: Long,
-    val mode: Int,
-)
 
 // 歌手分隔符：顿号、中英文逗号/分号、斜杠、反斜杠、与号
 private val ARTIST_SEPARATOR = Regex("""[、,，;；/\\&]""")
