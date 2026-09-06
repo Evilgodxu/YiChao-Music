@@ -230,9 +230,6 @@ internal fun MiniPlayerBar(
                             PlayMode.Shuffle -> PlayMode.RepeatAll
                         }
                     )
-                    playbackState.mediaController?.let { controller ->
-                        applyPlaybackMode(controller, playbackState.playMode)
-                    }
                     playbackState.persistState()
                 }
             )
