@@ -23,7 +23,7 @@ datastore = "1.2.1"
 kotlinxSerializationJson = "1.11.0"
 coroutinesTest = "1.11.0"
 coroutinesGuava = "1.11.0"
-coil = "3.6.1"
+coil = "3.6.2"
 media3 = "1.11.0"
 okhttp = "5.5.0"
 

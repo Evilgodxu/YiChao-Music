@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.data.permission
 import android.content.Context
 import android.content.pm.PackageManager
 import android.Manifest
+import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import kotlinx.coroutines.delay
@@ -19,11 +20,21 @@ enum class PermissionType {
     MEDIA_IMAGES,            // 图片访问（运行时权限）
 }
 
-// 音乐访问的运行时权限名
-fun mediaAudioPermission(): String = Manifest.permission.READ_MEDIA_AUDIO
+// 音乐访问的运行时权限名：Android 13+ 用媒体细分权限，更早版本回退到存储读取权限
+fun mediaAudioPermission(): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
 
-// 图片访问的运行时权限名
-fun mediaImagePermission(): String = Manifest.permission.READ_MEDIA_IMAGES
+// 图片访问的运行时权限名：与音乐权限一致按系统版本选择
+fun mediaImagePermission(): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
 
 // 权限状态监控器
 class PermissionMonitor(private val context: Context) {

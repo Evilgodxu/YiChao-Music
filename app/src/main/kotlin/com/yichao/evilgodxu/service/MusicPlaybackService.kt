@@ -4,6 +4,7 @@ import android.content.Intent
 import android.view.KeyEvent
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
@@ -158,7 +159,13 @@ class MusicPlaybackService : MediaSessionService() {
             controllerInfo: MediaSession.ControllerInfo,
             intent: Intent,
         ): Boolean {
-            val keyEvent = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
+            // 双参 getParcelableExtra 为 API 33 新增，低版本回退到已废弃单参版
+            @Suppress("DEPRECATION")
+            val keyEvent: KeyEvent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
+            } else {
+                intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+            }
             if (keyEvent?.action == KeyEvent.ACTION_DOWN) {
                 when (keyEvent.keyCode) {
                     KeyEvent.KEYCODE_MEDIA_PREVIOUS,

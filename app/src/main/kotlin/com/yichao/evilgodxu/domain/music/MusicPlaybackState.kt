@@ -200,6 +200,12 @@ class MusicPlaybackState(val ui: MusicPanelUiState) : PlaybackController {
                         }
                     }
                 }
+                // 缓冲/空闲态不改变播放标记，isPlaying 由 onIsPlayingChanged 回调维护
+                Player.STATE_BUFFERING -> Unit
+                Player.STATE_IDLE -> {
+                    isPrepared = false
+                    stopPositionTicker()
+                }
             }
         }
 

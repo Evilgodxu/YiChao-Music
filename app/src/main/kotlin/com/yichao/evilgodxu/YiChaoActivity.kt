@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.LocaleList
 import android.view.WindowInsets
@@ -164,7 +165,13 @@ class YiChaoActivity : ComponentActivity() {
         val uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND ->
-                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                // 双参 getParcelableExtra 为 API 33 新增，低版本回退到已废弃单参版
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                }
             else -> null
         } ?: return
         if (isAudioUri(uri)) {

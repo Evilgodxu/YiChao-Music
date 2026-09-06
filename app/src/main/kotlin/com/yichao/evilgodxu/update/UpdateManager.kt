@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.update
 
+import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -93,7 +94,9 @@ object UpdateManager {
 
     /**
      * 检查是否有新版本（非强制检查时仅当进入新的一天才检查）
+     * 更新状态为冷启动恢复的关键数据，commit 同步落盘均已在 IO 线程执行
      */
+    @SuppressLint("ApplySharedPref")
     suspend fun checkForUpdate(
         context: Context,
         force: Boolean = false,

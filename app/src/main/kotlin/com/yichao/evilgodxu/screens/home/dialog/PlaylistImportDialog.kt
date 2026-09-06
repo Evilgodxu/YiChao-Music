@@ -41,6 +41,11 @@ internal fun PlaylistImportDialog(
     onSyncStart: (link: RemotePlaylistLink, playlistName: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // 提示文案由协程回调写入状态，需在组合期预取以感知配置变化
+    val invalidLinkText = stringResource(R.string.playlist_import_invalid_link)
+    val fetchFailedText = stringResource(R.string.playlist_import_fetch_failed)
+    val defaultNameText = stringResource(R.string.playlist_import_default_name)
+
     if (!visible) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -60,19 +65,19 @@ internal fun PlaylistImportDialog(
         scope.launch {
             val parsed = PlaylistSyncer.parseLink(context, text)
             if (parsed == null) {
-                error = context.getString(R.string.playlist_import_invalid_link)
+                error = invalidLinkText
                 parsing = false
                 return@launch
             }
             val fetched = PlaylistSyncer.fetchRemote(context, parsed)
             if (fetched == null) {
-                error = context.getString(R.string.playlist_import_fetch_failed)
+                error = fetchFailedText
                 parsing = false
                 return@launch
             }
             remoteLink = parsed
             totalSongs = fetched.songs.size
-            playlistName = fetched.name.ifBlank { context.getString(R.string.playlist_import_default_name) }
+            playlistName = fetched.name.ifBlank { defaultNameText }
             parsing = false
         }
     }
@@ -138,7 +143,7 @@ internal fun PlaylistImportDialog(
                     onConfirm = {
                         onSyncStart(
                             remoteLink!!,
-                            playlistName.trim().ifBlank { context.getString(R.string.playlist_import_default_name) },
+                            playlistName.trim().ifBlank { defaultNameText },
                         )
                     },
                     onDismiss = onDismiss,

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.database.ContentObserver
 import android.graphics.PixelFormat
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.animation.AccelerateInterpolator
@@ -154,7 +155,10 @@ class MusicPanelViewManager(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            blurBehindRadius = 80
+            // blurBehindRadius 为 API 31 新增，低版本仅保留 FLAG_BLUR_BEHIND 由系统兜底
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                blurBehindRadius = 80
+            }
         }
 
         val view = ComposeView(context).apply {

@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.data.music
 
+import android.annotation.SuppressLint
 import android.content.Context
 
 // 搜索历史存储：SharedPreferences 换行分隔的关键词列表
@@ -14,6 +15,8 @@ object SearchHistoryStore {
             ?.filter(String::isNotBlank)
             .orEmpty()
 
+    // 同步写盘：调用方均在 IO 线程执行，apply 异步落盘在进程被杀时可能丢失近几次记录
+    @SuppressLint("ApplySharedPref")
     fun save(context: Context, history: List<String>) {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()

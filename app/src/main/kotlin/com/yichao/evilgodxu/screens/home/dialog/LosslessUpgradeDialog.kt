@@ -78,6 +78,9 @@ internal fun LosslessUpgradeDialog(
         }
     }
 
+    // 失败提示由协程回调写入共享状态，需在组合期预取以感知配置变化
+    val failureText = stringResource(R.string.home_upgrade_lossless_failed)
+
     if (!visible || track == null) return
     MetadataDialogCard(onDismiss = { if (!ui.losslessUpgradeBusy) onDismiss() }) {
         Column(
@@ -274,8 +277,7 @@ internal fun LosslessUpgradeDialog(
                                     ui.losslessUpgradeCandidates = emptyList()
                                     onDismiss()
                                 } else {
-                                    ui.losslessUpgradeError =
-                                        context.getString(R.string.home_upgrade_lossless_failed)
+                                    ui.losslessUpgradeError = failureText
                                 }
                             }
                         }

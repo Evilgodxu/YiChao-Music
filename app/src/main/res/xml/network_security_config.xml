@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 代理音源接口与直链域名由用户 JSON 动态配置，无法静态枚举，故全局放行明文以支持 http 直链 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
+<!-- 代理音源接口与直链域名由用户 JSON 动态配置，无法静态枚举，
+     为支持 http 直链播放而全局放行明文，属有意设计 -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
 </network-security-config>

@@ -8,10 +8,14 @@
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
-    <!-- 音乐访问：读取本地音乐文件 -->
+    <!-- 音乐访问：读取本地音乐文件（Android 13+ 细分媒体权限） -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <!-- 读取本地封面候选图片 -->
+    <!-- 读取本地封面候选图片（Android 13+ 细分媒体权限） -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- 低版本（Android 11/12）媒体读取回退到存储权限 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 
     <!-- 音乐播放器声明 -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -33,6 +37,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locale_config"
+        tools:targetApi="33"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
@@ -76,11 +81,13 @@
         </activity>
 
         <!-- 音乐播放前台服务：媒体会话控制通知栏/锁屏 -->
+        <!-- exported 为 MediaSessionService 框架要求，供系统媒体面板/媒体键跨进程绑定 -->
         <service
             android:name=".service.MusicPlaybackService"
             android:enabled="true"
             android:exported="true"
-            android:foregroundServiceType="mediaPlayback">
+            android:foregroundServiceType="mediaPlayback"
+            tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
@@ -101,7 +108,8 @@
             android:name=".data.music.metadata.MusicCoverProvider"
             android:authorities="${applicationId}.musiccover"
             android:exported="true"
-            android:grantUriPermissions="true" />
+            android:grantUriPermissions="true"
+            tools:ignore="ExportedContentProvider" />
 
         <!-- APK 安装文件提供者 -->
         <provider

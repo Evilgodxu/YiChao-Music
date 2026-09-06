@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.animation.AccelerateInterpolator
@@ -177,11 +178,16 @@ class MiniPlayerViewManager(
             .setInterpolator(DecelerateInterpolator())
             .start()
 
-        context.registerReceiver(
-            screenOffReceiver,
-            IntentFilter(Intent.ACTION_SCREEN_OFF),
-            Context.RECEIVER_NOT_EXPORTED
-        )
+        // API 33+ 注册系统广播须显式声明导出范围，更早版本忽略该标志
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(
+                screenOffReceiver,
+                IntentFilter(Intent.ACTION_SCREEN_OFF),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            context.registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        }
     }
 
     private fun setPlaylistExpanded(expanded: Boolean) {
@@ -252,7 +258,7 @@ class MiniPlayerViewManager(
     private fun barWidthPx(): Int =
         dpToPx(MINI_PADDING_H_DP * 2 + MINI_COVER_DP + MINI_BUTTON_COUNT * MINI_BUTTON_DP)
 
-    @SuppressLint("DiscouragedApi")
+    @SuppressLint("DiscouragedApi", "InternalInsetResource")
     private fun getStatusBarHeight(): Int {
         val res = context.resources
         val id = res.getIdentifier("status_bar_height", "dimen", "android")

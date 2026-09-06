@@ -3,6 +3,7 @@ package com.yichao.evilgodxu.domain.music
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
@@ -80,6 +81,8 @@ internal object TrackAudioInfoReader {
     }
 
     private fun readSampleRate(context: Context, track: MusicTrack): Int? {
+        // METADATA_KEY_SAMPLERATE 为 API 31 新增，低版本无对应键直接返回 null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
         val retriever = MediaMetadataRetriever()
         return try {
             setDataSource(retriever, context, track)

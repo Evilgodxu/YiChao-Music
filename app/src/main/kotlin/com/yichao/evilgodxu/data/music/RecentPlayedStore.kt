@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.data.music
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.yichao.evilgodxu.domain.music.PlayEvent
 
@@ -21,6 +22,7 @@ object RecentPlayedStore {
     }
 
     // 同步写盘：播放记录为统计依据，apply 异步落盘在进程被杀时可能丢失近几次记录
+    @SuppressLint("ApplySharedPref")
     fun save(context: Context, events: List<PlayEvent>) {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()

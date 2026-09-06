@@ -2,13 +2,14 @@ package com.yichao.evilgodxu.floatingwindow.music_panel
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.Manifest
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import com.yichao.evilgodxu.data.permission.mediaAudioPermission
+import com.yichao.evilgodxu.data.permission.mediaImagePermission
 
 // 透明权限申请 Activity，用于从 Service/无障碍服务上下文动态申请权限：
 // 1. 申请 READ_MEDIA_AUDIO（音频文件访问）
@@ -44,19 +45,19 @@ class MusicPanelPermissionActivity : ComponentActivity() {
     private fun requestNextPermission() {
         when {
             hasAudioPermission() && hasImagePermission() && hasAllFilesAccess() -> completeAndFinish()
-            !hasAudioPermission() -> permissionLauncher.launch(Manifest.permission.READ_MEDIA_AUDIO)
-            !hasImagePermission() -> permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+            !hasAudioPermission() -> permissionLauncher.launch(mediaAudioPermission())
+            !hasImagePermission() -> permissionLauncher.launch(mediaImagePermission())
             else -> launchAllFilesSettings()
         }
     }
 
     private fun hasAudioPermission(): Boolean {
-        return checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) ==
+        return checkSelfPermission(mediaAudioPermission()) ==
                 PackageManager.PERMISSION_GRANTED
     }
 
     private fun hasImagePermission(): Boolean {
-        return checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) ==
+        return checkSelfPermission(mediaImagePermission()) ==
                 PackageManager.PERMISSION_GRANTED
     }
 

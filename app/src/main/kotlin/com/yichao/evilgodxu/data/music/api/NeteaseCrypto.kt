@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.data.music.api
 
+import android.annotation.SuppressLint
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -28,6 +29,8 @@ internal object NeteaseCrypto {
     }
 
     // EAPI 参数加密：拼接 path/body/digest 后 AES-128-ECB 加密，输出 hex
+    // ECB 模式为协议固定要求，与网易云服务端 eapi 加密一致，不可更换
+    @SuppressLint("GetInstance")
     fun eapi(path: String, body: String): String {
         val params = "${path}${EAPI_MARK}${body}${EAPI_MARK}${md5Hex("nobody${path}use${body}md5forencrypt")}"
         val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")

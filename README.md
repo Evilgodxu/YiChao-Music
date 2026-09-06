@@ -28,12 +28,15 @@
 - **Local library** — scans device storage via MediaStore, extracts embedded covers and lyrics, and imports audio through `VIEW`/`SEND` intents and the system file picker
 - **Multi-platform online search** — aggregated search across Netease (网易云), QQ Music, Kugou (酷狗), Kuwo (酷我) and Migu (咪咕), with search history, quality selection (lossless / high / standard) and online caching (downloaded to the system Downloads directory, then auto-switched to local playback once cached)
 - **Proxy source (代理音源)** — import third-party aggregated music sources (via local file / link / text) to customize search, playback URL, lyric and cover resolution per platform, with enable / disable / remove and automatic fallback to the built-in parser on failure; see the [忆潮代理音源规范](docs/忆潮代理音源规范.md) for the JSON spec
-- **Playlist system** — smart playlists (Recently Played / Favorites / Albums / Artists) and custom playlists (create / rename / delete / batch add tracks / drag to reorder / quick switch), persisted as JSON
+- **Playlist system** — smart playlists (Recently Played / Favorites / Albums / Artists / by format / suspected fake lossless / suspected AI music) and custom playlists (create / rename / delete / batch add tracks / drag to reorder / quick switch), persisted as JSON
 - **Synced lyrics** — scrolling lyrics with word-level timing (toggleable), online lyric matching/refresh, local lyric file import and embedded lyrics, plus fine-grained lyric offset tuning
 - **Lyric typography** — per-scene font size and visible-line count for the music panel, home portrait and home landscape (with 3D intensity), adjustable in Typography settings
 - **Cover management** — embedded art, local image candidates and online cover search; the new cover can be written back into the audio file
 - **Metadata editing** — rename song title / artist, written back to the file tags, with one-tap copy
 - **Track format display** — shows the currently played source format in the progress area (container format, bit depth, sample rate, bitrate)
+- **Library analysis** — long-press the playlist button to open the analysis sheet: a ring chart of the library's audio-format ratio, incremental verification of suspected fake-lossless FLACs (upsampling / brick-wall transcode detection via spectral analysis) and suspected AI-generated tracks (heuristics on stereo correlation, high-shelf notch and harmonic comb), with persistent per-track verdict caches; tap a format or category to jump to the matching smart playlist
+- **Lossless upgrade** — for a suspected fake-lossless local track, tap its format info bar to search online originals (switchable source) and download the lossless version to replace the local file
+- **Playlist sync from a share link** — paste a platform share link (Netease / QQ / Kuwo) to fetch a remote playlist, skip local duplicates, download the rest at the highest available quality into the library and create a playlist (Netease is parsed built-in; other platforms require a proxy source)
 - **Playback speed control** — real-time playback speed adjustment via a dialog (±0.1 steps, tap the value to reset), processed natively by AudioTrack
 - **Playback controls** — Media3 media session with notification & lock-screen controls, play modes (repeat all / repeat one / shuffle), favorites sorted to the top, play-next and a sleep timer (stop after current track)
 - **Home gestures** — swipe right for online search, swipe left for the playlist panel, and vertical swipes to switch tracks (toggleable); immersive landscape mode with a rotating disc and auto-hiding floating controls
@@ -47,7 +50,7 @@
 
 | Screen | Contents |
 | --- | --- |
-| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics (font size & line count adjustable), refreshable playlist, favorites, sleep timer, landscape mode, online search (5 platforms with quality selection) via right swipe and playlist panel via left swipe, vertical swipe to switch tracks (long-press the cover / title for cover & lyrics refresh and rename) |
+| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics (font size & line count adjustable), refreshable playlist, favorites, sleep timer, landscape mode, online search (5 platforms with quality selection) via right swipe and playlist panel via left swipe, vertical swipe to switch tracks (long-press the cover / title for cover & lyrics refresh and rename; long-press the playlist button for library analysis; tap the format info bar to upgrade a suspicious track to lossless) |
 | Settings | Appearance (theme), Language, Playback (mini player / word-by-word rendering / swipe to change track), Typography (lyric font size & lines), Proxy Source (import / enable / remove third-party sources), About (version, update check, GitHub link) |
 
 ## Tech Stack
@@ -75,26 +78,36 @@
 │   └── src/main/
 │       ├── kotlin/com/yichao/evilgodxu/
 │       │   ├── data/                    # Data layer
-│       │   │   ├── music/               #   Music scanning / online sources / metadata / proxy source
+│       │   │   ├── music/               #   Music scanning / playback stores / online sources / proxy source
 │       │   │   │   ├── api/             #     Online music sources (Netease / QQ / Kugou / Kuwo / Migu)
 │       │   │   │   ├── metadata/        #     Cover management & metadata read/write
 │       │   │   │   ├── model/           #     Track data models
-│       │   │   │   └── proxy/           #     Proxy source (import / parse / engine / store)
+│       │   │   │   └── proxy/           #     Proxy source (import / parse / engine / store / playlist sync)
+│       │   │   ├── playlist/            #   Custom playlist entity & store
 │       │   │   ├── permission/          #   Permission & overlay-grant monitors
 │       │   │   ├── repository/          #   Settings repository
 │       │   │   └── settings/            #   Settings DataStore & lyric layout preferences
 │       │   ├── di/                      # Koin modules
 │       │   ├── dialog/                  # Floating-panel dialogs (search / rename / timer / speed / settings / update)
-│       │   ├── domain/music/            # Domain layer (playback state / download / signal path / utils)
+│       │   ├── domain/music/            # Domain layer (playback state / download / spectral analysis / utils)
+│       │   ├── floatingwindow/          # Floating panel & mini player (view managers + permission flow)
+│       │   │   ├── mini_player/         #   Mini player overlay, bar & view manager
+│       │   │   └── music_panel/         #   Full music panel view manager
 │       │   ├── log/                     # CrashLogManager
 │       │   ├── navigation/              # Navigation3 typed routes
-│       │   ├── overlay/                 # Floating panel / mini player UI & view managers (incl. permission flow)
-│       │   ├── screens/                 # Screens (home / settings)
-│       │   │   ├── home/                #   Home player + permission flow + playlists + online search
-│       │   │   └── settings/            #   Appearance / language / playback / typography / proxy source / about
+│       │   ├── screens/                 # Screens (home / settings / typography)
+│       │   │   ├── home/                #   Home player (compact / expanded areas + shared components)
+│       │   │   │   ├── compact/         #     Portrait player area
+│       │   │   │   ├── expanded/        #     Landscape player area
+│       │   │   │   ├── component/       #     Shared areas (playlist / online search / permissions / swipe)
+│       │   │   │   └── dialog/          #     Home dialogs (playlist import / lossless upgrade)
+│       │   │   └── settings/            #   Appearance / language / playback / proxy source / about
+│       │   │       ├── settings_assembly/  #     Settings areas (per section)
+│       │   │       ├── typography/      #     Typography sub-screen
+│       │   │       └── dialog/          #     Settings dialogs (theme / language / proxy import)
 │       │   ├── service/                 # MediaSessionService playback engine
 │       │   ├── theme/                   # Material 3 color & typography
-│       │   ├── ui/                      # Shared UI (adaptive layout / icons / music panel components)
+│       │   ├── ui/                      # Shared UI (music panel composables: cover / lyrics / controls)
 │       │   ├── update/                  # Version check & in-app update
 │       │   ├── utils/localization/      # In-app localization manager
 │       │   ├── YiChaoActivity.kt
@@ -103,7 +116,7 @@
 ├── gradle/
 │   ├── libs.versions.toml               # Version catalog (dependencies)
 │   └── wrapper/
-├── docs/                                # Architecture notes & proxy source spec (代理音源开发规范.md)
+├── docs/                                # Architecture notes & proxy source spec (忆潮代理音源规范.md)
 ├── LICENSE
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -120,7 +133,7 @@ Screens are organized with a **zone-based (assembly/area) pattern**:
 - `{Screen}Assembly.kt` — composes the areas of the screen
 - `{Name}Area.kt` — a self-contained UI zone with a single semantic responsibility
 
-Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The playback domain lives in `domain/music` (state, download, helpers) backed by the `data/music` layer and exposed to the UI through a window-level `MusicPanelStateHolder`; the floating UI (full panel + mini player) is split between `overlay/` (view managers) and `ui/music` (composables), while playback runs in `service/MusicPlaybackService` (Media3 ExoPlayer + `MediaSessionService`).
+Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The playback domain lives in `domain/music` (state, download, spectral analysis, helpers) backed by the `data/music` layer and exposed to the UI through a window-level `MusicPanelStateHolder`; the floating UI (full panel + mini player) lives in `floatingwindow/` (view managers, split into `music_panel/` and `mini_player/`) with composables under `ui/music/`, while playback runs in `service/MusicPlaybackService` (Media3 ExoPlayer + `MediaSessionService`).
 
 ## Permissions
 

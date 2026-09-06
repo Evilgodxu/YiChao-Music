@@ -72,6 +72,10 @@ internal fun PlaylistPanel(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    // 同步结果文案经协程写入状态，需在组合期预取以感知配置变化
+    val importFailedText = stringResource(R.string.playlist_import_failed)
+    val fetchFailedText = stringResource(R.string.playlist_import_fetch_failed)
+    val importEmptyText = stringResource(R.string.playlist_import_empty)
     LaunchedEffect(Unit) { PlaylistStore.ensureLoaded(context) }
     var backStack by remember { mutableStateOf(listOf<PlaylistPage>(PlaylistPage.Overview)) }
     LaunchedEffect(visible) { if (!visible) backStack = listOf(PlaylistPage.Overview) }
@@ -125,17 +129,15 @@ internal fun PlaylistPanel(
                             result.stats.failedCount,
                         )
                     } else {
-                        SyncUiState.Failed(context.getString(R.string.playlist_import_failed))
+                        SyncUiState.Failed(importFailedText)
                     }
                 }
                 is PlaylistSyncResult.Failure -> SyncUiState.Failed(
-                    context.getString(
-                        when (result.reason) {
-                            SyncFailure.FETCH_FAILED -> R.string.playlist_import_fetch_failed
-                            SyncFailure.NO_DOWNLOAD -> R.string.playlist_import_empty
-                            SyncFailure.LIBRARY_MATCH_FAILED -> R.string.playlist_import_failed
-                        }
-                    )
+                    when (result.reason) {
+                        SyncFailure.FETCH_FAILED -> fetchFailedText
+                        SyncFailure.NO_DOWNLOAD -> importEmptyText
+                        SyncFailure.LIBRARY_MATCH_FAILED -> importFailedText
+                    }
                 )
             }
             delay(SYNC_DONE_DISMISS_MS)

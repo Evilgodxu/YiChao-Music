@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.data.music
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
@@ -30,6 +31,7 @@ object PlaylistCacheStore {
     }
 
     // 同步写盘：播放列表缓存为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
+    @SuppressLint("ApplySharedPref")
     fun save(
         context: Context,
         playlist: List<MusicTrack>,
