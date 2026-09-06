@@ -62,6 +62,9 @@ class MusicPlaybackState {
         private const val LOOP_RESTART_MIN_JUMP_MS = 3000L
         // 回卷检测与过渡回调记录的去重冷却：同一次循环只计入一次完整播放
         private const val AUTO_COUNT_COOLDOWN_MS = 2000L
+        // 进度单调复位兜底：未触发切歌/拖动回调但位置大幅回退（如切换歌单重载同 ID 曲目）时视为重置；
+        // 小幅回退仍按流媒体回锚处理，保持进度单调
+        private const val MONO_REBASELINE_JUMP_MS = 3000L
     }
 
     // 上次持久化播放状态的时刻，用于播放期间节流写入
@@ -1132,22 +1135,22 @@ class MusicPlaybackState {
     private fun syncPlaybackPosition(controller: MediaController, isActive: Boolean) {
         if (isActive) {
             val mediaId = controller.currentMediaItem?.mediaId?.toLongOrNull()
-            val baselineReset = mediaId != lastMonoMediaId
-            if (baselineReset) lastMonoMediaId = mediaId
             val controllerDuration = controller.duration
-            if (controllerDuration > 0L) {
-                // 时长随时间线解析而增长时单调累进，避免按更大分母使进度回退
-                duration = if (baselineReset) controllerDuration else maxOf(duration, controllerDuration)
-            }
             val controllerPosition = controller.currentPosition
-            if (controllerPosition >= 0L && duration > 0L) {
-                val raw = controllerPosition.coerceIn(0L, duration)
-                // 连续播放期间进度单调递增，规避流媒体位置回锚导致的倒退；复位(切歌/拖动/循环)时重新锚定
-                currentPosition = if (baselineReset) {
+            if (controllerPosition >= 0L && controllerDuration > 0L) {
+                val raw = controllerPosition.coerceIn(0L, controllerDuration)
+                // 换项(mediaId 变化)或位置大幅回退（如切换歌单重载同 ID 曲目未触发切歌回调）时复位单调基准；
+                // 小幅回退仍按流媒体回锚处理，保持进度单调，避免进度条倒退
+                val reset = mediaId != lastMonoMediaId ||
+                    raw < lastMonoPosition - MONO_REBASELINE_JUMP_MS
+                if (reset) {
+                    lastMonoMediaId = mediaId
                     lastMonoPosition = raw
-                    raw
+                    duration = controllerDuration
+                    currentPosition = raw
                 } else {
-                    maxOf(lastMonoPosition, raw).also { lastMonoPosition = it }
+                    duration = maxOf(duration, controllerDuration)
+                    currentPosition = maxOf(lastMonoPosition, raw).also { lastMonoPosition = it }
                 }
             }
         }
