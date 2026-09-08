@@ -5,6 +5,7 @@
 .gradle
 .kotlin
 .DS_Store
+.workbuddy
 .superpowers
 .externalNativeBuild
 
@@ -18,3 +19,4 @@ jh.keystore
 
 Material Symbols
 测试用
+示例
