@@ -264,8 +264,8 @@ internal fun PlaylistSheet(
                         }
                     }
                     // 搜索框显隐：列表滚动中或滚到底部时隐藏，避免遮挡底部曲目；
-                    // 输入/聚焦期间常驻，切歌触发的自动滚动不中断输入
-                    val searchHidden = (isScrolling || atBottom) && !searchFocused && searchQuery.isBlank()
+                    // 输入/聚焦期间常驻（即使已有搜索词，滚动到底部仍应隐藏），切歌触发的自动滚动不中断输入
+                    val searchHidden = (isScrolling || atBottom) && !searchFocused
                     val dismissNestedScroll = remember(listState) {
                         object : NestedScrollConnection {
                             private var overscrollAccum = 0f
