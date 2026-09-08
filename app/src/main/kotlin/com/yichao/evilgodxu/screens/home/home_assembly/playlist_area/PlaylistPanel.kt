@@ -86,6 +86,9 @@ internal fun PlaylistPanel(
     var syncState by remember { mutableStateOf<SyncUiState?>(null) }
     var syncJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val importFailedMessage = stringResource(R.string.playlist_import_failed)
+    val importFetchFailedMessage = stringResource(R.string.playlist_import_fetch_failed)
+    val importEmptyMessage = stringResource(R.string.playlist_import_empty)
 
     fun startSync(link: RemotePlaylistLink, name: String) {
         syncJob?.cancel()
@@ -105,17 +108,15 @@ internal fun PlaylistPanel(
                             result.stats.failedCount,
                         )
                     } else {
-                        SyncUiState.Failed(context.getString(R.string.playlist_import_failed))
+                        SyncUiState.Failed(importFailedMessage)
                     }
                 }
                 is PlaylistSyncResult.Failure -> SyncUiState.Failed(
-                    context.getString(
-                        when (result.reason) {
-                            SyncFailure.FETCH_FAILED -> R.string.playlist_import_fetch_failed
-                            SyncFailure.NO_DOWNLOAD -> R.string.playlist_import_empty
-                            SyncFailure.LIBRARY_MATCH_FAILED -> R.string.playlist_import_failed
-                        }
-                    )
+                    when (result.reason) {
+                        SyncFailure.FETCH_FAILED -> importFetchFailedMessage
+                        SyncFailure.NO_DOWNLOAD -> importEmptyMessage
+                        SyncFailure.LIBRARY_MATCH_FAILED -> importFailedMessage
+                    }
                 )
             }
             delay(SYNC_DONE_DISMISS_MS)

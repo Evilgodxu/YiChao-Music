@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "com.yichao.evilgodxu"
-        minSdk = 30
+        minSdk = 33
         targetSdk = 37
         versionCode = 32
         versionName = "3.1.0"

@@ -44,6 +44,9 @@ internal fun PlaylistImportDialog(
     if (!visible) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val invalidLinkMessage = stringResource(R.string.playlist_import_invalid_link)
+    val fetchFailedMessage = stringResource(R.string.playlist_import_fetch_failed)
+    val defaultName = stringResource(R.string.playlist_import_default_name)
     var link by remember { mutableStateOf("") }
     var parsing by remember { mutableStateOf(false) }
     var remoteLink by remember { mutableStateOf<RemotePlaylistLink?>(null) }
@@ -60,19 +63,19 @@ internal fun PlaylistImportDialog(
         scope.launch {
             val parsed = PlaylistSyncer.parseLink(context, text)
             if (parsed == null) {
-                error = context.getString(R.string.playlist_import_invalid_link)
+                error = invalidLinkMessage
                 parsing = false
                 return@launch
             }
             val fetched = PlaylistSyncer.fetchRemote(context, parsed)
             if (fetched == null) {
-                error = context.getString(R.string.playlist_import_fetch_failed)
+                error = fetchFailedMessage
                 parsing = false
                 return@launch
             }
             remoteLink = parsed
             totalSongs = fetched.songs.size
-            playlistName = fetched.name.ifBlank { context.getString(R.string.playlist_import_default_name) }
+            playlistName = fetched.name.ifBlank { defaultName }
             parsing = false
         }
     }
@@ -138,7 +141,7 @@ internal fun PlaylistImportDialog(
                     onConfirm = {
                         onSyncStart(
                             remoteLink!!,
-                            playlistName.trim().ifBlank { context.getString(R.string.playlist_import_default_name) },
+                            playlistName.trim().ifBlank { defaultName },
                         )
                     },
                     onDismiss = onDismiss,

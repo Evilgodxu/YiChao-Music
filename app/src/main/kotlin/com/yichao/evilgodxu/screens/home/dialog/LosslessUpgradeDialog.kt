@@ -67,6 +67,7 @@ internal fun LosslessUpgradeDialog(
     val scope = rememberCoroutineScope()
     val track = playbackState.currentTrack
     var selectedCandidate by remember { mutableStateOf<NeteaseSongSearchResult?>(null) }
+    val upgradeFailedMessage = stringResource(R.string.home_upgrade_lossless_failed)
 
     // 打开且曲目/来源变化时自动搜索候选
     LaunchedEffect(visible, track?.id, playbackState.losslessUpgradeSource) {
@@ -273,8 +274,7 @@ internal fun LosslessUpgradeDialog(
                                     playbackState.losslessUpgradeCandidates = emptyList()
                                     onDismiss()
                                 } else {
-                                    playbackState.losslessUpgradeError =
-                                        context.getString(R.string.home_upgrade_lossless_failed)
+                                    playbackState.losslessUpgradeError = upgradeFailedMessage
                                 }
                             }
                         }
