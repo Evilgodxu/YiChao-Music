@@ -11,4 +11,4 @@ data object Home : NavKey
 data object Settings : NavKey
 
 @Serializable
-data object TypographySettings : NavKey
+data object Typography : NavKey

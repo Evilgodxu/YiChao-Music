@@ -3,7 +3,7 @@ package com.yichao.evilgodxu.di
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.screens.home.HomeViewModel
 import com.yichao.evilgodxu.screens.settings.SettingsViewModel
-import com.yichao.evilgodxu.screens.settings.typography.TypographyViewModel
+import com.yichao.evilgodxu.screens.typography.TypographyViewModel
 import com.yichao.evilgodxu.update.UpdateViewModel
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import org.koin.android.ext.koin.androidApplication

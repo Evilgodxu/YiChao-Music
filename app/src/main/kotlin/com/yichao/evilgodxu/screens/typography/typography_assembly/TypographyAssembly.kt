@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.typography
+package com.yichao.evilgodxu.screens.typography.typography_assembly
 
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Column
@@ -37,13 +37,14 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.typography.TypographyUiState
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlin.math.roundToInt
 
 // 卡片与排版设置：三场景独立调节字号与行数，横屏额外调节 3D 强度，迷你播放器固定不参与
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TypographySettingsAssembly(
+fun TypographyAssembly(
     uiState: TypographyUiState,
     onBack: () -> Unit,
     onMusicPanelFontSizeChange: (Int) -> Unit,
@@ -217,7 +218,7 @@ private fun StepperRow(
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(min = 52.dp),
+            modifier = Modifier.widthIn(min = 156.dp),
         )
         IconButton(
             onClick = onIncrease,

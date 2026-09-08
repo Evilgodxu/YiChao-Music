@@ -1,15 +1,16 @@
-package com.yichao.evilgodxu.screens.settings.typography
+package com.yichao.evilgodxu.screens.typography
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yichao.evilgodxu.screens.typography.typography_assembly.TypographyAssembly
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import org.koin.androidx.compose.koinViewModel
 
 // 页面入口：编排卡片与排版设置分区
 @Composable
-fun TypographySettingsScreen(
+fun TypographyScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TypographyViewModel = koinViewModel(),
@@ -17,7 +18,7 @@ fun TypographySettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     // 状态栏图标跟随主题：浅色主题深色图标，深色主题白色图标
     StatusBarStyleEffect()
-    TypographySettingsAssembly(
+    TypographyAssembly(
         uiState = uiState,
         onBack = onBack,
         onMusicPanelFontSizeChange = viewModel::adjustMusicPanelFontSize,
