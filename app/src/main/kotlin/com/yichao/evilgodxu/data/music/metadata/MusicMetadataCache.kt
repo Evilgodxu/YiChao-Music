@@ -20,6 +20,8 @@ import java.security.MessageDigest
 import kotlin.math.roundToInt
 import org.json.JSONArray
 
+// 封面/歌词缓存读写工具：全部为无状态静态函数，按需传入 Context。
+// 无共享可变状态，保留对象形态，不走 Koin
 internal object MusicMetadataCache {
     // 封面保存上限与显示端对齐（2K）：覆盖折叠屏/平板横屏等最大显示场景，超过部分永不显示；
     // 位图内存峰值约 2048²×4 ≈ 16MB，解码后即压缩保存并回收，不常驻

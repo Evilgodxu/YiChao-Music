@@ -18,7 +18,8 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// 本地音乐扫描器（基于 MediaStore）
+// 本地音乐扫描器（基于 MediaStore）：无共享可变状态、纯函数集合。
+// 保留对象形态，不走 Koin
 object MusicScanner {
 
     // 封面来源，用于决定缓存文件归属：内嵌封面属于歌曲，专辑封面/缩略图属于专辑
