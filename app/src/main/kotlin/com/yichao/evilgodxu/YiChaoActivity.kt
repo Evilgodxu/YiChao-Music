@@ -31,9 +31,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
+import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
 import com.yichao.evilgodxu.dialog.UpdateDialog
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
@@ -47,7 +47,6 @@ import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.utils.localization.toLocale
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -61,7 +60,7 @@ class YiChaoActivity : ComponentActivity() {
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
     override fun attachBaseContext(newBase: Context) {
-        val locale = runBlocking { SettingsRepository(newBase).appLanguage.first() }.toLocale()
+        val locale = runBlocking { newBase.bootstrapAppLanguage() }.toLocale()
         val config = Configuration(newBase.resources.configuration).apply {
             setLocales(LocaleList(locale))
         }

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 // 设置 DataStore：文件损坏时由损坏处理器重置为空配置并记录日志，
@@ -25,6 +26,12 @@ object SettingsKeys {
     val THEME_MODE = stringPreferencesKey("theme_mode")
     // 语言统一落 DataStore，由 Compose 层驱动热切换
     val LANGUAGE = stringPreferencesKey("language")
+}
+
+// 冷启动引导：Koin 尚未初始化时读取持久化语言，
+// 供 attachBaseContext 配置启动语言，避免依赖注入实例在此阶段创建
+suspend fun Context.bootstrapAppLanguage(): AppLanguage = settingsDataStore.data.first().let { preferences ->
+    AppLanguage.entries.find { it.languageTag == preferences[SettingsKeys.LANGUAGE] } ?: AppLanguage.SYSTEM
 }
 
 // 应用主题模式
