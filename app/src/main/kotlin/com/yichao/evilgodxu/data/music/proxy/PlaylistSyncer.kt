@@ -15,6 +15,8 @@ import com.yichao.evilgodxu.domain.music.resolvePlayUrlByQuality
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 // 分享链接解析出的歌单引用：平台 + 歌单 ID
 internal data class RemotePlaylistLink(
@@ -45,7 +47,8 @@ internal sealed interface PlaylistSyncResult {
 
 // 歌单同步：解析分享链接 → 拉取歌单（代理音源优先，未配置或失败回退内置解析）→
 // 本地同名跳过 → 高音质优先下载入库
-internal object PlaylistSyncer {
+internal object PlaylistSyncer : KoinComponent {
+    private val playlistRefresher: PlaylistRefresher by inject()
 
     // 解析分享链接为平台 + 歌单 ID；直接解析失败时尝试跟随重定向
     suspend fun parseLink(context: Context, raw: String): RemotePlaylistLink? {
@@ -124,7 +127,7 @@ internal object PlaylistSyncer {
         val total = fetched.songs.size
         if (total == 0) return PlaylistSyncResult.Failure(SyncFailure.NO_DOWNLOAD)
         // 先刷新本地库，保证同名查重基于最新曲库
-        PlaylistRefresher.refresh(context, state, restoreCurrent = true)
+        playlistRefresher.refresh(context, state, restoreCurrent = true)
         // 本地曲目按归一化标题建索引：仅本地音频参与查重
         val localByTitle = state.libraryTracks
             .filter { it.isLocalAudioSource }
@@ -156,7 +159,7 @@ internal object PlaylistSyncer {
             return PlaylistSyncResult.Failure(SyncFailure.NO_DOWNLOAD)
         }
         // 刷新曲库使下载文件成为本地曲目，再按文件名匹配入库 ID
-        PlaylistRefresher.refresh(context, state, restoreCurrent = true)
+        playlistRefresher.refresh(context, state, restoreCurrent = true)
         downloadedFiles.mapNotNull { fileName ->
             state.libraryTracks.firstOrNull { it.path.endsWith(fileName) }?.id
         }.let { downloadedIds ->

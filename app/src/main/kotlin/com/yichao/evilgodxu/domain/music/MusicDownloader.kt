@@ -11,6 +11,7 @@ import com.yichao.evilgodxu.data.music.api.MusicHttpClient
 import com.yichao.evilgodxu.data.music.api.MusicQuality
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
+import org.koin.core.context.GlobalContext
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
@@ -57,7 +58,7 @@ internal suspend fun cacheToDownloads(
             // 把在线播放时的标题/艺术家与封面原图写入缓存文件，供刷新后正确显示
             embedCachedMetadata(context, playbackState, trackId)
             // 提取封面/歌词展示缓存并清理冗余封面文件
-            MetadataEnricher.enrichAndCleanup(context, playbackState)
+            GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
             // 复用旧缓存同样登记本地音频库并刷新，避免旧缓存文件从未入库
             registerCachedFileAsLocal(context, playbackState, trackId, existingUri)
             return
@@ -108,7 +109,7 @@ internal suspend fun cacheToDownloads(
         // 将标题/艺术家与封面原图一次写入本地文件，刷新后不再丢失元数据
         embedCachedMetadata(context, playbackState, trackId)
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
-        MetadataEnricher.enrichAndCleanup(context, playbackState)
+        GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
         // 缓存完成：登记本地音频库并刷新播放列表，建立本地索引
         registerCachedFileAsLocal(context, playbackState, trackId, audioUri)
     } catch (e: Exception) {
@@ -135,7 +136,7 @@ private suspend fun registerCachedFileAsLocal(
             }
         }
     }
-    PlaylistRefresher.refresh(context, playbackState, restoreCurrent = true)
+    GlobalContext.get().get<PlaylistRefresher>().refresh(context, playbackState, restoreCurrent = true)
     withContext(Dispatchers.Main) {
         val current = playbackState.currentTrack ?: return@withContext
         if (current.id != trackId) return@withContext

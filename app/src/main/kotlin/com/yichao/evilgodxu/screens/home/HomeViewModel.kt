@@ -23,6 +23,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), K
 
     private val permissionMonitor = PermissionMonitor(getApplication())
     private val stateHolder: MusicPanelStateHolder by inject()
+    private val playlistRefresher: PlaylistRefresher by inject()
+    private val metadataEnricher: MetadataEnricher by inject()
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -60,8 +62,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), K
             val state = stateHolder.state
             // 先恢复持久化歌单，避免扫描覆盖已缓存的封面/歌词
             state.restoreSavedState(context)
-            PlaylistRefresher.refresh(context, state, restoreCurrent = true)
-            MetadataEnricher.enrichAndCleanup(context, state)
+            playlistRefresher.refresh(context, state, restoreCurrent = true)
+            metadataEnricher.enrichAndCleanup(context, state)
         }
     }
 

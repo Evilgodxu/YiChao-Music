@@ -11,6 +11,7 @@ import com.yichao.evilgodxu.data.music.api.OnlineMusicSource
 import com.yichao.evilgodxu.data.music.api.QQMusicApi
 import com.yichao.evilgodxu.data.music.api.sourceOf
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
+import org.koin.core.context.GlobalContext
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
@@ -488,7 +489,7 @@ internal suspend fun downloadAndPlay(
     // 在线播放时同步下载封面原图落盘：缓存完成后可直接内嵌写入本地文件，面板与通知栏也即时获得本地封面。
     // 封面就绪前标记为下载中，缓存完成流程等待本协程结束再内嵌元数据，避免封面丢失
     val coverJob = playbackState.playbackScope.launch(Dispatchers.IO) {
-        MetadataEnricher.markOnlineCoverInFlight(trackId)
+        GlobalContext.get().get<MetadataEnricher>().markOnlineCoverInFlight(trackId)
         try {
             // 代理音源优先按 coverId 换取封面，失败时回退搜索结果的封面直链
             val bytes = ProxySourceEngine.coverBytes(context, result)
@@ -510,7 +511,7 @@ internal suspend fun downloadAndPlay(
         } catch (e: Exception) {
             CrashLogManager.logException("MusicPanelSearchLogic", "下载在线封面失败: 歌曲=${result.title}", e)
         } finally {
-            MetadataEnricher.clearOnlineCoverInFlight(trackId)
+            GlobalContext.get().get<MetadataEnricher>().clearOnlineCoverInFlight(trackId)
         }
     }
 

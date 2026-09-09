@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
+import org.koin.core.context.GlobalContext
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaylistSource
@@ -75,7 +76,7 @@ internal fun switchToPlaylistQueue(
     state.playbackScope.launch { playTrackAt(context, state, 0, autoPlay = false) }
     state.persistPlaylist()
     // 切换歌单后后台补全新歌单缺失的封面/歌词，缓存已就绪的歌曲直接命中不重复加载
-    state.playbackScope.launch { MetadataEnricher.enrichAndCleanup(context, state) }
+    state.playbackScope.launch { GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, state) }
 }
 
 // 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航

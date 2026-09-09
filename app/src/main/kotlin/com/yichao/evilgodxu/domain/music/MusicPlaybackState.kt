@@ -46,7 +46,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // 音乐播放器状态持有者（悬浮窗级共享状态）
-class MusicPlaybackState {
+class MusicPlaybackState(private val metadataEnricher: MetadataEnricher) {
 
     // 常听收录窗口：统计 3 天内完整播放次数不少于 2 次的歌曲
     companion object {
@@ -1056,7 +1056,7 @@ class MusicPlaybackState {
         if (track == null) return
         val context = appContext ?: return
         playbackScope.launch {
-            MetadataEnricher.ensureMetadata(context, this@MusicPlaybackState, track)
+            metadataEnricher.ensureMetadata(context, this@MusicPlaybackState, track)
         }
     }
 

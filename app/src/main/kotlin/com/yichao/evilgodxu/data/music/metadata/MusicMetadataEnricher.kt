@@ -19,7 +19,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // 封面/歌词后台补全器：扫描/刷新/媒体变更后调用，串行执行避免并发覆盖
-object MetadataEnricher {
+class MetadataEnricher {
     // 封面/歌词后台提取的并发上限：限制同时进行的位图解码与网络请求数量，
     // 避免大歌单首次启动时内存与 CPU 尖峰导致面板卡顿
     private val metadataDispatcher = Dispatchers.IO.limitedParallelism(4)

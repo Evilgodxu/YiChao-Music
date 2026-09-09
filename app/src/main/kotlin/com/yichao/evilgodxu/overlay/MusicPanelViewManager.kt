@@ -25,12 +25,12 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
 import com.yichao.evilgodxu.data.music.normalizedAudioUri
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.resolveLocalPath
+import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.playTrackAt
@@ -64,6 +64,8 @@ class MusicPanelViewManager(
 
     private val stateHolder: MusicPanelStateHolder by inject()
     private val playbackState: MusicPlaybackState get() = stateHolder.state
+    private val playlistRefresher: PlaylistRefresher by inject()
+    private val metadataEnricher: MetadataEnricher by inject()
     private var pendingExternalUri: android.net.Uri? = null
     private val externalTrackMutex = Mutex()
     private var initialization: Deferred<Unit>? = null
@@ -238,7 +240,7 @@ class MusicPanelViewManager(
                 // 避免启动瞬间批量提取抢占按需任务的 IO，拖慢封面与歌词显示
                 managerScope.launch {
                     delay(3_000)
-                    MetadataEnricher.enrichAndCleanup(context, playbackState)
+                    metadataEnricher.enrichAndCleanup(context, playbackState)
                 }
             }
             withContext(Dispatchers.Main) {
@@ -286,9 +288,9 @@ class MusicPanelViewManager(
     }
 
     private suspend fun refreshPlaylist() {
-        PlaylistRefresher.refresh(context, playbackState, restoreCurrent = false) {
+        playlistRefresher.refresh(context, playbackState, restoreCurrent = false) {
             // 刷新后后台加载封面与歌词，完成合并后再清理孤立缓存
-            managerScope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
+            managerScope.launch { metadataEnricher.enrichAndCleanup(context, playbackState) }
         }
     }
 
@@ -333,9 +335,9 @@ class MusicPanelViewManager(
     }
 
     private suspend fun scanAndPlay() {
-        PlaylistRefresher.refresh(context, playbackState, restoreCurrent = true) {
+        playlistRefresher.refresh(context, playbackState, restoreCurrent = true) {
             // 封面后台加载，不阻塞 isScanning 重置
-            managerScope.launch { MetadataEnricher.enrichAndCleanup(context, playbackState) }
+            managerScope.launch { metadataEnricher.enrichAndCleanup(context, playbackState) }
         }
     }
 

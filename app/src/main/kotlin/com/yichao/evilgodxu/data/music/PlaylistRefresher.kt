@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // 播放列表刷新器：首页与音乐面板共用扫描入口，串行执行避免并发重复扫描
-object PlaylistRefresher {
+class PlaylistRefresher {
     private val scanMutex = Mutex()
 
     // 扫描本地音乐并与外部曲目合并；restoreCurrent 控制扫描后是否恢复当前播放曲目
