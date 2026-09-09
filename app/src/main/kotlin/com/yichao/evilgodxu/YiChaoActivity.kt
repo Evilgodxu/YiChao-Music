@@ -40,7 +40,7 @@ class YiChaoActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsController
     private val localizationManager: LocalizationManager by inject()
     private val activityViewModel: YiChaoActivityViewModel by viewModel()
-    private lateinit var musicPanelController: MusicPanelController
+    private val musicPanelController: MusicPanelController by inject()
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
     override fun attachBaseContext(newBase: Context) {
@@ -61,8 +61,6 @@ class YiChaoActivity : ComponentActivity() {
         // 绑定当前 Activity，使对话框等独立窗口在切语言时同步更新资源
         localizationManager.bindActivity(this)
 
-        // 音乐面板悬浮窗控制器：应用后台播放时显示迷你播放器，回到前台时移除
-        musicPanelController = MusicPanelController(applicationContext)
         handleExternalIntent(intent)
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
@@ -91,8 +89,6 @@ class YiChaoActivity : ComponentActivity() {
         // 解除语言管理器对 Activity 的绑定，避免单例持有已销毁实例
         localizationManager.unbindActivity(this)
         super.onDestroy()
-        // 销毁（含旋转重建）时释放悬浮窗，避免重建后残留无宿主窗口
-        musicPanelController.release()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
