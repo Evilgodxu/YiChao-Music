@@ -14,35 +14,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
 import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
-import com.yichao.evilgodxu.dialog.UpdateDialog
-import com.yichao.evilgodxu.navigation.AppNavHost
-import com.yichao.evilgodxu.theme.MyApplicationTheme
 import com.yichao.evilgodxu.theme.SystemBarAppearance
+import com.yichao.evilgodxu.ui.AppContent
 import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
 import com.yichao.evilgodxu.ui.music.LocalMusicPanelController
 import com.yichao.evilgodxu.ui.music.MusicPanelController
-import com.yichao.evilgodxu.update.UpdateManager
-import com.yichao.evilgodxu.update.UpdateViewModel
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.utils.localization.toLocale
@@ -56,7 +39,6 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 class YiChaoActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsController
     private val localizationManager: LocalizationManager by inject()
-    private val updateViewModel: UpdateViewModel by inject()
     private val activityViewModel: YiChaoActivityViewModel by viewModel()
     private lateinit var musicPanelController: MusicPanelController
 
@@ -97,7 +79,7 @@ class YiChaoActivity : ComponentActivity() {
                 ProvideLocalizedContext(localizationManager) {
                     CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
                         ProvideWindowSizeClass {
-                            YiChaoContent()
+                            AppContent()
                         }
                     }
                 }
@@ -205,81 +187,6 @@ class YiChaoActivity : ComponentActivity() {
             }
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@YiChaoActivity, message, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    @Composable
-    private fun YiChaoContent() {
-        // 回前台时自动检查更新（每日仅检查一次）
-        val lifecycleOwner = LocalLifecycleOwner.current
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME && UpdateManager.shouldCheckUpdate(applicationContext)) {
-                    updateViewModel.checkForUpdate()
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
-        }
-        // 退后台时清除输入焦点，避免回前台时系统按残留焦点偶发自动弹出键盘
-        val focusManager = LocalFocusManager.current
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_STOP) {
-                    focusManager.clearFocus()
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
-        }
-
-        // 更新对话框与手动检查反馈（全局弹出，覆盖所有页面）
-        val updateInfo by updateViewModel.updateInfo.collectAsStateWithLifecycle()
-        val showUpdateDialog by updateViewModel.showUpdateDialog.collectAsStateWithLifecycle()
-        val downloadState by updateViewModel.downloadState.collectAsStateWithLifecycle()
-        val checkFeedback by updateViewModel.checkFeedback.collectAsStateWithLifecycle()
-
-        LaunchedEffect(checkFeedback) {
-            when (checkFeedback) {
-                UpdateViewModel.CheckFeedback.UP_TO_DATE ->
-                    Toast.makeText(this@YiChaoActivity, R.string.update_toast_up_to_date, Toast.LENGTH_SHORT).show()
-                UpdateViewModel.CheckFeedback.ERROR ->
-                    Toast.makeText(this@YiChaoActivity, R.string.update_toast_error, Toast.LENGTH_SHORT).show()
-                null -> {}
-            }
-            updateViewModel.clearCheckFeedback()
-        }
-
-        MyApplicationTheme {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
-            ) {
-                AppNavHost(onExit = { finish() })
-            }
-        }
-
-        if (showUpdateDialog && updateInfo != null) {
-            val info = updateInfo
-            if (info != null) {
-                UpdateDialog(
-                    updateInfo = info,
-                    downloadState = downloadState,
-                    onDownload = { updateViewModel.downloadAndInstall() },
-                    onOpenBrowser = {
-                        val url = UpdateManager.GITHUB_REPOSITORY_URL
-                        if (url.startsWith("http")) {
-                            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
-                        }
-                        updateViewModel.dismissUpdateDialog()
-                    },
-                    onDismiss = { updateViewModel.dismissUpdateDialog() }
-                )
             }
         }
     }
