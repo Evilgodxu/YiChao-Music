@@ -16,10 +16,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class HomeViewModel(application: Application) : AndroidViewModel(application) {
+class HomeViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
 
     private val permissionMonitor = PermissionMonitor(getApplication())
+    private val stateHolder: MusicPanelStateHolder by inject()
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -54,7 +57,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         autoScanStarted = true
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val state = MusicPanelStateHolder.state
+            val state = stateHolder.state
             // 先恢复持久化歌单，避免扫描覆盖已缓存的封面/歌词
             state.restoreSavedState(context)
             PlaylistRefresher.refresh(context, state, restoreCurrent = true)

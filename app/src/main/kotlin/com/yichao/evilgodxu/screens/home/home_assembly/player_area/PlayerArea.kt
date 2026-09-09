@@ -96,6 +96,7 @@ import com.yichao.evilgodxu.ui.music.lyrics.LyricsRefreshDialog
 import com.yichao.evilgodxu.ui.music.ProgressSection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 // 首页播放器主体：沉浸封面 + 歌词 + 标题与艺术家 + 底部控制栏
 @Composable
@@ -112,7 +113,7 @@ internal fun PlayerArea(
     onPlaylistVisibilityChange: (Boolean) -> Unit,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
-    val playbackState = MusicPanelStateHolder.state
+    val playbackState = koinInject<MusicPanelStateHolder>().state
 
     // 播放列表与曲库分析展开时，系统返回键收起面板（曲库分析关闭不中断后台任务）
     BackHandler(enabled = playlistVisible || libraryAnalysis.visible) {

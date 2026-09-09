@@ -16,6 +16,7 @@ import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.home_assembly.HomeAssembly
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 // 页面入口：编排首页播放器页面
 @Composable
@@ -26,9 +27,10 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val stateHolder = koinInject<MusicPanelStateHolder>()
     // 冷启动恢复持久化的播放列表，并定位当前曲目
     LaunchedEffect(Unit) {
-        val state = MusicPanelStateHolder.state
+        val state = stateHolder.state
         state.restoreSavedState(context)
         if (state.playlist.isNotEmpty() && state.currentTrack == null) {
             val index = state.pendingSavedUri

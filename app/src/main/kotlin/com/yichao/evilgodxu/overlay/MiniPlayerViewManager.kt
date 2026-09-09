@@ -32,7 +32,10 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.log.CrashLogManager
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -41,11 +44,12 @@ class MiniPlayerViewManager(
     private val context: Context,
     private val onExpandPanel: () -> Unit,
     private val onSwipedDismiss: () -> Unit,
-) {
+) : KoinComponent {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var composeView: ComposeView? = null
     private var isDismissing = false
-    private val playbackState = MusicPanelStateHolder.state
+    private val stateHolder: MusicPanelStateHolder by inject()
+    private val playbackState: MusicPlaybackState get() = stateHolder.state
 
     // 播放列表展开状态（Compose 状态 + 窗口布局共用）
     private val playlistExpanded = mutableStateOf(false)

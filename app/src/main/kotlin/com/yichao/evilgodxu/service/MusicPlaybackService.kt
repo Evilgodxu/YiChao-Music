@@ -24,10 +24,13 @@ import com.yichao.evilgodxu.domain.music.playTrackAt
 import com.yichao.evilgodxu.domain.music.TrackAudioInfoReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 @OptIn(UnstableApi::class)
-class MusicPlaybackService : MediaSessionService() {
+class MusicPlaybackService : MediaSessionService(), KoinComponent {
     private lateinit var player: ExoPlayer
+    private val stateHolder: MusicPanelStateHolder by inject()
     private var mediaSession: MediaSession? = null
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -88,7 +91,7 @@ class MusicPlaybackService : MediaSessionService() {
 
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 val format = tracks.groups.firstOrNull { it.isSelected }?.getTrackFormat(0)
-                val state = MusicPanelStateHolder.state
+                val state = stateHolder.state
                 val currentTrack = state.currentTrack
                 // 每次轨道切换后按解码格式更新信号路径状态
                 val fileFormat = format?.let { f ->
@@ -200,7 +203,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
 
     private fun handlePreviousTrack() {
-        val state = MusicPanelStateHolder.state
+        val state = stateHolder.state
         if (state.currentTrack != null && state.playlist.isNotEmpty()) {
             val prev = state.previousIndex()
             if (prev >= 0) {
@@ -212,7 +215,7 @@ class MusicPlaybackService : MediaSessionService() {
     }
 
     private fun handleNextTrack() {
-        val state = MusicPanelStateHolder.state
+        val state = stateHolder.state
         if (state.currentTrack != null && state.playlist.isNotEmpty()) {
             val next = state.nextIndex()
             if (next >= 0) {

@@ -24,14 +24,17 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 // 向 Compose 层暴露音乐面板控制器的组合局部
 val LocalMusicPanelController = staticCompositionLocalOf<MusicPanelController?> { null }
 
 // 音乐面板与迷你播放器控制器：由 Activity 生命周期驱动悬浮窗的显示与隐藏
-class MusicPanelController(private val context: Context) {
+class MusicPanelController(private val context: Context) : KoinComponent {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val stateHolder: MusicPanelStateHolder by inject()
     private var panelManager: MusicPanelViewManager? = null
     private var miniPlayerManager: MiniPlayerViewManager? = null
     private var miniPlayerTemporarilyHidden = false
@@ -52,7 +55,7 @@ class MusicPanelController(private val context: Context) {
         }
         // 定时关闭到点且停止播放后，结束整个应用
         exitJob = scope.launch {
-            snapshotFlow { MusicPanelStateHolder.state.sleepTimerExpired }
+            snapshotFlow { stateHolder.state.sleepTimerExpired }
                 .filter { it }
                 .collect { exitApplication() }
         }
@@ -160,7 +163,7 @@ class MusicPanelController(private val context: Context) {
             dismissMiniPlayer()
         }
         // 后台切歌后回到前台，校正音频信息使其与当前曲目一致
-        MusicPanelStateHolder.state.reconcileTrackFormatInfo(context)
+        stateHolder.state.reconcileTrackFormatInfo(context)
     }
 
     fun release() {
@@ -187,7 +190,7 @@ class MusicPanelController(private val context: Context) {
         if (!miniPlayerEnabled || miniPlayerTemporarilyHidden) return
         if (panelManager != null) return
         if (miniPlayerManager != null) return
-        if (!MusicPanelStateHolder.state.isPlaying) return
+        if (!stateHolder.state.isPlaying) return
         showMiniPlayer()
     }
 

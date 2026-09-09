@@ -20,6 +20,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.HomeScreen
 import com.yichao.evilgodxu.screens.settings.SettingsScreen
 import com.yichao.evilgodxu.screens.typography.TypographyScreen
+import org.koin.compose.koinInject
 
 // 导航宿主：统一走路由栈
 @Composable
@@ -29,6 +30,7 @@ fun AppNavHost(
 ) {
     val backStack = rememberNavBackStack(Home)
     val context = LocalContext.current
+    val stateHolder = koinInject<MusicPanelStateHolder>()
     // LocalContext 已被本地化包装，宿主 Activity 需从注册表所有者获取
     val activity = LocalActivityResultRegistryOwner.current as? Activity
     // 预取提示文案，配置变化时由 Compose 自动更新，避免在回调中读取过期资源
@@ -40,17 +42,17 @@ fun AppNavHost(
     BackHandler(enabled = backStack.size <= 1) {
         val now = System.currentTimeMillis()
         if (now - lastHomeBackTime < DOUBLE_BACK_EXIT_MS) {
-            if (MusicPanelStateHolder.state.isPlayerActive) {
+            if (stateHolder.state.isPlayerActive) {
                 // 播放中：返回桌面，保留后台播放与迷你播放器
                 activity?.moveTaskToBack(true)
             } else {
-                MusicPanelStateHolder.releaseIfIdle()
+                stateHolder.releaseIfIdle()
                 onExit()
             }
         } else {
             lastHomeBackTime = now
             val hint =
-                if (MusicPanelStateHolder.state.isPlayerActive) goHomeHint else exitHint
+                if (stateHolder.state.isPlayerActive) goHomeHint else exitHint
             Toast.makeText(context, hint, Toast.LENGTH_SHORT).show()
         }
     }

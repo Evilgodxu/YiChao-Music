@@ -53,6 +53,7 @@ import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.DiscArt
+import org.koin.compose.koinInject
 import java.io.File
 
 @Composable
@@ -107,13 +108,14 @@ private fun coverModel(track: MusicTrack?): Any? {
 
 @Composable
 internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
+    val stateHolder = koinInject<MusicPanelStateHolder>()
     // 仅当封面相关字段变化时重算，避免列表重组时重复文件系统 stat
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
         coverModel(track)
     }
     // 封面缺失时按需补全：幂等，补全成功后回写 coverCachePath 驱动重组重新加载
     LaunchedEffect(track?.id, track?.coverCachePath, track?.neteaseCoverUrl, track?.coverFailed) {
-        track?.let { MusicPanelStateHolder.state.requestMetadata(it) }
+        track?.let { stateHolder.state.requestMetadata(it) }
     }
     if (model != null) {
         AsyncImage(
@@ -142,6 +144,7 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
+    val stateHolder = koinInject<MusicPanelStateHolder>()
     // 列表小图直接使用磁盘缓存或在线原图，由 Coil 按显示尺寸高质量下采样；
     // 128px CDN 缩略图在高 DPI 下列表放大显示会模糊，故不再使用
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
@@ -149,7 +152,7 @@ internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     }
     // 列表项封面缺失时按需补全（懒加载）：滚入视口的曲目才触发提取
     LaunchedEffect(track?.id, track?.coverCachePath, track?.neteaseCoverUrl, track?.coverFailed) {
-        track?.let { MusicPanelStateHolder.state.requestMetadata(it) }
+        track?.let { stateHolder.state.requestMetadata(it) }
     }
     if (model != null) {
         AsyncImage(

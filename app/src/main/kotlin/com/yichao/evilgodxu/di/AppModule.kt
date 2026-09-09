@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import com.yichao.evilgodxu.YiChaoActivityViewModel
 import com.yichao.evilgodxu.data.repository.SettingsRepository
+import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeViewModel
 import com.yichao.evilgodxu.screens.settings.SettingsViewModel
 import com.yichao.evilgodxu.screens.typography.TypographyViewModel
@@ -18,6 +19,8 @@ import org.koin.dsl.module
 val appModule = module {
     single { SettingsRepository(get()) }
     single { LocalizationManager(get()) }
+    // 音乐面板播放状态单例：供播放服务、悬浮窗、页面与控制器共享同一实例
+    single { MusicPanelStateHolder() }
     // 应用版本号：供 Activity/设置页展示
     single { appVersionName(androidContext()) }
     viewModelOf(::YiChaoActivityViewModel)

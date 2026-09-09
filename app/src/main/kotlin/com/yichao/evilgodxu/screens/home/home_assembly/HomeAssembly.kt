@@ -51,6 +51,7 @@ import com.yichao.evilgodxu.theme.md_theme_dark_surface
 import com.yichao.evilgodxu.ui.music.SongGradientBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 // 首页组装器：顶部标题栏（定时/收藏/横屏/设置）+ 播放器主体 + 权限与定时对话框
 @Composable
@@ -62,7 +63,7 @@ fun HomeAssembly(
     onStartPermissionMonitor: (PermissionType, Activity) -> Unit = { _, _ -> },
     onStopPermissionMonitor: () -> Unit = {},
 ) {
-    val playbackState = MusicPanelStateHolder.state
+    val playbackState = koinInject<MusicPanelStateHolder>().state
     val context = LocalContext.current
     // 播放偏好：滑动切歌开关
     val swipeToChangeTrack by context.swipeToChangeTrackFlow()
