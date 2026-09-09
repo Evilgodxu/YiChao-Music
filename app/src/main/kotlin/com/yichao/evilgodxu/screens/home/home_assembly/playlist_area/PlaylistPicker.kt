@@ -48,6 +48,7 @@ import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
+import org.koin.compose.koinInject
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 
@@ -60,6 +61,7 @@ internal fun CreatePlaylistDialog(
 ) {
     if (!visible) return
     val context = LocalContext.current
+    val playlistStore = koinInject<PlaylistStore>()
     var name by remember { mutableStateOf("") }
     MetadataDialogCard(onDismiss = onDismiss) {
         Column(
@@ -108,7 +110,7 @@ internal fun CreatePlaylistDialog(
                     onClick = {
                         val trimmed = name.trim()
                         if (trimmed.isNotEmpty()) {
-                            val created = PlaylistStore.create(context, trimmed)
+                            val created = playlistStore.create(context, trimmed)
                             if (created != null) onCreated(created)
                         }
                     },
@@ -135,6 +137,7 @@ internal fun RenamePlaylistDialog(
 ) {
     if (playlist == null) return
     val context = LocalContext.current
+    val playlistStore = koinInject<PlaylistStore>()
     var name by remember(playlist.id) { mutableStateOf(playlist.name) }
     MetadataDialogCard(onDismiss = onDismiss) {
         Column(
@@ -183,7 +186,7 @@ internal fun RenamePlaylistDialog(
                     onClick = {
                         val trimmed = name.trim()
                         if (trimmed.isNotEmpty()) {
-                            PlaylistStore.rename(context, playlist.id, trimmed)
+                            playlistStore.rename(context, playlist.id, trimmed)
                             onDismiss()
                         }
                     },
@@ -210,6 +213,7 @@ internal fun DeletePlaylistDialog(
 ) {
     if (playlist == null) return
     val context = LocalContext.current
+    val playlistStore = koinInject<PlaylistStore>()
     MetadataDialogCard(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
@@ -255,7 +259,7 @@ internal fun DeletePlaylistDialog(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.error,
                     onClick = {
-                        PlaylistStore.delete(context, playlist.id)
+                        playlistStore.delete(context, playlist.id)
                         onDismiss()
                     },
                 ) {

@@ -46,7 +46,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // 音乐播放器状态持有者（悬浮窗级共享状态）
-class MusicPlaybackState(private val metadataEnricher: MetadataEnricher) {
+class MusicPlaybackState(
+    private val metadataEnricher: MetadataEnricher,
+    private val playlistStore: PlaylistStore,
+) {
 
     // 常听收录窗口：统计 3 天内完整播放次数不少于 2 次的歌曲
     companion object {
@@ -488,8 +491,8 @@ class MusicPlaybackState(private val metadataEnricher: MetadataEnricher) {
         removeTrack(track.id, advanceToNext = true)
         likedIds = likedIds - track.id
         removeFromRecentPlayed(track.id)
-        PlaylistStore.ensureLoaded(context)
-        PlaylistStore.removeTrackFromAll(context, track.id)
+        playlistStore.ensureLoaded(context)
+        playlistStore.removeTrackFromAll(context, track.id)
     }
 
     // 删除音频源文件：先经 MediaStore 删除（同时清理媒体条目），失败则直接删本地路径并通知媒体库同步

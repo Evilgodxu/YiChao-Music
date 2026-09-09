@@ -14,10 +14,13 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
-// 自定义歌单存储：JSON 持久化于 SharedPreferences，内存态驱动 Compose 重组
-object PlaylistStore {
-    private const val PREFS = "music_playlists_preferences"
-    private const val KEY = "playlists"
+// 自定义歌单存储：JSON 持久化于 SharedPreferences，内存态驱动 Compose 重组。
+// 由 Koin 以单例管理，全库共享同一状态实例
+class PlaylistStore {
+    companion object {
+        private const val PREFS = "music_playlists_preferences"
+        private const val KEY = "playlists"
+    }
     // 首次加载标记：多线程首次访问时防止重复加载或以空列表覆盖已持久化数据
     @Volatile
     private var loaded = false

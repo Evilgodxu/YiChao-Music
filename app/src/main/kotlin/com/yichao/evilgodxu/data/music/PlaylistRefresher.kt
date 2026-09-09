@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // 播放列表刷新器：首页与音乐面板共用扫描入口，串行执行避免并发重复扫描
-class PlaylistRefresher {
+class PlaylistRefresher(private val playlistStore: PlaylistStore) {
     private val scanMutex = Mutex()
 
     // 扫描本地音乐并与外部曲目合并；restoreCurrent 控制扫描后是否恢复当前播放曲目
@@ -129,7 +129,7 @@ class PlaylistRefresher {
         library: List<MusicTrack>,
         source: PlaylistSource,
     ): List<MusicTrack> {
-        PlaylistStore.ensureLoaded(context)
+        playlistStore.ensureLoaded(context)
         return when {
             source.key == "smart:RECENT" ->
                 state.recentPlayedIds.mapNotNull { id -> library.find { it.id == id } }
@@ -160,7 +160,7 @@ class PlaylistRefresher {
             source.key.startsWith("custom:") -> {
                 val playlistId = source.key.removePrefix("custom:").toLongOrNull()
                     ?: return emptyList()
-                val playlist = PlaylistStore.playlists.find { it.id == playlistId }
+                val playlist = playlistStore.playlists.find { it.id == playlistId }
                     ?: return emptyList()
                 playlist.trackIds.mapNotNull { trackId -> library.find { it.id == trackId } }
             }

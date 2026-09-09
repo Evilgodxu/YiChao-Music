@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import org.koin.core.context.GlobalContext
+import org.koin.compose.koinInject
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.PlaylistSource
@@ -88,6 +89,7 @@ internal fun PlaylistSwitcher(
 ) {
     if (!visible) return
     val context = LocalContext.current
+    val playlistStore = koinInject<PlaylistStore>()
     var showGroups by remember { mutableStateOf<SmartPlaylistType?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -133,6 +135,7 @@ internal fun PlaylistSwitcher(
             val type = showGroups
             if (type == null) {
                 PlaylistSwitchList(
+                    playlistStore = playlistStore,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
                         switchToPlaylistQueue(context, playbackState, tracks, source)
@@ -157,6 +160,7 @@ internal fun PlaylistSwitcher(
 // 一级列表：默认播放列表 + 常听/收藏 + 专辑/艺术家入口 + 我的歌单
 @Composable
 private fun PlaylistSwitchList(
+    playlistStore: PlaylistStore,
     playbackState: MusicPlaybackState,
     onSwitch: (List<MusicTrack>, PlaylistSource?) -> Unit,
     onOpenGroups: (SmartPlaylistType) -> Unit,
@@ -237,7 +241,7 @@ private fun PlaylistSwitchList(
             )
             Spacer(modifier = Modifier.height(6.dp))
         }
-        items(PlaylistStore.playlists, key = { it.id }) { playlist ->
+        items(playlistStore.playlists, key = { it.id }) { playlist ->
             SwitchRow(
                 icon = AppIcons.QueueMusic,
                 title = playlist.name,

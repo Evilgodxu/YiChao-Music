@@ -54,6 +54,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
+import org.koin.compose.koinInject
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
@@ -157,8 +158,9 @@ internal fun PlaylistTracksPage(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val playlistStore = koinInject<PlaylistStore>()
     // 实时读取最新歌单，添加/移除歌曲后立即刷新列表
-    val currentPlaylist = PlaylistStore.playlists.find { it.id == playlist.id } ?: playlist
+    val currentPlaylist = playlistStore.playlists.find { it.id == playlist.id } ?: playlist
     val tracks = remember(playbackState.libraryTracks, currentPlaylist.trackIds) {
         resolveTracks(playbackState.libraryTracks, currentPlaylist.trackIds)
     }
@@ -180,7 +182,7 @@ internal fun PlaylistTracksPage(
         },
         onTrackLongClick = { removeTrack = it },
         onReorder = { ordered ->
-            PlaylistStore.setTrackOrder(context, playlist.id, ordered.map { it.id })
+            playlistStore.setTrackOrder(context, playlist.id, ordered.map { it.id })
         },
     )
     AddSongsPicker(
@@ -189,7 +191,7 @@ internal fun PlaylistTracksPage(
         candidateTracks = playbackState.libraryTracks,
         existingIds = currentPlaylist.trackIds.toSet(),
         onConfirm = { ids ->
-            PlaylistStore.addTracks(context, playlist.id, ids)
+            playlistStore.addTracks(context, playlist.id, ids)
             showPicker = false
         },
         onDismiss = { showPicker = false },
@@ -197,7 +199,7 @@ internal fun PlaylistTracksPage(
     RemoveTrackDialog(
         track = removeTrack,
         onConfirm = { track ->
-            PlaylistStore.removeTracks(context, playlist.id, listOf(track.id))
+            playlistStore.removeTracks(context, playlist.id, listOf(track.id))
             removeTrack = null
         },
         onDismiss = { removeTrack = null },

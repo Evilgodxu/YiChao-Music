@@ -52,6 +52,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.data.Playlist
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
+import org.koin.compose.koinInject
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
 import com.yichao.evilgodxu.screens.home.dialog.PlaylistImportDialog
 import com.yichao.evilgodxu.ui.icons.AppIcons
@@ -69,7 +70,8 @@ internal fun PlaylistPanel(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    LaunchedEffect(Unit) { PlaylistStore.ensureLoaded(context) }
+    val playlistStore = koinInject<PlaylistStore>()
+    LaunchedEffect(Unit) { playlistStore.ensureLoaded(context) }
     var backStack by remember { mutableStateOf(listOf<PlaylistPage>(PlaylistPage.Overview)) }
     LaunchedEffect(visible) { if (!visible) backStack = listOf(PlaylistPage.Overview) }
     val page = backStack.last()
@@ -99,9 +101,9 @@ internal fun PlaylistPanel(
             }
             syncState = when (result) {
                 is PlaylistSyncResult.Success -> {
-                    val created = PlaylistStore.create(context, name)
+                    val created = playlistStore.create(context, name)
                     if (created != null) {
-                        PlaylistStore.addTracks(context, created.id, result.trackIds)
+                        playlistStore.addTracks(context, created.id, result.trackIds)
                         SyncUiState.Finished(
                             result.stats.downloadedCount,
                             result.stats.existingCount,
@@ -135,6 +137,7 @@ internal fun PlaylistPanel(
             )
             when (page) {
                 is PlaylistPage.Overview -> PlaylistOverview(
+                    playlistStore = playlistStore,
                     playbackState = playbackState,
                     menuBackgroundColor = menuBackgroundColor,
                     onOpenSmart = { type ->
@@ -246,6 +249,7 @@ private fun PanelHeader(
 // 总览页：系统歌单卡片 + 我的歌单列表 + 新建歌单入口
 @Composable
 private fun PlaylistOverview(
+    playlistStore: PlaylistStore,
     playbackState: MusicPlaybackState,
     menuBackgroundColor: Color,
     onOpenSmart: (SmartPlaylistType) -> Unit,
@@ -317,7 +321,7 @@ private fun PlaylistOverview(
             CreatePlaylistRow(onClick = onCreatePlaylist)
             Spacer(modifier = Modifier.height(8.dp))
         }
-        items(PlaylistStore.playlists, key = { it.id }) { playlist ->
+        items(playlistStore.playlists, key = { it.id }) { playlist ->
             PlaylistListRow(
                 playlist = playlist,
                 count = resolveTracks(allTracks, playlist.trackIds).size,

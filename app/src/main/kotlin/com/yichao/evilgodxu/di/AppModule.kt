@@ -9,6 +9,7 @@ import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeViewModel
 import com.yichao.evilgodxu.screens.settings.SettingsViewModel
+import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.typography.TypographyViewModel
 import com.yichao.evilgodxu.ui.music.MusicPanelController
 import com.yichao.evilgodxu.update.UpdateViewModel
@@ -22,12 +23,14 @@ import org.koin.dsl.module
 val appModule = module {
     single { SettingsRepository(get()) }
     single { LocalizationManager(get()) }
+    // 自定义歌单存储单例：持有内存态歌单列表，供刷新器、播放状态与歌单 UI 共享
+    single { PlaylistStore() }
     // 音乐面板播放状态单例：供播放服务、悬浮窗、页面与控制器共享同一实例
-    single { MusicPanelStateHolder(get()) }
+    single { MusicPanelStateHolder(get(), get()) }
     // 音乐面板/迷你播放器控制器单例：应用级悬浮窗生命周期，全库注入共享，避免手动 new
     single { MusicPanelController(androidContext()) }
     // 播放列表刷新器与封面/歌词补全器单例：均内置互斥/并发控制状态，单例保证串行语义
-    single { PlaylistRefresher() }
+    single { PlaylistRefresher(get()) }
     single { MetadataEnricher() }
     // 应用版本号：供 Activity/设置页展示
     single { appVersionName(androidContext()) }
