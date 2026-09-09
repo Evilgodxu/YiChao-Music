@@ -51,11 +51,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class YiChaoActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsController
     private val localizationManager: LocalizationManager by inject()
     private val updateViewModel: UpdateViewModel by inject()
+    private val activityViewModel: YiChaoActivityViewModel by viewModel()
     private lateinit var musicPanelController: MusicPanelController
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
@@ -91,10 +93,12 @@ class YiChaoActivity : ComponentActivity() {
         })
 
         setContent {
-            ProvideLocalizedContext(localizationManager) {
-                CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
-                    ProvideWindowSizeClass {
-                        YiChaoContent()
+            CompositionLocalProvider(LocalYiChaoActivityViewModel provides activityViewModel) {
+                ProvideLocalizedContext(localizationManager) {
+                    CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
+                        ProvideWindowSizeClass {
+                            YiChaoContent()
+                        }
                     }
                 }
             }

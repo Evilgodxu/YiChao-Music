@@ -6,17 +6,14 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.LocaleList
 import androidx.activity.compose.LocalActivityResultRegistryOwner
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLocale
-import com.yichao.evilgodxu.data.repository.SettingsRepository
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yichao.evilgodxu.LocalYiChaoActivityViewModel
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import java.util.Locale
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 // 应用语言转 Locale；systemLocale 为跟随系统时的实际语言
 fun AppLanguage.toLocale(systemLocale: Locale = Locale.getDefault()): Locale = when (this) {
@@ -25,16 +22,14 @@ fun AppLanguage.toLocale(systemLocale: Locale = Locale.getDefault()): Locale = w
     AppLanguage.ENGLISH -> Locale.ENGLISH
 }
 
-// 语言管理器：驱动 Compose 层语言流，并同步 app/activity 层 Resources
+// 语言管理器：负责语言转 Locale、创建本地化上下文，并同步 app/activity 层 Resources
+// 语言来源由界面层经 ActivityViewModel 的 CompositionLocal 提供，本类不直连数据源
 class LocalizationManager(
     private val context: Context,
-    private val settingsRepository: SettingsRepository,
 ) {
     // 构造时捕获系统语言。此时进程默认语言尚未被应用内切换改写，
     // 确保跟随系统始终解析为真实系统语言
     private val systemLocale: Locale = Locale.getDefault()
-
-    val localeFlow: Flow<Locale> = settingsRepository.appLanguage.map { it.toLocale(systemLocale) }
 
     // 供切换语言时按当前语言解析 Locale
     fun resolveLanguage(language: AppLanguage): Locale = language.toLocale(systemLocale)
@@ -83,10 +78,10 @@ fun ProvideLocalizedContext(
     localizationManager: LocalizationManager,
     content: @Composable () -> Unit,
 ) {
-    val locale by localizationManager.localeFlow.collectAsState(
-        initial = LocalLocale.current.platformLocale,
+    val appUiState by LocalYiChaoActivityViewModel.current.uiState.collectAsStateWithLifecycle()
+    val localizedContext = localizationManager.createLocalizedContext(
+        localizationManager.resolveLanguage(appUiState.language),
     )
-    val localizedContext = localizationManager.createLocalizedContext(locale)
     // 替换 LocalContext 后其不再能解析到宿主 Activity，需显式保留 ActivityResultRegistryOwner
     val registryOwner = LocalActivityResultRegistryOwner.current
     CompositionLocalProvider(

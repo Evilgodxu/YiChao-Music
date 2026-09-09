@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -29,9 +28,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.drawToBitmap
-import com.yichao.evilgodxu.data.repository.SettingsRepository
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yichao.evilgodxu.LocalYiChaoActivityViewModel
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import org.koin.compose.koinInject
 
 class ThemeTransitionController {
     var request: ((Offset) -> Unit)? = null
@@ -169,10 +168,9 @@ fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val settingsRepository = koinInject<SettingsRepository>()
-    val settings by settingsRepository.settings.collectAsState(initial = null)
+    val appUiState by LocalYiChaoActivityViewModel.current.uiState.collectAsStateWithLifecycle()
 
-    val isDarkTheme = when (settings?.themeMode) {
+    val isDarkTheme = when (appUiState.themeMode) {
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
         else -> darkTheme

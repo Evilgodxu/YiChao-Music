@@ -2,6 +2,7 @@ package com.yichao.evilgodxu.di
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.yichao.evilgodxu.YiChaoActivityViewModel
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.screens.home.HomeViewModel
 import com.yichao.evilgodxu.screens.settings.SettingsViewModel
@@ -16,9 +17,10 @@ import org.koin.dsl.module
 // Koin 模块：注册数据层与 ViewModel
 val appModule = module {
     single { SettingsRepository(get()) }
-    single { LocalizationManager(get(), get()) }
+    single { LocalizationManager(get()) }
     // 应用版本号：供 Activity/设置页展示
     single { appVersionName(androidContext()) }
+    viewModelOf(::YiChaoActivityViewModel)
     // 更新检查以单例共享，主页自动检查与设置页手动检查读写同一状态
     single { UpdateViewModel(androidApplication()) }
     viewModelOf(::HomeViewModel)
