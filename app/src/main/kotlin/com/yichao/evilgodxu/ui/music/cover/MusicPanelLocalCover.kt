@@ -75,9 +75,13 @@ internal suspend fun applyLocalCover(
         val writeSuccess = MusicMetadataWriter.writeCover(context, track, bytes)
         if (!writeSuccess) return@withContext false
         val path = MusicMetadataCache.saveCover(context, track.id, bytes) ?: return@withContext false
-        // 旧文件若已无引用，由 cleanupOrphanedMetadata 统一回收，避免误删被共享的封面
+        // 旧文件若已无引用，由扫描后的窗口回收统一处理（连续数天无引用才删），避免误删被共享的封面
         withContext(Dispatchers.Main) {
-            playbackState.updateTrack(track.copy(coverCachePath = path, neteaseCoverUrl = ""))
+            // 封面已就位，清掉此前的失败标记：否则「文件里有封面、缓存也在」却仍被标记为失败，
+            // 一旦缓存文件被删就再也不会重建
+            playbackState.updateTrack(
+                track.copy(coverCachePath = path, neteaseCoverUrl = "", coverFailed = false)
+            )
             playbackState.bumpCoverRevision()
             playbackState.setLocalCoverCandidates(emptyList())
         }

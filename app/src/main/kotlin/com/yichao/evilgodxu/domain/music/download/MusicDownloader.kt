@@ -32,7 +32,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Request
 
 // 在线歌曲缓存下载：流式下载到公共下载目录的媒体集合条目，完成后重定向播放源。
-// coverDeferred 为在线封面下载任务：内嵌元数据前先等待其就绪，并取回下载到的原图字节用于内嵌
+// coverDeferred 为在线封面下载任务：内嵌元数据前先等待其就绪，并取回下载到的原图字节用于内嵌；
+// lyricDeferred 为在线歌词任务：返回增强 LRC 文本，与标题/艺术家/封面在同一次重写中写入，
+// 使歌词不再只存在于歌词缓存文件（该文件丢失后无法从网络自动恢复）
 internal suspend fun cacheToDownloads(
     context: Context,
     result: NeteaseSongSearchResult,
@@ -40,6 +42,7 @@ internal suspend fun cacheToDownloads(
     trackId: Long,
     playbackState: MusicPlaybackState,
     coverDeferred: Deferred<ByteArray?>? = null,
+    lyricDeferred: Deferred<String?>? = null,
 ) {
     // 缓存进行中的曲目切歌后仍保留在播放列表，等待下载完成将索引指向本地文件
     playbackState.cacheInProgressIds.add(trackId)
@@ -59,7 +62,7 @@ internal suspend fun cacheToDownloads(
             }
             // 等待在线封面下载就绪后再内嵌：既避免封面未落盘时标题/艺术家被整体跳过，
             // 也让下载到的封面原图与标题/艺术家一并写入缓存文件，供刷新后正确显示
-            embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await())
+            embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await(), lyricDeferred.awaitLyrics())
             // 提取封面/歌词展示缓存并清理冗余封面文件
             GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
             // 复用旧缓存同样登记本地音频库并刷新，避免旧缓存文件从未入库
@@ -109,7 +112,7 @@ internal suspend fun cacheToDownloads(
         // 消除“封面尚未落盘即触发写入导致元数据整体丢失”的时序竞态
         // 缓存完成时播放源仍是在线流，文件未被播放占用，可安全整文件重写；
         // 将标题/艺术家与下载到的封面原图一次写入本地文件，刷新后不再丢失元数据
-        embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await())
+        embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await(), lyricDeferred.awaitLyrics())
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
         GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
         // 缓存完成：登记本地音频库并刷新播放列表，建立本地索引
@@ -349,11 +352,23 @@ internal fun updateTrackAudioUri(
 // 封面优先内嵌本次下载到的原图字节；原图不可得（下载失败或跨进程恢复）时才回退读缓存文件——
 // 缓存是重编码后的 WebP，仅作兜底，避免整段元数据写入被跳过。
 // 标题/艺术家不依赖封面是否就绪，封面缺失时仅写标题/艺术家并记录缘由，不再整段静默跳过
+// 在线歌词内嵌的等待上界：超过即放弃本次内嵌，避免拖慢音频文件的元数据写入
+private const val LYRIC_EMBED_WAIT_MS = 8_000L
+
+/**
+ * 等待在线歌词任务并取回增强 LRC 文本。歌词是内嵌的附加项：等待设上界，
+ * 超时或失败都只放弃本次内嵌 —— 歌词自身的缓存落盘由该任务独立完成，不受影响；
+ * 绝不能让音频文件的标题/封面写入被歌词请求无限期拖住。
+ */
+private suspend fun Deferred<String?>?.awaitLyrics(): String? =
+    this?.let { runCatching { withTimeoutOrNull(LYRIC_EMBED_WAIT_MS) { it.await() } }.getOrNull() }
+
 private suspend fun embedCachedMetadata(
     context: Context,
     playbackState: MusicPlaybackState,
     trackId: Long,
     coverOriginal: ByteArray?,
+    lyrics: String?,
 ) {
     val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return
     val coverBytes = coverOriginal ?: MusicMetadataCache.loadCoverBytes(track.coverCachePath)
@@ -367,7 +382,7 @@ private suspend fun embedCachedMetadata(
                 "封面缓存文件缺失或损坏，仅写入标题/艺术家: 歌曲=${track.title} - ${track.artist}, 封面=${track.coverCachePath}",)
         }
     }
-    val ok = MusicMetadataWriter.writeMetadataToSource(context, track, track.title, track.artist, coverBytes)
+    val ok = MusicMetadataWriter.writeMetadataToSource(context, track, track.title, track.artist, coverBytes, lyrics)
     if (!ok) {
         CrashLogManager.logException(
             "MusicDownloader",

@@ -9,6 +9,7 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.music.model.LyricWord
 import com.yichao.evilgodxu.domain.music.download.sanitizeFileName
@@ -19,6 +20,7 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 import kotlin.math.roundToInt
 import org.json.JSONArray
+import org.json.JSONObject
 
 // 封面/歌词缓存读写工具：全部为无状态静态函数，按需传入 Context。
 // 无共享可变状态，保留对象形态，不走 Koin
@@ -36,8 +38,18 @@ internal object MusicMetadataCache {
     private val COVER_CACHE_EXTENSIONS = setOf("webp", "png")
     // 歌词缓存允许的扩展名
     private val LYRIC_CACHE_EXTENSIONS = setOf("lrc")
-    // 清理宽限期：外部写封面先落盘后写曲目引用，晚于该窗口的缓存可能尚未被引用，跳过避免误删
+    // 孤儿回收的作用域上限：只认这两个子目录，新增缓存类型须独立建目录 + 独立扩展名白名单
+    private val CACHE_DIR_NAMES = listOf(COVER_DIR, LYRIC_DIR)
+    // 立即回收的写入竞态宽限期：外部写封面先落盘后写曲目引用，晚于该窗口的缓存可能尚未被引用，跳过避免误删
     private const val ORPHAN_GRACE_MS = 10_000L
+    // 自动回收窗口：缓存文件须在每次可信扫描中都无引用、持续该时长才回收。
+    // 单次判定不足以采信 —— 引用集取自本次扫描结果，存储未挂载 / 媒体条目暂缺会让它系统性偏小
+    private const val ORPHAN_RECLAIM_WINDOW_DAYS = 3
+    private const val ORPHAN_RECLAIM_WINDOW_MS = ORPHAN_RECLAIM_WINDOW_DAYS * 24 * 60 * 60 * 1000L
+    // 无引用首见时刻的记录文件（应用私有目录，与缓存目录隔离）：丢失即时钟重置，只推迟回收
+    private const val RECLAIM_RECORD_FILE = "orphan_reclaim.json"
+    private const val RECLAIM_RECORD_KEY = "firstSeenUnreferencedAt"
+    private const val TAG = "MusicMetadataCache"
 
     // 缓存根目录：系统公共下载目录 Download/YiChao。
     // 具备全部文件访问权限时直写文件系统并附带 .nomedia 防止封面混入相册；
@@ -354,31 +366,95 @@ internal object MusicMetadataCache {
         null
     }
 
-    // 按引用集合回收孤儿缓存：删除不再被任何已知歌曲引用的封面/歌词文件。
-    // 参照集合由调用方按全量库+当前歌单构建，跨歌单共享的文件因存在引用而不会被误删。
-    // 双路覆盖：公共目录与应用专属兜底目录始终直扫；公共目录无全部文件权限时不可枚举，
-    // 再由 MediaStore 枚举自身条目兜底，两路互为补充，任一路命中的孤儿都会被回收
+    // ===== 孤儿缓存回收 =====
+    //
+    // 作用域不变量（只可收窄，不可放宽）：本机制只遍历封面与歌词两个缓存子目录（CACHE_DIR_NAMES），
+    // 且只删扩展名命中白名单的文件。在线音频缓存 Download/YiChao/Audio、用户媒体目录与任何音频文件
+    // 都不在作用域内 —— 音频只由用户显式删除曲目（deleteSongPermanently）移除。
+    //
+    // 引用集由调用方按「全量库备份 ∪ 当前歌单」构建，跨歌单共享的文件因存在引用而不会被误删；
+    // 引用集为空（如歌曲库尚未加载）直接整体跳过，避免误删全部缓存。
+    // 两条处置策略：立即回收（引用集已确认，用于用户显式删除曲目）与窗口回收（自动路径专用）。
+
+    // 未被引用的缓存候选：直扫文件系统与 MediaStore 枚举两路合并后按绝对路径去重
+    private data class OrphanCandidate(
+        val path: String,
+        val lastModifiedMs: Long,
+        val sizeBytes: Long,
+        // MediaStore 条目 ID：直删文件失败时经条目删除兜底
+        val mediaStoreId: Long?,
+    )
+
+    /** 立即回收：引用集由调用方确认（用户显式删除曲目），仅保留写入竞态宽限期 */
     fun cleanupOrphanedMetadata(context: Context, referencedPaths: Set<String>) {
-        val referenced = referencedPaths.filter(String::isNotBlank).toSet()
-        // 引用集为空（如歌曲库尚未加载）时跳过清理，避免误删全部缓存
-        if (referenced.isEmpty()) return
-        val dirNames = listOf(COVER_DIR, LYRIC_DIR)
-        val roots = buildList {
-            add(mediaRoot(context))
-            context.getExternalFilesDir(null)
-                ?.takeIf { it.path != mediaRoot(context).path }
-                ?.let { add(it) }
-        }
-        dirNames.forEach { dirName -> roots.forEach { root -> removeOrphanFiles(File(root, dirName), referenced) } }
-        dirNames.forEach { dirName -> removeOrphanMediaStore(context, dirName, referenced) }
+        val referenced = normalizedReferences(referencedPaths) ?: return
+        val now = System.currentTimeMillis()
+        val reclaimable = collectOrphans(context, referenced)
+            .filter { now - it.lastModifiedMs > ORPHAN_GRACE_MS }
+        deleteOrphans(context, reclaimable, "立即回收")
     }
 
-    private fun removeOrphanFiles(dir: File, referenced: Set<String>) {
+    /**
+     * 窗口回收（自动路径专用）：仅回收「每次可信扫描都无引用、且已持续 [ORPHAN_RECLAIM_WINDOW_DAYS] 天」的文件。
+     *
+     * 首次观察到的无引用文件只登记首见时刻、不删除：引用集取自本次扫描结果，存储未挂载或媒体条目暂缺
+     * 会让它系统性偏小，单次判定不足以采信。期间一旦被重新引用或文件消失，记录即清除、时钟不推进。
+     * 记录存于应用私有目录；损坏或丢失时按「无记录」处理，只推迟回收，不会误删。
+     */
+    fun reclaimStaleOrphans(context: Context, referencedPaths: Set<String>) {
+        val referenced = normalizedReferences(referencedPaths) ?: return
+        val now = System.currentTimeMillis()
+        val orphans = collectOrphans(context, referenced)
+        val orphanPaths = orphans.mapTo(mutableSetOf()) { it.path }
+        val firstSeenAt = loadReclaimRecords(context)
+        // 已被重新引用、或已不在盘上的记录一律清除
+        firstSeenAt.keys.retainAll(orphanPaths)
+        val reclaimable = mutableListOf<OrphanCandidate>()
+        orphans.forEach { orphan ->
+            val seenAt = firstSeenAt[orphan.path]
+            when {
+                // 首次观察到无引用：只登记首见时刻，本次不回收
+                seenAt == null -> firstSeenAt[orphan.path] = now
+                now - seenAt >= ORPHAN_RECLAIM_WINDOW_MS -> {
+                    firstSeenAt.remove(orphan.path)
+                    reclaimable += orphan
+                }
+            }
+        }
+        saveReclaimRecords(context, firstSeenAt)
+        deleteOrphans(context, reclaimable, "连续${ORPHAN_RECLAIM_WINDOW_DAYS}天无引用")
+    }
+
+    // 引用集归一：空引用集说明歌曲库尚未加载，此时任何缓存都"看似无引用"，必须整体跳过
+    private fun normalizedReferences(referencedPaths: Set<String>): Set<String>? =
+        referencedPaths.filter(String::isNotBlank).toSet().takeIf { it.isNotEmpty() }
+
+    // 枚举所有根目录下未被引用的缓存文件。双路互为补充：公共目录无全部文件权限时不可直扫（返回 null
+    // 或抛安全异常），由 MediaStore 枚举自身条目兜底；任一路命中的候选都会被回收
+    private fun collectOrphans(context: Context, referenced: Set<String>): List<OrphanCandidate> {
+        val byPath = LinkedHashMap<String, OrphanCandidate>()
+        val mediaRoot = mediaRoot(context)
+        val roots = buildList {
+            add(mediaRoot)
+            context.getExternalFilesDir(null)
+                ?.takeIf { it.path != mediaRoot.path }
+                ?.let { add(it) }
+        }
+        CACHE_DIR_NAMES.forEach { dirName ->
+            roots.forEach { root -> collectOrphanFiles(File(root, dirName), referenced, byPath) }
+            collectOrphanMediaStore(context, dirName, referenced, byPath)
+        }
+        return byPath.values.toList()
+    }
+
+    private fun collectOrphanFiles(
+        dir: File,
+        referenced: Set<String>,
+        into: MutableMap<String, OrphanCandidate>,
+    ) {
         // 仅封面目录保留 .nomedia，歌词目录残留的旧 .nomedia 一并清理
         val isCoverDir = dir.name == COVER_DIR
         val allowed = if (isCoverDir) COVER_CACHE_EXTENSIONS else LYRIC_CACHE_EXTENSIONS
-        val now = System.currentTimeMillis()
-        // 无全部文件权限时公共目录不可枚举（返回 null 或抛安全异常），静默跳过由 MediaStore 兜底
         runCatching { dir.listFiles() }.getOrNull().orEmpty().forEach { file ->
             if (!file.isFile) return@forEach
             if (file.name == ".nomedia") {
@@ -388,34 +464,96 @@ internal object MusicMetadataCache {
             // 仅清理明确属于缓存的扩展名，防止误删目录内其他用途文件
             if (file.extension !in allowed) return@forEach
             if (file.absolutePath in referenced) return@forEach
-            // 最近写入的缓存可能尚未被曲目引用（外部写封面与清理存在竞态），留出宽限期跳过
-            if (now - file.lastModified() > ORPHAN_GRACE_MS) runCatching { file.delete() }
+            into[file.absolutePath] = OrphanCandidate(
+                path = file.absolutePath,
+                lastModifiedMs = file.lastModified(),
+                sizeBytes = file.length(),
+                mediaStoreId = null,
+            )
         }
     }
 
-    // 公共目录无全部文件权限时经 MediaStore 枚举自身缓存条目并删除孤儿，避免公共目录 EACCES
-    private fun removeOrphanMediaStore(context: Context, dirName: String, referenced: Set<String>) {
+    private fun collectOrphanMediaStore(
+        context: Context,
+        dirName: String,
+        referenced: Set<String>,
+        into: MutableMap<String, OrphanCandidate>,
+    ) {
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
             MediaStore.Downloads._ID,
             MediaStore.Downloads.DATA,
+            MediaStore.MediaColumns.SIZE,
             MediaStore.MediaColumns.DATE_MODIFIED,
         )
         val selection = "${MediaStore.Downloads.RELATIVE_PATH}=?"
         try {
             context.contentResolver.query(collection, projection, selection, arrayOf(downloadsRelativePath(dirName)), null)
                 ?.use { cursor ->
-                    val nowSec = System.currentTimeMillis() / 1000
                     while (cursor.moveToNext()) {
+                        val id = cursor.getLong(0)
                         val path = cursor.getString(1) ?: continue
                         if (path in referenced) continue
-                        // 与文件扫描一致：最近写入的条目可能尚未被曲目引用，留出宽限期避免误删
-                        if (nowSec - cursor.getLong(2) < ORPHAN_GRACE_MS / 1000) continue
-                        context.contentResolver.delete(ContentUris.withAppendedId(collection, cursor.getLong(0)), null, null)
+                        val existing = into[path]
+                        // 直扫已列出同一文件时只补上条目 ID，供直删失败时经 MediaStore 兜底
+                        if (existing != null) {
+                            into[path] = existing.copy(mediaStoreId = id)
+                            continue
+                        }
+                        into[path] = OrphanCandidate(
+                            path = path,
+                            // MediaStore 的修改时间为秒精度
+                            lastModifiedMs = cursor.getLong(3) * 1000L,
+                            sizeBytes = cursor.getLong(2),
+                            mediaStoreId = id,
+                        )
                     }
                 }
         } catch (e: Exception) {
-            CrashLogManager.logException("MusicMetadataCache", "MediaStore 清理孤儿缓存失败: $dirName", e)
+            CrashLogManager.logException("MusicMetadataCache", "MediaStore 枚举孤儿缓存失败: $dirName", e)
         }
+    }
+
+    // 删除候选并落日志（目录、文件数、释放字节）：误删排查依赖此记录，不要静默删除
+    private fun deleteOrphans(context: Context, orphans: List<OrphanCandidate>, reason: String) {
+        if (orphans.isEmpty()) return
+        var deleted = 0
+        var freedBytes = 0L
+        orphans.forEach { orphan ->
+            val byFile = runCatching { File(orphan.path).delete() }.getOrDefault(false)
+            val removed = byFile || (orphan.mediaStoreId?.let { deleteMediaStoreEntry(context, it) } == true)
+            if (removed) {
+                deleted++
+                freedBytes += orphan.sizeBytes
+            }
+        }
+        if (deleted > 0) Log.i(TAG, "回收孤儿缓存[$reason] 文件数=$deleted 释放=$freedBytes B")
+    }
+
+    private fun deleteMediaStoreEntry(context: Context, id: Long): Boolean = runCatching {
+        context.contentResolver.delete(
+            ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id), null, null
+        ) > 0
+    }.getOrDefault(false)
+
+    private fun reclaimRecordFile(context: Context): File = File(context.filesDir, RECLAIM_RECORD_FILE)
+
+    // 读取「无引用首见时刻」记录；解析失败按无记录处理，只推迟回收
+    private fun loadReclaimRecords(context: Context): MutableMap<String, Long> = runCatching {
+        val file = reclaimRecordFile(context)
+        if (!file.isFile) return@runCatching mutableMapOf()
+        val records = JSONObject(file.readText()).optJSONObject(RECLAIM_RECORD_KEY)
+            ?: return@runCatching mutableMapOf()
+        val result = mutableMapOf<String, Long>()
+        records.keys().forEach { path -> result[path] = records.optLong(path) }
+        result
+    }.getOrElse { mutableMapOf() }
+
+    private fun saveReclaimRecords(context: Context, records: Map<String, Long>) = runCatching {
+        val encoded = JSONObject()
+        records.forEach { (path, seenAt) -> encoded.put(path, seenAt) }
+        reclaimRecordFile(context).writeText(JSONObject().put(RECLAIM_RECORD_KEY, encoded).toString())
+    }.onFailure {
+        CrashLogManager.logException("MusicMetadataCache", "写入孤儿回收记录失败", it)
     }
 }

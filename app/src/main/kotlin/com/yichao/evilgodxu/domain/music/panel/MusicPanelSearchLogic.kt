@@ -81,6 +81,13 @@ internal suspend fun searchLyricsCandidates(
     }
 }
 
+// 把歌词同步内嵌进音频文件：歌词缓存文件是网络来源歌词的唯一副本，内嵌后即使缓存文件丢失，
+// 也能从音频文件本身恢复。失败只记录日志（写入器内部处理），不影响歌词缓存与显示
+private suspend fun embedLyricsText(context: Context, track: MusicTrack, lyricsText: String) {
+    if (lyricsText.isBlank()) return
+    MusicMetadataWriter.writeLyricsToSource(context, track, lyricsText)
+}
+
 internal suspend fun applyLyricsCandidate(
     context: Context,
     playbackState: MusicPlaybackState,
@@ -101,6 +108,7 @@ internal suspend fun applyLyricsCandidate(
             if (lines.isEmpty()) return@withContext null
             val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lines).orEmpty()
             if (path.isBlank()) return@withContext null
+            embedLyricsText(context, track, MusicMetadataCache.encodeLyrics(lines))
             track.copy(
                 lyricCachePath = path,
                 lyricLines = lines,
@@ -140,6 +148,7 @@ internal suspend fun applyLocalLyrics(
             if (lines.isEmpty()) return@withContext null
             val path = MusicMetadataCache.saveLyrics(context, track.title, track.artist, lines).orEmpty()
             if (path.isBlank()) return@withContext null
+            embedLyricsText(context, track, MusicMetadataCache.encodeLyrics(lines))
             track.copy(lyricCachePath = path, lyricLines = lines, lyricFailed = false)
         } ?: return false
         withContext(Dispatchers.Main) {
@@ -246,11 +255,13 @@ internal suspend fun applyCoverCandidate(
             val writeSuccess = MusicMetadataWriter.writeCover(context, track, bytes)
             val path = MusicMetadataCache.saveCover(context, candidate.id, bytes).orEmpty()
             if (path.isBlank()) return@withContext null
-            // 旧文件若已无引用，由 cleanupOrphanedMetadata 统一回收，避免误删被共享的封面
+            // 旧文件若已无引用，由扫描后的窗口回收统一处理（连续数天无引用才删），避免误删被共享的封面
             track.copy(
                 neteaseId = candidate.id,
                 neteaseCoverUrl = if (writeSuccess) "" else candidate.coverUrl.orEmpty(),
-                coverCachePath = path
+                coverCachePath = path,
+                // 封面已就位，清掉此前的失败标记，否则缓存文件被删后不再重建
+                coverFailed = false
             )
         } ?: return false
         withContext(Dispatchers.Main) {
@@ -464,8 +475,10 @@ internal suspend fun downloadAndPlay(
         playTrackAt(context, playbackState, targetIndex)
     }
 
-    // 在线结果后台加载歌词：各平台各有歌词接口
-    playbackState.playbackScope.launch(Dispatchers.IO) {
+    // 在线结果后台加载歌词：各平台各有歌词接口。
+    // 以 async 返回增强 LRC 文本，供缓存流程把歌词与标题/艺术家/封面一次内嵌进音频文件；
+    // 异常已在块内捕获并返回 null，不会向作用域抛出
+    val lyricsJob = playbackState.playbackScope.async(Dispatchers.IO) {
         try {
             val lines = ProxySourceEngine.lyricLines(context, result.source, result)
                 ?: when (result.source) {
@@ -475,17 +488,22 @@ internal suspend fun downloadAndPlay(
                     MusicSearchSource.KUWO -> KuwoMusicApi.lyricLines(result).orEmpty()
                     MusicSearchSource.MIGU -> MiguMusicApi.lyricLines(result).orEmpty()
                 }
-            if (lines.isNotEmpty()) {
-                val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
-                withContext(Dispatchers.Main) {
-                    // updateTrack 同步回写并持久化引用：仅改内存态会丢失持久化引用，
-                    // 进程被杀后重启清理会把刚落盘的歌词缓存当作孤儿误删
-                    val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return@withContext
-                    playbackState.updateTrack(track.copy(lyricCachePath = lyricPath, lyricLines = lines))
-                }
+            if (lines.isEmpty()) return@async null
+            val lyricPath = MusicMetadataCache.saveLyrics(context, result.title, result.artist, lines).orEmpty()
+            withContext(Dispatchers.Main) {
+                // updateTrack 同步回写并持久化引用：仅改内存态会丢失持久化引用，
+                // 进程被杀后重启清理会把刚落盘的歌词缓存当作孤儿误删
+                val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return@withContext
+                // 歌词已就位，清掉此前的失败标记，否则缓存文件被删后不再重建
+                playbackState.updateTrack(
+                    track.copy(lyricCachePath = lyricPath, lyricLines = lines, lyricFailed = false)
+                )
             }
+            // 与歌词缓存文件同一份增强 LRC 文本，内嵌后可被内嵌歌词读取器原样解析回来
+            MusicMetadataCache.encodeLyrics(lines)
         } catch (e: Exception) {
             CrashLogManager.logException("MusicPanelSearchLogic", "获取在线歌词失败", e)
+            null
         }
     }
 
@@ -507,7 +525,8 @@ internal suspend fun downloadAndPlay(
                 // updateTrack 同步回写并持久化引用：仅改内存态会丢失持久化引用，
                 // 进程被杀后重启清理会把刚落盘的封面缓存当作孤儿误删
                 val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return@withContext
-                playbackState.updateTrack(track.copy(coverCachePath = coverPath))
+                // 封面已就位，清掉此前的失败标记，否则缓存文件被删后不再重建
+                playbackState.updateTrack(track.copy(coverCachePath = coverPath, coverFailed = false))
             }
             // 封面就绪后刷新系统媒体面板的当前 MediaItem
             refreshCurrentMediaItem(playbackState)
@@ -519,7 +538,7 @@ internal suspend fun downloadAndPlay(
     }
 
     playbackState.playbackScope.launch(Dispatchers.IO) {
-        cacheToDownloads(context, result, url, trackId, playbackState, coverJob)
+        cacheToDownloads(context, result, url, trackId, playbackState, coverJob, lyricsJob)
     }
 }
 
@@ -541,6 +560,7 @@ internal suspend fun enrichOnlineMetadata(
         val lyricPath = if (lyric.lines.isNotEmpty()) {
             MusicMetadataCache.saveLyrics(context, track.title, track.artist, lyric.lines).orEmpty()
         } else ""
+        embedLyricsText(context, track, MusicMetadataCache.encodeLyrics(lyric.lines))
         withContext(Dispatchers.Main) {
             // updateTrack 同步回写并持久化引用，避免进程被杀后重启清理误删刚下载的歌词缓存
             val track = playbackState.playlist.firstOrNull { it.id == track.id } ?: return@withContext
@@ -549,7 +569,9 @@ internal suspend fun enrichOnlineMetadata(
                     neteaseId = result.id,
                     neteaseCoverUrl = result.coverUrl.orEmpty(),
                     lyricCachePath = lyricPath,
-                    lyricLines = lyric.lines
+                    lyricLines = lyric.lines,
+                    // 取到歌词即清掉失败标记；本次没取到则保留原标记，不清也不新置
+                    lyricFailed = lyric.lines.isEmpty() && track.lyricFailed
                 )
             )
         }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -29,9 +30,12 @@ class MetadataEnricher {
         const val PROGRESSIVE_PERSIST_MIN_INTERVAL_MS = 1500L
     }
 
-    // 封面/歌词后台提取的并发上限：限制同时进行的位图解码与文件读取数量，
+    // 封面后台提取的并发上限：限制同时进行的位图解码数量，
     // 避免大歌单首次启动时内存与 CPU 尖峰导致面板卡顿
     private val metadataDispatcher = Dispatchers.IO.limitedParallelism(4)
+    // 歌词后台读取专用调度器：限并发调度器按提交顺序排队，与封面共用同一池会让
+    // 歌词任务排在全量封面之后才轮到执行，失去「同时加载」的语义，故分池
+    private val lyricDispatcher = Dispatchers.IO.limitedParallelism(4)
     // 按需懒加载专用调度器：与全量补全互不排队，UI 可见项优先提取
     private val onDemandDispatcher = Dispatchers.IO.limitedParallelism(4)
     // 全量补全排期中的曲目 ID：按需请求遇到时让路，由全量任务统一回写
@@ -42,22 +46,35 @@ class MetadataEnricher {
     // 不加锁会让同一曲目的封面与歌词被两轮补全交叉回写
     private val enrichMutex = Mutex()
 
-    suspend fun enrichAndCleanup(context: Context, playbackState: MusicPlaybackState) =
-        enrichMutex.withLock {
-            enrichPlaylistMetadata(context, playbackState)
-            // 封面/歌词跨歌单共享，参照全量库+当前歌单的引用回收孤儿文件，
-            // 其他歌单仍要使用的文件因在全量库中存在引用而不会被误删
+    /**
+     * 补全封面/歌词，并按需回收孤儿缓存。
+     *
+     * [reclaimOrphans] 仅在调用方刚完成一次可信的全量扫描时置 true：孤儿回收依赖完整引用集，
+     * 其余入口（切歌单、下载完成、媒体变更、权限回调）的引用集可能缺失，一律不参与回收。
+     * 回收本身也是窗口策略（见 [MusicMetadataCache.reclaimStaleOrphans]），不会即时删除。
+     */
+    suspend fun enrichAndCleanup(
+        context: Context,
+        playbackState: MusicPlaybackState,
+        reclaimOrphans: Boolean = false,
+    ) = enrichMutex.withLock {
+        enrichPlaylistMetadata(context, playbackState)
+        if (reclaimOrphans) {
+            // 封面/歌词跨歌单共享：引用集 = 全量库 ∪ 当前歌单，其他歌单仍要使用的文件
+            // 因在全量库中存在引用而不会被误删。libraryTracks 是 getter
+            // （默认库备份 ?: 当前歌单），自定义歌单下已包含默认库备份
             val referenced = withContext(Dispatchers.Main) {
-                (playbackState.playlist + playbackState.libraryTracks)
+                (playbackState.libraryTracks + playbackState.playlist)
                     .flatMap { listOf(it.coverCachePath, it.lyricCachePath) }
                     .toSet()
             }
             withContext(Dispatchers.IO) {
-                MusicMetadataCache.cleanupOrphanedMetadata(context, referenced)
+                MusicMetadataCache.reclaimStaleOrphans(context, referenced)
             }
-            // 封面补全后刷新系统媒体面板的当前 MediaItem，避免封面就绪后仍显示空封面
-            refreshCurrentMediaItem(playbackState)
         }
+        // 封面补全后刷新系统媒体面板的当前 MediaItem，避免封面就绪后仍显示空封面
+        refreshCurrentMediaItem(playbackState)
+    }
 
     private suspend fun enrichPlaylistMetadata(context: Context, playbackState: MusicPlaybackState) {
         val tracks = withContext(Dispatchers.Main) { playbackState.playlist.toList() }
@@ -68,20 +85,11 @@ class MetadataEnricher {
         }
         bulkInFlight.addAll(plannedIds)
         try {
-            // 封面提取与歌词读取都是离线操作、互不依赖，并行推进：
-            // 封面每首完成即回写（列表逐张刷新），歌词收齐后一次回写
-            val lyricUpdates = coroutineScope {
-                val lyricsJob = async { enrichLyrics(context, tracks) }
-                enrichLocalCoversProgressively(context, playbackState, tracks)
-                lyricsJob.await()
-            }
-            if (lyricUpdates.isEmpty()) return
-            // 歌词更新基于扫描快照，合并时以当前内存态为基准，只取歌词字段，
-            // 避免用快照里的旧封面字段覆盖封面阶段刚写入的结果
-            val updates = withContext(Dispatchers.Main) { mergeLyricUpdates(playbackState, lyricUpdates) }
-            if (updates.isEmpty()) return
-            withContext(Dispatchers.Main) {
-                playbackState.batchUpdateTracks(updates)
+            // 封面提取与歌词读取都是离线操作、互不依赖，各自独立成支路、各自完成即回写：
+            // 串成一支（先等封面跑完再取歌词）会让歌词在全量封面之后才可见，故必须并行且互不等待
+            coroutineScope {
+                launch { enrichLocalCoversProgressively(context, playbackState, tracks) }
+                launch { enrichLyricsProgressively(context, playbackState, tracks) }
             }
         } finally {
             bulkInFlight.removeAll(plannedIds)
@@ -106,11 +114,11 @@ class MetadataEnricher {
             // 缓存有效性判定与提取同放 IO：列表预取会在一次组合中对全表逐首调用本方法，
             // 「已具备缓存」的判定若留在主线程会形成数千次外部存储 stat
             val updated = withContext(onDemandDispatcher) {
-                // 已具备完整缓存则无需补全；封面与歌词均失败且无有效歌词缓存时才跳过
+                // 已具备完整缓存则无需补全
                 if (hasCompleteMetadata(track)) return@withContext track
-                if (track.coverFailed && track.lyricFailed && !MusicMetadataCache.isValid(track.lyricCachePath)) {
-                    return@withContext track
-                }
+                // 封面与歌词都没有可做的补全时直接跳过，判定与全量排期同源：
+                // 「曾落盘但文件已失效」不算已尝试失败，仍需重建
+                if (!needsCover(track) && !needsLyrics(track)) return@withContext track
                 enrichTrack(context, track)
             }
             if (updated != track) {
@@ -136,8 +144,11 @@ class MetadataEnricher {
         MusicMetadataCache.isValid(track.coverCachePath) &&
             MusicMetadataCache.isHashKeyFileName(track.coverCachePath)
 
+    // 封面缺失即需补全。引用已落盘、如今文件失效（被删 / 被清空）时 coverFailed 不作数：
+    // 曾成功落盘说明封面本可得，失败标记只针对「本地三层均不可得」，不该挡住这里的重建
     private fun needsCover(track: MusicTrack): Boolean =
-        !track.coverFailed && !coverOwned(track)
+        !coverOwned(track) &&
+            (!track.coverFailed || track.coverCachePath.isNotBlank())
 
     // 歌词未挂载即需处理：有有效缓存路径时必须读回内容；
     // 仅当既无缓存又已标记失败时才跳过，避免 lyricFailed 挡住缓存歌词的恢复
@@ -172,16 +183,10 @@ class MetadataEnricher {
         // 筛选与排序放 IO：封面缓存有效性判定含文件 stat，主线程逐首判定的代价远高于内存比较
         val ordered = withContext(Dispatchers.IO) {
             tracks
-                .filter { track ->
-                    val path = track.coverCachePath
-                    // 封面缓存按内容哈希命名且文件有效才视为已具备封面并跳过提取；
-                    // 旧版按歌曲 id 命名的缓存不匹配，重新提取时自动迁移为哈希命名（同图去重）
-                    val coverOwned = MusicMetadataCache.isValid(path) &&
-                        MusicMetadataCache.isHashKeyFileName(path)
-                    // 已尝试且失败（本地三层封面均不可得）或纯在线流曲目（无本地文件可读）均不参与提取；
-                    // 用户手动应用的封面按内容哈希落盘，会命中 coverOwned 而不会被这里覆盖
-                    !track.coverFailed && !coverOwned && (track.path.isNotBlank() || isLocalFileUri(track.audioUri))
-                }
+                // 提取条件与 needsCover 同源：封面缓存按内容哈希命名且文件有效才算已具备
+                // （旧版按歌曲 id 命名的缓存不匹配，重新提取时自动迁移为哈希命名，同图去重）；
+                // 另需有可读的本地源——纯在线流曲目无本地文件，直接留占位符
+                .filter { needsCover(it) && (it.path.isNotBlank() || isLocalFileUri(it.audioUri)) }
                 .sortedWith(compareBy { it.id != currentId })
         }
         if (ordered.isEmpty()) return emptySet()
@@ -226,12 +231,16 @@ class MetadataEnricher {
         val result = MusicScanner.loadAlbumArt(
             context, context.contentResolver,
             Uri.parse(track.audioUri), track.albumId, track.path
-        ) ?: return track.copy(coverFailed = true)
+        ) ?: return track.copy(
+            coverFailed = true,
+            // 只丢弃已失效的引用；仍可显示的旧式（非哈希命名）缓存保留，避免提取临时失败时抹掉可用封面
+            coverCachePath = track.coverCachePath.takeIf { MusicMetadataCache.isValid(it) }.orEmpty(),
+        )
         val cover = result.bitmap
         try {
             val coverPath = MusicMetadataCache.saveCover(context, track.id, cover).orEmpty()
-            // 旧文件若已无引用，由 cleanupOrphanedMetadata 统一回收，避免误删被共享的封面
-            track.copy(coverCachePath = coverPath)
+            // 旧文件若已无引用，由扫描后的窗口回收统一处理（连续数天无引用才删），避免误删被共享的封面
+            track.copy(coverCachePath = coverPath, coverFailed = false)
         } finally {
             cover.recycle()
         }
@@ -250,21 +259,38 @@ class MetadataEnricher {
         scheme == "content" || scheme == "file"
     }.getOrDefault(false)
 
-    /** 读取本地歌词（曲目缓存 / 内嵌歌词 / 共享 .lrc），返回歌词更新列表；不联网 */
-    private suspend fun enrichLyrics(context: Context, tracks: List<MusicTrack>): List<MusicTrack> {
-        // 筛选放 IO：歌词缓存有效性判定含文件 stat，主线程逐首判定代价高
-        val needLyrics = withContext(Dispatchers.IO) {
-            tracks.filter { track ->
-                // 歌词内容未挂载即处理：缓存路径存在由 enrichLyric 读文件挂载，否则尝试内嵌歌词与共享缓存
-                track.lyricLines.isEmpty() &&
-                    (MusicMetadataCache.isValid(track.lyricCachePath) || !track.lyricFailed)
-            }
+    /** 歌词懒加载：并发读取本地歌词，每首完成即回写内存态（面板/列表逐首刷新）；不联网 */
+    private suspend fun enrichLyricsProgressively(
+        context: Context,
+        playbackState: MusicPlaybackState,
+        tracks: List<MusicTrack>,
+    ) {
+        // 当前播放曲目优先读取，保证面板歌词先于整库就绪；限并发调度器按提交顺序排队，优先级仍然生效
+        val currentId = withContext(Dispatchers.Main) { playbackState.currentTrack?.id }
+        // 筛选与排序放 IO：歌词缓存有效性判定含文件 stat，主线程逐首判定代价高
+        val ordered = withContext(Dispatchers.IO) {
+            tracks
+                .filter { needsLyrics(it) }
+                .sortedWith(compareBy { it.id != currentId })
         }
-        if (needLyrics.isEmpty()) return emptyList()
-        return coroutineScope {
-            needLyrics.map { track ->
-                async(metadataDispatcher) { enrichLyric(context, track) }
-            }.awaitAll().filterNotNull()
+        if (ordered.isEmpty()) return
+        // 并发读取，每首完成即回写内存态：歌词结果基于扫描快照，
+        // 合并时以当前内存态为基准、只取歌词字段，避免用快照里的旧封面字段覆盖封面阶段刚写入的结果
+        val changed = coroutineScope {
+            ordered.map { track ->
+                async(lyricDispatcher) {
+                    val updated = enrichLyric(context, track) ?: return@async false
+                    withContext(Dispatchers.Main) {
+                        val merged = mergeLyricUpdate(playbackState, updated)
+                        if (merged != null) playbackState.batchUpdateTracks(listOf(merged), persist = false)
+                        merged != null
+                    }
+                }
+            }.awaitAll().any { it }
+        }
+        // 逐首只更新内存态，本阶段收尾统一落盘一次，避免逐曲重写整份播放列表
+        if (changed) {
+            withContext(Dispatchers.Main) { playbackState.persistPlaylist() }
         }
     }
 
@@ -318,21 +344,18 @@ class MetadataEnricher {
     private fun applyLyricOffset(lines: List<LyricLine>, offsetMs: Long): List<LyricLine> =
         if (offsetMs != 0L) MusicMetadataCache.shiftLyrics(lines, offsetMs) else lines
 
-    /** 合并歌词更新：歌词结果基于扫描快照，合并时以当前内存态为基准、只取歌词字段，
-     *  避免用快照里的旧封面字段覆盖封面阶段已逐首写入的结果；无实际变化的不入结果集 */
-    private fun mergeLyricUpdates(
+    /** 合并单曲歌词结果：歌词基于扫描快照，合并时以当前内存态为基准、只取歌词字段，
+     *  避免用快照里的旧封面字段覆盖封面阶段已逐首写入的结果；无实际变化返回 null */
+    private fun mergeLyricUpdate(
         playbackState: MusicPlaybackState,
-        lyricUpdates: List<MusicTrack>
-    ): List<MusicTrack> {
-        val liveById = playbackState.playlist.associateBy { it.id }
-        return lyricUpdates.mapNotNull { lyric ->
-            val base = liveById[lyric.id] ?: return@mapNotNull lyric
-            val merged = base.copy(
-                lyricCachePath = lyric.lyricCachePath.ifEmpty { base.lyricCachePath },
-                lyricLines = lyric.lyricLines.ifEmpty { base.lyricLines },
-                lyricFailed = base.lyricFailed || lyric.lyricFailed,
-            )
-            merged.takeIf { it != base }
-        }
+        lyric: MusicTrack
+    ): MusicTrack? {
+        val base = playbackState.playlist.firstOrNull { it.id == lyric.id } ?: return lyric
+        val merged = base.copy(
+            lyricCachePath = lyric.lyricCachePath.ifEmpty { base.lyricCachePath },
+            lyricLines = lyric.lyricLines.ifEmpty { base.lyricLines },
+            lyricFailed = base.lyricFailed || lyric.lyricFailed,
+        )
+        return merged.takeIf { it != base }
     }
 }

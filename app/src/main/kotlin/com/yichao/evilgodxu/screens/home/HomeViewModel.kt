@@ -63,7 +63,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application), K
             // 先恢复持久化歌单，避免扫描覆盖已缓存的封面/歌词
             state.restoreSavedState(context)
             playlistRefresher.refresh(context, state, restoreCurrent = true)
-            metadataEnricher.enrichAndCleanup(context, state)
+            // 刚完成一次全量扫描，引用集可信，允许参与孤儿缓存的窗口回收
+            metadataEnricher.enrichAndCleanup(context, state, reclaimOrphans = true)
         }
     }
 

@@ -31,10 +31,13 @@ internal object MusicMetadataWriter {
     // 流式复制音频躯干时的读缓冲大小
     private const val STREAM_BUFFER_SIZE = 64 * 1024
 
+    // USLT 帧的语言字段：ID3v2 规范用 "XXX" 表示语言未定义
+    private val LYRICS_LANGUAGE = "XXX".toByteArray(StandardCharsets.ISO_8859_1)
+
     suspend fun writeCover(context: Context, track: MusicTrack, coverBytes: ByteArray): Boolean =
         withContext(Dispatchers.IO) {
             write(context, track.path) { bytes ->
-                writeMetadata(bytes, null, null, null, coverBytes)
+                writeMetadata(bytes, null, null, null, coverBytes, null)
             }
         }
 
@@ -42,7 +45,7 @@ internal object MusicMetadataWriter {
     suspend fun writeCoverToSource(context: Context, track: MusicTrack, coverBytes: ByteArray): Boolean =
         withContext(Dispatchers.IO) {
             if (track.path.isNotBlank()) {
-                write(context, track.path) { bytes -> writeMetadata(bytes, null, null, null, coverBytes) }
+                write(context, track.path) { bytes -> writeMetadata(bytes, null, null, null, coverBytes, null) }
             } else {
                 writeCoverByUri(context, track.audioUri, coverBytes)
             }
@@ -55,16 +58,31 @@ internal object MusicMetadataWriter {
         title: String,
         artist: String,
         cover: ByteArray?,
+        lyrics: String? = null,
     ): Boolean = withContext(Dispatchers.IO) {
         if (track.path.isNotBlank()) {
-            write(context, track.path) { bytes -> writeMetadata(bytes, title, artist, null, cover) }
+            write(context, track.path) { bytes -> writeMetadata(bytes, title, artist, null, cover, lyrics) }
         } else {
-            rewriteByUri(context, track.audioUri) { bytes -> writeMetadata(bytes, title, artist, null, cover) }
+            rewriteByUri(context, track.audioUri) { bytes -> writeMetadata(bytes, title, artist, null, cover, lyrics) }
         }
     }
 
+    /**
+     * 把歌词文本内嵌进音频文件：本地文件走文件路径重建，在线缓存歌走 content URI 就地重写，
+     * 纯在线流（无本地文件）无可写目标而跳过。
+     * 内嵌的是增强 LRC 文本，与歌词缓存文件同源，可被内嵌歌词读取器原样解析回来。
+     */
+    suspend fun writeLyricsToSource(context: Context, track: MusicTrack, lyrics: String): Boolean =
+        withContext(Dispatchers.IO) {
+            if (track.path.isNotBlank()) {
+                write(context, track.path) { bytes -> writeMetadata(bytes, null, null, null, null, lyrics) }
+            } else {
+                rewriteByUri(context, track.audioUri) { bytes -> writeMetadata(bytes, null, null, null, null, lyrics) }
+            }
+        }
+
     private fun writeCoverByUri(context: Context, uriString: String, coverBytes: ByteArray): Boolean =
-        rewriteByUri(context, uriString) { bytes -> writeMetadata(bytes, null, null, null, coverBytes) }
+        rewriteByUri(context, uriString) { bytes -> writeMetadata(bytes, null, null, null, coverBytes, null) }
 
     // 就地重写 content URI 音频文件，非 content 协议不可写时返回 false；
     // 各失败分支均记录错误日志，便于定位“读取到不完整数据”导致的静默写入失败
@@ -120,7 +138,7 @@ internal object MusicMetadataWriter {
         artist: String,
     ): Boolean = withContext(Dispatchers.IO) {
         write(context, track.path) { bytes ->
-            writeMetadata(bytes, title, artist, null, null)
+            writeMetadata(bytes, title, artist, null, null, null)
         }
     }
 
@@ -131,7 +149,7 @@ internal object MusicMetadataWriter {
         album: String,
     ): Boolean = withContext(Dispatchers.IO) {
         write(context, track.path) { bytes ->
-            writeMetadata(bytes, null, null, album, null)
+            writeMetadata(bytes, null, null, album, null, null)
         }
     }
 
@@ -189,11 +207,20 @@ internal object MusicMetadataWriter {
         }
     }
 
-    private fun writeMetadata(bytes: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? = when {
-        isMp3(bytes) -> writeMp3(bytes, title, artist, album, cover)
-        isMp4(bytes) -> writeMp4(bytes, title, artist, album, cover)
-        isFlac(bytes) -> writeFlac(bytes, title, artist, album, cover)
-        isOpus(bytes) -> writeOpus(bytes, title, artist, album, cover)
+    // lyrics 为增强 LRC 文本；各字段 null 表示保留文件原值。
+    // WAV 不写歌词：其 ID3 标签位于文件尾部，超出内嵌歌词读取器的头部读取窗口，写进去也读不回
+    private fun writeMetadata(
+        bytes: ByteArray,
+        title: String?,
+        artist: String?,
+        album: String?,
+        cover: ByteArray?,
+        lyrics: String?,
+    ): WriteResult? = when {
+        isMp3(bytes) -> writeMp3(bytes, title, artist, album, cover, lyrics)
+        isMp4(bytes) -> writeMp4(bytes, title, artist, album, cover, lyrics)
+        isFlac(bytes) -> writeFlac(bytes, title, artist, album, cover, lyrics)
+        isOpus(bytes) -> writeOpus(bytes, title, artist, album, cover, lyrics)
         isWav(bytes) -> writeWav(bytes, title, artist, album, cover)
         else -> null
     }
@@ -207,7 +234,14 @@ internal object MusicMetadataWriter {
     private fun isWav(bytes: ByteArray) =
         bytes.size >= 12 && bytes.startsWith("RIFF") && String(bytes, 8, 4, StandardCharsets.US_ASCII) == "WAVE"
 
-    private fun writeMp3(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
+    private fun writeMp3(
+        source: ByteArray,
+        title: String?,
+        artist: String?,
+        album: String?,
+        cover: ByteArray?,
+        lyrics: String?,
+    ): WriteResult? {
         val hasId3 = source.startsWith("ID3") && source.size >= 10
         val version = if (hasId3) source[3].toInt() and 0xff else 4
         val flags = if (hasId3) source[5].toInt() and 0xff else 0
@@ -224,6 +258,7 @@ internal object MusicMetadataWriter {
         var artistWritten = artist == null
         var albumWritten = album == null
         var coverWritten = cover == null
+        var lyricsWritten = lyrics == null
         var p = frameStart
         while (p + 10 <= tagEnd) {
             val id = String(source, p, 4, StandardCharsets.US_ASCII)
@@ -236,6 +271,7 @@ internal object MusicMetadataWriter {
                 "TPE1" -> if (!artistWritten) { textFrame(frames, "TPE1", artist!!, version); artistWritten = true } else frames.write(raw)
                 "TALB" -> if (!albumWritten) { textFrame(frames, "TALB", album!!, version); albumWritten = true } else frames.write(raw)
                 "APIC" -> if (cover != null && !coverWritten) { apicFrame(frames, cover, version); coverWritten = true } else frames.write(raw)
+                "USLT" -> if (!lyricsWritten) { usltFrame(frames, lyrics!!, version); lyricsWritten = true } else frames.write(raw)
                 else -> frames.write(raw)
             }
             p += 10 + length
@@ -244,6 +280,7 @@ internal object MusicMetadataWriter {
         if (!artistWritten) textFrame(frames, "TPE1", artist!!, version)
         if (!albumWritten) textFrame(frames, "TALB", album!!, version)
         if (!coverWritten) apicFrame(frames, cover!!, version)
+        if (!lyricsWritten) usltFrame(frames, lyrics!!, version)
         val outputVersion = if (hasId3 && version == 3) 3 else 4
         val tag = ByteArrayOutputStream()
         tag.write("ID3".toByteArray()); tag.write(byteArrayOf(outputVersion.toByte(), 0, flags.toByte()))
@@ -271,6 +308,19 @@ internal object MusicMetadataWriter {
         frame(out, id, data, version)
     }
 
+    // USLT 帧数据：编码字节 + 语言(3) + 空内容描述符 + 歌词文本。
+    // v2.4 用 UTF-8（描述符以单 0 结尾），v2.3 用带 BOM 的 UTF-16（描述符以双 0 结尾），
+    // 与内嵌歌词读取器按编码选择描述符长度与字节序的分支一一对应
+    private fun usltFrame(out: ByteArrayOutputStream, lyrics: String, version: Int) {
+        val text = if (version >= 4) {
+            byteArrayOf(3) + LYRICS_LANGUAGE + byteArrayOf(0) + lyrics.toByteArray(StandardCharsets.UTF_8)
+        } else {
+            byteArrayOf(1) + LYRICS_LANGUAGE + byteArrayOf(0, 0) +
+                byteArrayOf(0xff.toByte(), 0xfe.toByte()) + lyrics.toByteArray(StandardCharsets.UTF_16LE)
+        }
+        frame(out, "USLT", text, version)
+    }
+
     private fun apicFrame(out: ByteArrayOutputStream, cover: ByteArray, version: Int) {
         val mime = sniffMimeType(cover).toByteArray(StandardCharsets.ISO_8859_1)
         val data = if (version >= 4) {
@@ -287,7 +337,14 @@ internal object MusicMetadataWriter {
         out.write(byteArrayOf(0, 0)); out.write(data)
     }
 
-    private fun writeFlac(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
+    private fun writeFlac(
+        source: ByteArray,
+        title: String?,
+        artist: String?,
+        album: String?,
+        cover: ByteArray?,
+        lyrics: String?,
+    ): WriteResult? {
         if (!source.startsWith("fLaC")) return null
         val blocks = mutableListOf<FlacBlock>()
         var p = 4
@@ -306,11 +363,11 @@ internal object MusicMetadataWriter {
             }
         }
         if (!hasLastBlock || p > source.size) return null
-        if (title != null || artist != null || album != null) {
+        if (title != null || artist != null || album != null || lyrics != null) {
             val commentIndex = blocks.indexOfFirst { it.type == 4 }
             val comments = buildComments(
                 if (commentIndex >= 0) blocks[commentIndex].data else null,
-                title, artist, album,
+                title, artist, album, lyrics,
             )
             if (commentIndex >= 0) blocks[commentIndex] = FlacBlock(4, comments) else blocks.add(FlacBlock(4, comments))
         }
@@ -326,7 +383,13 @@ internal object MusicMetadataWriter {
 
     private data class FlacBlock(val type: Int, val data: ByteArray)
 
-    private fun buildComments(original: ByteArray?, title: String?, artist: String?, album: String?): ByteArray {
+    private fun buildComments(
+        original: ByteArray?,
+        title: String?,
+        artist: String?,
+        album: String?,
+        lyrics: String?,
+    ): ByteArray {
         val vendor: ByteArray
         val fields = mutableListOf<String>()
         if (original != null && original.size >= 8) {
@@ -343,16 +406,18 @@ internal object MusicMetadataWriter {
                         val key = value.substringBefore('=').uppercase()
                         if ((title == null || key != "TITLE") &&
                             (artist == null || key != "ARTIST") &&
-                            (album == null || key != "ALBUM")
+                            (album == null || key != "ALBUM") &&
+                            (lyrics == null || key != "LYRICS")
                         ) fields += value
                         p += length
                     }
                 }
-            } else return buildComments(null, title, artist, album)
+            } else return buildComments(null, title, artist, album, lyrics)
         } else vendor = "EdgeGesture".toByteArray()
         if (title != null) fields.add("TITLE=$title")
         if (artist != null) fields.add("ARTIST=$artist")
         if (album != null) fields.add("ALBUM=$album")
+        if (lyrics != null) fields.add("LYRICS=$lyrics")
         val out = ByteArrayOutputStream(); out.write(intBytesLE(vendor.size)); out.write(vendor); out.write(intBytesLE(fields.size))
         fields.forEach { val value = it.toByteArray(StandardCharsets.UTF_8); out.write(intBytesLE(value.size)); out.write(value) }
         return out.toByteArray()
@@ -368,13 +433,20 @@ internal object MusicMetadataWriter {
         return out.toByteArray()
     }
 
-    private fun writeMp4(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
+    private fun writeMp4(
+        source: ByteArray,
+        title: String?,
+        artist: String?,
+        album: String?,
+        cover: ByteArray?,
+        lyrics: String?,
+    ): WriteResult? {
         val atoms = Mp4Atom.parseAll(source)?.toMutableList() ?: return null
         val moovIndex = atoms.indexOfFirst { it.type == "moov" }
         if (moovIndex < 0) return null
         val moov = atoms[moovIndex]
         val originalMoovSize = moov.build().size
-        moov.replaceMetadata(title, artist, album, cover)
+        moov.replaceMetadata(title, artist, album, cover, lyrics)
         val sizeDelta = moov.build().size - originalMoovSize
         if (sizeDelta != 0 && atoms.indexOfFirst { it.type == "mdat" } > moovIndex) {
             moov.adjustChunkOffsets(sizeDelta)
@@ -391,17 +463,31 @@ internal object MusicMetadataWriter {
         }
     }
 
-    private fun writeOpus(source: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): WriteResult? {
+    private fun writeOpus(
+        source: ByteArray,
+        title: String?,
+        artist: String?,
+        album: String?,
+        cover: ByteArray?,
+        lyrics: String?,
+    ): WriteResult? {
         val parsed = OggFile.parse(source) ?: return null
         val tagsIndex = parsed.packets.indexOfFirst { it.data.startsWith("OpusTags") }
         if (tagsIndex < 0) return null
         parsed.packets[tagsIndex] = parsed.packets[tagsIndex].copy(
-            data = updateOpusTags(parsed.packets[tagsIndex].data, title, artist, album, cover),
+            data = updateOpusTags(parsed.packets[tagsIndex].data, title, artist, album, cover, lyrics),
         )
         return WriteResult.Full(OggFile.build(parsed))
     }
 
-    private fun updateOpusTags(original: ByteArray, title: String?, artist: String?, album: String?, cover: ByteArray?): ByteArray {
+    private fun updateOpusTags(
+        original: ByteArray,
+        title: String?,
+        artist: String?,
+        album: String?,
+        cover: ByteArray?,
+        lyrics: String?,
+    ): ByteArray {
         val fields = mutableListOf<String>(); var p = 8
         var vendor = "EdgeGesture".toByteArray()
         if (p + 4 <= original.size) {
@@ -420,6 +506,7 @@ internal object MusicMetadataWriter {
                         if ((title == null || key != "TITLE") &&
                             (artist == null || key != "ARTIST") &&
                             (album == null || key != "ALBUM") &&
+                            (lyrics == null || key != "LYRICS") &&
                             (cover == null || key != "METADATA_BLOCK_PICTURE")
                         ) fields += value
                         p += length
@@ -430,6 +517,7 @@ internal object MusicMetadataWriter {
         if (title != null) fields += "TITLE=$title"
         if (artist != null) fields += "ARTIST=$artist"
         if (album != null) fields += "ALBUM=$album"
+        if (lyrics != null) fields += "LYRICS=$lyrics"
         if (cover != null) fields += "METADATA_BLOCK_PICTURE=" + android.util.Base64.encodeToString(pictureBlock(cover), android.util.Base64.NO_WRAP)
         val out = ByteArrayOutputStream(); out.write("OpusTags".toByteArray()); out.write(intBytesLE(vendor.size)); out.write(vendor); out.write(intBytesLE(fields.size))
         fields.forEach { val bytes = it.toByteArray(); out.write(intBytesLE(bytes.size)); out.write(bytes) }
@@ -602,22 +690,22 @@ internal object MusicMetadataWriter {
             return intBytes(body.size + 8) + type.toByteArray(StandardCharsets.ISO_8859_1) + body
         }
 
-        fun replaceMetadata(title: String?, artist: String?, album: String?, cover: ByteArray?): Mp4Atom {
+        fun replaceMetadata(title: String?, artist: String?, album: String?, cover: ByteArray?, lyrics: String?): Mp4Atom {
             if (type == "moov") {
                 val udta = children?.firstOrNull { it.type == "udta" }
-                if (udta != null) udta.replaceMetadata(title, artist, album, cover) else children?.add(Mp4Atom("udta", ByteArray(0), mutableListOf(metaAtom(title, artist, album, cover))))
+                if (udta != null) udta.replaceMetadata(title, artist, album, cover, lyrics) else children?.add(Mp4Atom("udta", ByteArray(0), mutableListOf(metaAtom(title, artist, album, cover, lyrics))))
             } else if (type == "udta") {
                 val meta = children?.firstOrNull { it.type == "meta" }
-                if (meta != null) meta.replaceMetadata(title, artist, album, cover) else children?.add(metaAtom(title, artist, album, cover))
+                if (meta != null) meta.replaceMetadata(title, artist, album, cover, lyrics) else children?.add(metaAtom(title, artist, album, cover, lyrics))
             } else if (type == "meta") {
                 if (children?.none { it.type == "hdlr" } == true) {
                     children.add(0, hdlrAtom())
                 }
                 val ilst = children?.firstOrNull { it.type == "ilst" }
                 if (ilst != null) {
-                    ilst.replaceItems(title, artist, album, cover)
+                    ilst.replaceItems(title, artist, album, cover, lyrics)
                 } else {
-                    children?.add(ilstAtom(title, artist, album, cover))
+                    children?.add(ilstAtom(title, artist, album, cover, lyrics))
                 }
             }
             return this
@@ -648,17 +736,21 @@ internal object MusicMetadataWriter {
             children?.forEach { it.adjustChunkOffsets(delta) }
         }
 
-        private fun replaceItems(title: String?, artist: String?, album: String?, cover: ByteArray?) {
+        // ©lyr 为歌词原子；此处不把它列入解析时的容器类型，避免历史文件中格式异常的
+        // ©lyr 让整个 atom 树解析失败（进而导致封面/标题写入整体失败），按整块丢弃重建即可
+        private fun replaceItems(title: String?, artist: String?, album: String?, cover: ByteArray?, lyrics: String?) {
             val mp4Cover = cover?.let { toMp4Cover(it) }
             val kept = children.orEmpty().filterNot {
                 (title != null && it.type == "©nam") ||
                     (artist != null && it.type == "©ART") ||
                     (album != null && it.type == "©alb") ||
+                    (lyrics != null && it.type == "©lyr") ||
                     (mp4Cover != null && it.type == "covr")
             }.toMutableList()
             if (title != null) kept.add(dataAtom("©nam", title.toByteArray()))
             if (artist != null) kept.add(dataAtom("©ART", artist.toByteArray()))
             if (album != null) kept.add(dataAtom("©alb", album.toByteArray()))
+            if (lyrics != null) kept.add(dataAtom("©lyr", lyrics.toByteArray()))
             if (mp4Cover != null) kept.add(dataAtom("covr", mp4Cover.first, mp4Cover.second))
             children?.clear(); children?.addAll(kept)
         }
@@ -682,8 +774,8 @@ internal object MusicMetadataWriter {
                 if (p != payloadEnd) return null
                 return Mp4Atom(type, bytes.copyOfRange(payloadStart, payloadStart + head), children, offset)
             }
-            private fun metaAtom(title: String?, artist: String?, album: String?, cover: ByteArray?) =
-                Mp4Atom("meta", byteArrayOf(0, 0, 0, 0), mutableListOf(hdlrAtom(), ilstAtom(title, artist, album, cover)))
+            private fun metaAtom(title: String?, artist: String?, album: String?, cover: ByteArray?, lyrics: String?) =
+                Mp4Atom("meta", byteArrayOf(0, 0, 0, 0), mutableListOf(hdlrAtom(), ilstAtom(title, artist, album, cover, lyrics)))
 
             // meta 需要 hdlr（handler_type=mdir）才被识别为 iTunes 风格元数据
             private fun hdlrAtom(): Mp4Atom {
@@ -695,10 +787,11 @@ internal object MusicMetadataWriter {
                 data.write(0)
                 return Mp4Atom("hdlr", data.toByteArray(), null)
             }
-            private fun ilstAtom(title: String?, artist: String?, album: String?, cover: ByteArray?) = Mp4Atom("ilst", ByteArray(0), buildList {
+            private fun ilstAtom(title: String?, artist: String?, album: String?, cover: ByteArray?, lyrics: String?) = Mp4Atom("ilst", ByteArray(0), buildList {
                 if (title != null) add(dataAtom("©nam", title.toByteArray()))
                 if (artist != null) add(dataAtom("©ART", artist.toByteArray()))
                 if (album != null) add(dataAtom("©alb", album.toByteArray()))
+                if (lyrics != null) add(dataAtom("©lyr", lyrics.toByteArray()))
                 cover?.let { toMp4Cover(it) }?.let { add(dataAtom("covr", it.first, it.second)) }
             }.toMutableList())
             // data atom 布局：type(4字节，1=文本/13=JPEG/14=PNG) + locale(4字节全0) + 数据

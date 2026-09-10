@@ -30,6 +30,14 @@ object MusicScanner {
         val source: AlbumArtSource,
     )
 
+    // 内嵌封面提取结果。必须区分「文件读不出」与「文件正常但没有内嵌封面」：
+    // 前者才值得换另一条取数路径重试；后者读的是同一文件的同一段标签，重试结果必然相同
+    private sealed interface EmbeddedArt {
+        data class Found(val bitmap: Bitmap) : EmbeddedArt
+        data object Absent : EmbeddedArt
+        data object Unavailable : EmbeddedArt
+    }
+
     suspend fun fromUri(context: Context, uri: Uri): MusicTrack? = withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         try {
@@ -156,10 +164,21 @@ object MusicScanner {
     ): AlbumArtResult? {
         // 内嵌封面原图优先：画质要求原图（最高 4K），256px 系统缩略图放大到列表/大封面会模糊，
         // 故内嵌原图 → 专辑封面 → 系统缩略图兜底
-        fallbackPath.takeIf { it.isNotBlank() }?.let { path ->
-            extractEmbeddedArt(path)?.let { return AlbumArtResult(it, AlbumArtSource.EMBEDDED) }
+        // 文件路径与 content URI 指向同一文件时，同一段内嵌标签不会读出两种结果：
+        // 路径已能正常读出且无内嵌封面即不再重复打开，仅当文件读不出时才换 URI 重试
+        if (fallbackPath.isNotBlank()) {
+            when (val art = extractEmbeddedArt(fallbackPath)) {
+                is EmbeddedArt.Found -> return AlbumArtResult(art.bitmap, AlbumArtSource.EMBEDDED)
+                EmbeddedArt.Absent -> Unit
+                EmbeddedArt.Unavailable -> {
+                    val byUri = extractEmbeddedArt(context, audioUri)
+                    if (byUri is EmbeddedArt.Found) return AlbumArtResult(byUri.bitmap, AlbumArtSource.EMBEDDED)
+                }
+            }
+        } else {
+            val byUri = extractEmbeddedArt(context, audioUri)
+            if (byUri is EmbeddedArt.Found) return AlbumArtResult(byUri.bitmap, AlbumArtSource.EMBEDDED)
         }
-        extractEmbeddedArt(context, audioUri)?.let { return AlbumArtResult(it, AlbumArtSource.EMBEDDED) }
         if (albumId > 0) {
             try {
                 val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
@@ -183,14 +202,17 @@ object MusicScanner {
         return null
     }
 
-    private fun extractEmbeddedArt(context: Context, audioUri: Uri): Bitmap? {
+    private fun extractEmbeddedArt(context: Context, audioUri: Uri): EmbeddedArt {
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(context, audioUri)
-            retriever.embeddedPicture?.let { MusicMetadataCache.decodeSampledBitmap(it) }
+            retriever.embeddedPicture
+                ?.let { MusicMetadataCache.decodeSampledBitmap(it) }
+                ?.let { EmbeddedArt.Found(it) }
+                ?: EmbeddedArt.Absent
         } catch (e: Exception) {
             CrashLogManager.logException("MusicScanner", "提取内嵌封面失败: $audioUri", e)
-            null
+            EmbeddedArt.Unavailable
         } finally {
             try {
                 retriever.release()
@@ -200,14 +222,17 @@ object MusicScanner {
         }
     }
 
-    private fun extractEmbeddedArt(path: String): Bitmap? {
+    private fun extractEmbeddedArt(path: String): EmbeddedArt {
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(path)
-            retriever.embeddedPicture?.let { MusicMetadataCache.decodeSampledBitmap(it) }
+            retriever.embeddedPicture
+                ?.let { MusicMetadataCache.decodeSampledBitmap(it) }
+                ?.let { EmbeddedArt.Found(it) }
+                ?: EmbeddedArt.Absent
         } catch (e: Exception) {
             CrashLogManager.logException("MusicScanner", "提取内嵌封面失败: $path", e)
-            null
+            EmbeddedArt.Unavailable
         } finally {
             try {
                 retriever.release()
@@ -221,11 +246,16 @@ object MusicScanner {
     // 本地文件路径优先，其次 content/file URI；纯在线流无内嵌封面返回 null
     internal fun loadEmbeddedCover(context: Context, audioUri: Uri, path: String): Bitmap? {
         if (path.isNotBlank()) {
-            extractEmbeddedArt(path)?.let { return it }
+            when (val art = extractEmbeddedArt(path)) {
+                is EmbeddedArt.Found -> return art.bitmap
+                // 同一文件已能正常读出且无内嵌封面，换 content URI 再读结果不变，不再重复打开
+                EmbeddedArt.Absent -> return null
+                EmbeddedArt.Unavailable -> Unit
+            }
         }
         val scheme = audioUri.scheme
         if (scheme != "content" && scheme != "file") return null
-        return extractEmbeddedArt(context, audioUri)
+        return (extractEmbeddedArt(context, audioUri) as? EmbeddedArt.Found)?.bitmap
     }
 }
 
