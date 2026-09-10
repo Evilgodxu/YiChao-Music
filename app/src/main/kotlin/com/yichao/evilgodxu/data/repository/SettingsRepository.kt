@@ -7,24 +7,30 @@ import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.data.settings.SettingsKeys
 import com.yichao.evilgodxu.data.settings.SettingsState
 import com.yichao.evilgodxu.data.settings.ThemeMode
+import com.yichao.evilgodxu.data.settings.writeBootLanguage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 // 设置仓库：数据层入口，封装 DataStore 数据源
 class SettingsRepository(private val context: Context) {
 
-    // 设置状态流：主题模式驱动全局配色
+    // 设置状态流：主题模式驱动全局配色。
+    // DataStore 每次 edit 都会重发整份 Preferences（改任一字段都需整体重写），
+    // 播放进度等高频写入会连带触发本流；按派生值去重，避免消费端被无效刷新
     val settings: Flow<SettingsState> = context.settingsDataStore.data.map { preferences ->
         SettingsState(
             themeMode = ThemeMode.fromValue(preferences[SettingsKeys.THEME_MODE] ?: ThemeMode.SYSTEM.value),
         )
-    }
+    }.distinctUntilChanged()
 
-    // 应用语言流：统一读 DataStore
+    // 应用语言流：统一读 DataStore，同样按语言值去重
     val appLanguage: Flow<AppLanguage> = context.settingsDataStore.data.map { preferences ->
         AppLanguage.entries.find { it.languageTag == preferences[SettingsKeys.LANGUAGE] } ?: AppLanguage.SYSTEM
-    }
+    }.distinctUntilChanged()
 
     suspend fun saveThemeMode(mode: ThemeMode) {
         context.settingsDataStore.edit { preferences ->
@@ -44,5 +50,7 @@ class SettingsRepository(private val context: Context) {
         context.settingsDataStore.edit { preferences ->
             preferences[SettingsKeys.LANGUAGE] = language.languageTag.orEmpty()
         }
+        // 同步刷新启动语言镜像：下次冷启动才无需读 DataStore 即可同步拿到刚选的语言
+        withContext(Dispatchers.IO) { writeBootLanguage(context, language) }
     }
 }

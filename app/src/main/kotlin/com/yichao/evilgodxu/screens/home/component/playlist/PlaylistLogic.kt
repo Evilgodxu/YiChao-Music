@@ -3,16 +3,26 @@ package com.yichao.evilgodxu.screens.home.component.playlist
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 
-// 按 id 集合从全量曲目中解析曲目，保持集合顺序
-internal fun resolveTracks(all: List<MusicTrack>, ids: Collection<Long>): List<MusicTrack> =
-    ids.mapNotNull { id -> all.find { it.id == id } }
+// 按 id 集合从全量曲目中解析曲目，保持集合顺序。
+// 先建 id 索引再查表：逐个线性扫描全库会让调用点退化为 O(曲目数 × 集合长度)
+internal fun resolveTracks(all: List<MusicTrack>, ids: Collection<Long>): List<MusicTrack> {
+    if (ids.isEmpty() || all.isEmpty()) return emptyList()
+    val byId = all.associateBy { it.id }
+    return ids.mapNotNull { byId[it] }
+}
 
 // 常听：按最近播放顺序解析
-internal fun recentTracks(all: List<MusicTrack>, recentIds: List<Long>): List<MusicTrack> =
-    recentIds.mapNotNull { id -> all.find { it.id == id } }
+internal fun recentTracks(all: List<MusicTrack>, recentIds: List<Long>): List<MusicTrack> {
+    if (recentIds.isEmpty() || all.isEmpty()) return emptyList()
+    val byId = all.associateBy { it.id }
+    return recentIds.mapNotNull { byId[it] }
+}
 
-internal fun smartTrackCount(all: List<MusicTrack>, ids: Collection<Long>): Int =
-    ids.count { id -> all.any { it.id == id } }
+internal fun smartTrackCount(all: List<MusicTrack>, ids: Collection<Long>): Int {
+    if (ids.isEmpty() || all.isEmpty()) return 0
+    val existingIds = all.mapTo(HashSet(all.size)) { it.id }
+    return ids.count { it in existingIds }
+}
 
 internal fun distinctAlbumCount(all: List<MusicTrack>): Int = all.map { it.albumId }.distinct().size
 

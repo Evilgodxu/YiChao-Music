@@ -20,7 +20,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
+import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
+import com.yichao.evilgodxu.data.settings.readBootLanguage
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.ui.AppContent
 import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
@@ -44,12 +46,16 @@ class YiChaoActivity : ComponentActivity() {
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
     override fun attachBaseContext(newBase: Context) {
-        val locale = runBlocking { newBase.bootstrapAppLanguage() }.toLocale()
         val config = Configuration(newBase.resources.configuration).apply {
-            setLocales(LocaleList(locale))
+            setLocales(LocaleList(resolveBootLanguage(newBase).toLocale()))
         }
         super.attachBaseContext(newBase.createConfigurationContext(config))
     }
+
+    // 启动语言优先同步命中轻量镜像（单键读取），避开 DataStore 首次读取的实例化与整份反序列化；
+    // 镜像缺失（首次安装 / 从旧版本升级）时才回退读 DataStore，由 Application 的预热任务补齐镜像
+    private fun resolveBootLanguage(context: Context): AppLanguage =
+        readBootLanguage(context) ?: runBlocking { context.bootstrapAppLanguage() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

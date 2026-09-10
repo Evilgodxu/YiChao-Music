@@ -23,11 +23,15 @@ internal object ProxySourceStore {
             existing is ProxyParseResult.Success && existing.spec.name == spec.name
         }
         list.add(spec.rawJson)
-        saveRawList(context, list)
         // 新导入音源默认启用
         val enabled = enabledNames(context).toMutableSet()
         enabled.add(spec.name)
-        saveEnabledNames(context, enabled)
+        // 音源列表与启用状态同属一份 XML，合并为一次落盘：拆成两次会多一倍 I/O，
+        // 且中途进程被杀会留下「音源已导入但未启用」的不一致状态
+        prefs(context).edit()
+            .putString(KEY_SOURCES, encodeStringList(list))
+            .putString(KEY_ENABLED, encodeStringList(enabled))
+            .commit()
         return parsed
     }
 
@@ -38,10 +42,12 @@ internal object ProxySourceStore {
             val existing = ProxySourceParser.parse(rawJson)
             existing is ProxyParseResult.Success && existing.spec.name == name
         }
-        saveRawList(context, list)
         val enabled = enabledNames(context).toMutableSet()
         enabled.remove(name)
-        saveEnabledNames(context, enabled)
+        prefs(context).edit()
+            .putString(KEY_SOURCES, encodeStringList(list))
+            .putString(KEY_ENABLED, encodeStringList(enabled))
+            .commit()
     }
 
     // 切换音源启用状态，停用的音源即时停止参与解析
@@ -49,7 +55,9 @@ internal object ProxySourceStore {
     fun setEnabled(context: Context, name: String, enabled: Boolean) {
         val names = enabledNames(context).toMutableSet()
         if (enabled) names.add(name) else names.remove(name)
-        saveEnabledNames(context, names)
+        prefs(context).edit()
+            .putString(KEY_ENABLED, encodeStringList(names))
+            .commit()
     }
 
     // 全部已导入音源，按导入顺序返回（附带启用状态）；与写互斥保证列表与启用状态读取一致
@@ -100,11 +108,11 @@ internal object ProxySourceStore {
         prefs(context).unregisterOnSharedPreferenceChangeListener(listener)
     }
 
-    private fun saveRawList(context: Context, list: List<String>) {
+    // 字符串集合序列化为 JSON 数组文本，交由调用方与其它键合并到同一次落盘
+    private fun encodeStringList(values: Collection<String>): String {
         val array = JSONArray()
-        list.forEach { array.put(it) }
-        // 同步写盘：代理音源为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
-        prefs(context).edit().putString(KEY_SOURCES, array.toString()).commit()
+        values.forEach { array.put(it) }
+        return array.toString()
     }
 
     private fun rawList(context: Context): List<String> {
@@ -115,13 +123,6 @@ internal object ProxySourceStore {
         } catch (e: Exception) {
             emptyList()
         }
-    }
-
-    private fun saveEnabledNames(context: Context, names: Set<String>) {
-        val array = JSONArray()
-        names.forEach { array.put(it) }
-        // 同步写盘：与音源列表一致性读（all 同步读取）保持同一落盘语义
-        prefs(context).edit().putString(KEY_ENABLED, array.toString()).commit()
     }
 
     private fun enabledNames(context: Context): Set<String> {

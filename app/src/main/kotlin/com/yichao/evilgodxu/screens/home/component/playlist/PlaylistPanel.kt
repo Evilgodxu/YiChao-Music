@@ -71,7 +71,8 @@ internal fun PlaylistPanel(
 ) {
     val context = LocalContext.current
     val playlistStore = koinInject<PlaylistStore>()
-    LaunchedEffect(Unit) { playlistStore.ensureLoaded(context) }
+    // 读盘切到 IO：首次 getSharedPreferences 需同步解析整份歌单 JSON，在主线程执行会阻塞首帧
+    LaunchedEffect(Unit) { playlistStore.awaitLoaded(context) }
     var backStack by remember { mutableStateOf(listOf<PlaylistPage>(PlaylistPage.Overview)) }
     LaunchedEffect(visible) { if (!visible) backStack = listOf(PlaylistPage.Overview) }
     val page = backStack.last()
@@ -260,13 +261,26 @@ private fun PlaylistOverview(
     onDelete: (Playlist) -> Unit,
 ) {
     val allTracks = playbackState.libraryTracks
+    // 本面板常驻合成树（仅靠位移移出屏幕，不做可见性短路），全库分组与计数必须缓存：
+    // 否则每次重组都要重扫全库，扫描期的封面批量回写会把它放大成持续卡顿
+    val unknownAlbum = stringResource(R.string.playlist_unknown_album)
+    val unknownArtist = stringResource(R.string.music_scanner_unknown_artist)
+    val libraryById = remember(allTracks) { allTracks.associateBy { it.id } }
     // 专辑/艺术家入口封面取各自类目内第一首歌，避免显示全部库（播放队列）首曲
-    val firstAlbumCover = albumGroups(allTracks, stringResource(R.string.playlist_unknown_album))
-        .firstOrNull()?.trackIds?.firstOrNull()
-        ?.let { id -> allTracks.firstOrNull { it.id == id } }
-    val firstArtistCover = artistGroups(allTracks, stringResource(R.string.music_scanner_unknown_artist))
-        .firstOrNull()?.trackIds?.firstOrNull()
-        ?.let { id -> allTracks.firstOrNull { it.id == id } }
+    val firstAlbumCover = remember(allTracks, unknownAlbum) {
+        albumGroups(allTracks, unknownAlbum).firstOrNull()?.trackIds?.firstOrNull()
+    }?.let { id -> libraryById[id] }
+    val firstArtistCover = remember(allTracks, unknownArtist) {
+        artistGroups(allTracks, unknownArtist).firstOrNull()?.trackIds?.firstOrNull()
+    }?.let { id -> libraryById[id] }
+    val recentCount = remember(allTracks, playbackState.recentPlayedIds) {
+        smartTrackCount(allTracks, playbackState.recentPlayedIds)
+    }
+    val favoriteCount = remember(allTracks, playbackState.likedIds) {
+        smartTrackCount(allTracks, playbackState.likedIds)
+    }
+    val albumCount = remember(allTracks) { distinctAlbumCount(allTracks) }
+    val artistCount = remember(allTracks) { distinctArtistCount(allTracks) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -280,13 +294,13 @@ private fun PlaylistOverview(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SmartPlaylistCard(
                         type = SmartPlaylistType.RECENT,
-                        countText = stringResource(R.string.music_panel_track_count, smartTrackCount(allTracks, playbackState.recentPlayedIds)),
+                        countText = stringResource(R.string.music_panel_track_count, recentCount),
                         onClick = { onOpenSmart(SmartPlaylistType.RECENT) },
                         modifier = Modifier.weight(1f),
                     )
                     SmartPlaylistCard(
                         type = SmartPlaylistType.FAVORITE,
-                        countText = stringResource(R.string.music_panel_track_count, smartTrackCount(allTracks, playbackState.likedIds)),
+                        countText = stringResource(R.string.music_panel_track_count, favoriteCount),
                         onClick = { onOpenSmart(SmartPlaylistType.FAVORITE) },
                         modifier = Modifier.weight(1f),
                     )
@@ -294,14 +308,14 @@ private fun PlaylistOverview(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SmartPlaylistCard(
                         type = SmartPlaylistType.ALBUM,
-                        countText = stringResource(R.string.playlist_album_count, distinctAlbumCount(allTracks)),
+                        countText = stringResource(R.string.playlist_album_count, albumCount),
                         onClick = { onOpenSmart(SmartPlaylistType.ALBUM) },
                         modifier = Modifier.weight(1f),
                         coverTrack = firstAlbumCover,
                     )
                     SmartPlaylistCard(
                         type = SmartPlaylistType.ARTIST,
-                        countText = stringResource(R.string.playlist_artist_count, distinctArtistCount(allTracks)),
+                        countText = stringResource(R.string.playlist_artist_count, artistCount),
                         onClick = { onOpenSmart(SmartPlaylistType.ARTIST) },
                         modifier = Modifier.weight(1f),
                         coverTrack = firstArtistCover,
@@ -322,10 +336,14 @@ private fun PlaylistOverview(
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(playlistStore.playlists, key = { it.id }) { playlist ->
+            // 逐行缓存解析结果：自定义歌单数量与库大小无关地重复查表会形成 O(歌单数 × 库大小)
+            val playlistTracks = remember(playlist.trackIds, libraryById) {
+                playlist.trackIds.mapNotNull { libraryById[it] }
+            }
             PlaylistListRow(
                 playlist = playlist,
-                count = resolveTracks(allTracks, playlist.trackIds).size,
-                coverTrack = resolveTracks(allTracks, playlist.trackIds).firstOrNull(),
+                count = playlistTracks.size,
+                coverTrack = playlistTracks.firstOrNull(),
                 menuBackgroundColor = menuBackgroundColor,
                 onClick = { onOpenCustom(playlist) },
                 onRename = { onRename(playlist) },

@@ -10,8 +10,6 @@ import com.yichao.evilgodxu.data.music.api.NeteaseMusicApi
 import com.yichao.evilgodxu.data.music.api.OnlineMusicSource
 import com.yichao.evilgodxu.data.music.api.QQMusicApi
 import com.yichao.evilgodxu.data.music.api.sourceOf
-import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
-import org.koin.core.context.GlobalContext
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
@@ -24,6 +22,7 @@ import com.yichao.evilgodxu.domain.music.playback.playTrackAt
 import com.yichao.evilgodxu.domain.music.playback.refreshCurrentMediaItem
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
+import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -491,9 +490,9 @@ internal suspend fun downloadAndPlay(
     }
 
     // 在线播放时同步下载封面原图落盘：缓存完成后可直接内嵌写入本地文件，面板与通知栏也即时获得本地封面。
-    // 封面就绪前标记为下载中，缓存完成流程等待本协程结束再内嵌元数据，避免封面丢失
-    val coverJob = playbackState.playbackScope.launch(Dispatchers.IO) {
-        GlobalContext.get().get<MetadataEnricher>().markOnlineCoverInFlight(trackId)
+    // 以 async 返回下载到的原图字节，供缓存流程把原图内嵌进音频文件（缓存落盘的是重编码 WebP，仅用于显示）。
+    // 在线播放由用户主动选择曲目触发，属用户决策下的联网补齐；自动补全路径不联网
+    val coverJob = playbackState.playbackScope.async(Dispatchers.IO) {
         try {
             // 代理音源优先按 coverId 换取封面，失败时回退搜索结果的封面直链
             val bytes = ProxySourceEngine.coverBytes(context, result)
@@ -501,9 +500,9 @@ internal suspend fun downloadAndPlay(
                     val coverUrl = result.coverUrl?.takeIf { it.isNotBlank() } ?: return@run null
                     NeteaseMusicApi.loadCoverBytes(coverUrl)
                 }
-                ?: return@launch
+                ?: return@async null
             val coverPath = MusicMetadataCache.saveCover(context, result.id, bytes).orEmpty()
-            if (coverPath.isBlank()) return@launch
+            if (coverPath.isBlank()) return@async null
             withContext(Dispatchers.Main) {
                 // updateTrack 同步回写并持久化引用：仅改内存态会丢失持久化引用，
                 // 进程被杀后重启清理会把刚落盘的封面缓存当作孤儿误删
@@ -512,10 +511,10 @@ internal suspend fun downloadAndPlay(
             }
             // 封面就绪后刷新系统媒体面板的当前 MediaItem
             refreshCurrentMediaItem(playbackState)
+            bytes
         } catch (e: Exception) {
             CrashLogManager.logException("MusicPanelSearchLogic", "下载在线封面失败: 歌曲=${result.title}", e)
-        } finally {
-            GlobalContext.get().get<MetadataEnricher>().clearOnlineCoverInFlight(trackId)
+            null
         }
     }
 

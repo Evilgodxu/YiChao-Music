@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -29,14 +30,31 @@ class PlaylistStore {
     // 持久化串行执行，避免并发写乱序覆盖
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val persistMutex = Mutex()
+    // 首次读盘的串行标记，避免多线程重复解析
+    private val loadMutex = Mutex()
+    // 落盘代号：提交写任务时自增，持锁后发现已有更新的快照排队即跳过本次写入。
+    // 旧实现每次 launch 一个新任务，两次相邻变更可能后发先至，让更旧的快照最后落盘
+    private val persistGeneration = AtomicLong(0)
 
     var playlists by mutableStateOf<List<Playlist>>(emptyList())
 
-    // 首次访问时读取持久化数据，避免重复加载
+    // 首次访问时读取持久化数据，避免重复加载。
+    // 同步兜底：仅供已确保加载完成的写路径使用；界面与刷新侧请改用 awaitLoaded 把读盘放到 IO
     fun ensureLoaded(context: Context) {
         if (loaded) return
         loaded = true
-        playlists = readPlaylists(context)
+        playlists = readPlaylists(context.applicationContext)
+    }
+
+    // 首次读盘切到 IO：整份歌单 JSON 的解析不应占用主线程（Compose 副作用内同步读盘会阻塞首帧）
+    suspend fun awaitLoaded(context: Context) {
+        if (loaded) return
+        loadMutex.withLock {
+            if (loaded) return
+            val cached = withContext(Dispatchers.IO) { readPlaylists(context.applicationContext) }
+            playlists = cached
+            loaded = true
+        }
     }
 
     // 新建空歌单，名称空白时返回 null
@@ -111,9 +129,13 @@ class PlaylistStore {
 
     private fun persist(context: Context) {
         // 快照当前状态，序列化与写盘移出主线程并串行执行
+        val appContext = context.applicationContext
         val snapshot = playlists
+        val generation = persistGeneration.incrementAndGet()
         ioScope.launch {
             persistMutex.withLock {
+                // 排队期间已产生更新的快照：本次写入会回退用户数据，直接跳过
+                if (generation != persistGeneration.get()) return@withLock
                 val array = JSONArray()
                 snapshot.forEach { playlist ->
                     array.put(JSONObject().apply {
@@ -124,7 +146,7 @@ class PlaylistStore {
                     })
                 }
                 // 同步写盘：自定义歌单为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
-                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .edit()
                     .putString(KEY, array.toString())
                     .commit()

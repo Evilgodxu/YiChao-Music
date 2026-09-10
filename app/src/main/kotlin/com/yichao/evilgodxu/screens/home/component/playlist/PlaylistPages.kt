@@ -68,17 +68,19 @@ internal fun PlaylistGroupsPage(
     playbackState: MusicPlaybackState,
     onOpenGroup: (PlaylistGroup) -> Unit,
 ) {
-    val groups = when (type) {
-        SmartPlaylistType.ALBUM -> albumGroups(
-            playbackState.libraryTracks,
-            stringResource(R.string.playlist_unknown_album),
-        )
-        SmartPlaylistType.ARTIST -> artistGroups(
-            playbackState.libraryTracks,
-            stringResource(R.string.music_scanner_unknown_artist),
-        )
-        else -> emptyList()
+    val library = playbackState.libraryTracks
+    val unknownAlbum = stringResource(R.string.playlist_unknown_album)
+    val unknownArtist = stringResource(R.string.music_scanner_unknown_artist)
+    // 分组是全库扫描 + 排序，缓存到曲库变化为止，避免每次重组重算
+    val groups = remember(library, type, unknownAlbum, unknownArtist) {
+        when (type) {
+            SmartPlaylistType.ALBUM -> albumGroups(library, unknownAlbum)
+            SmartPlaylistType.ARTIST -> artistGroups(library, unknownArtist)
+            else -> emptyList()
+        }
     }
+    // 行内取封面按 id 查表，避免每行线性扫描全库
+    val libraryById = remember(library) { library.associateBy { it.id } }
     val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) AppIcons.Album else AppIcons.Person
     if (groups.isEmpty()) {
         EmptyHint(text = stringResource(R.string.playlist_empty))
@@ -91,7 +93,7 @@ internal fun PlaylistGroupsPage(
         ) {
             items(groups, key = { it.key }) { group ->
                 // 专辑/艺术家歌单封面统一采用该歌单内第一首歌曲的封面
-                val coverTrack = playbackState.libraryTracks.firstOrNull { it.id == group.trackIds.firstOrNull() }
+                val coverTrack = group.trackIds.firstOrNull()?.let { libraryById[it] }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

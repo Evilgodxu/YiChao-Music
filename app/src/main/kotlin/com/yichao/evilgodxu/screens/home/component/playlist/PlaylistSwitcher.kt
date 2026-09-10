@@ -166,6 +166,8 @@ private fun PlaylistSwitchList(
     onOpenGroups: (SmartPlaylistType) -> Unit,
 ) {
     val library = playbackState.libraryTracks
+    // 行内取封面按 id 查表，避免每行线性扫描全库
+    val libraryById = remember(library) { library.associateBy { it.id } }
     val currentKey = playbackState.playlistSource?.key
     val recentLabel = stringResource(R.string.playlist_smart_recent)
     val favoriteLabel = stringResource(R.string.playlist_smart_favorite)
@@ -247,7 +249,7 @@ private fun PlaylistSwitchList(
                 title = playlist.name,
                 subtitle = stringResource(R.string.music_panel_track_count, playlist.trackIds.size),
                 isCurrent = currentKey == "custom:${playlist.id}",
-                coverTrack = library.firstOrNull { it.id == playlist.trackIds.firstOrNull() },
+                coverTrack = playlist.trackIds.firstOrNull()?.let { libraryById[it] },
                 onClick = {
                     onSwitch(
                         resolveTracks(library, playlist.trackIds),
@@ -268,11 +270,17 @@ private fun PlaylistSwitchGroups(
     onSwitch: (List<MusicTrack>, PlaylistSource?) -> Unit,
 ) {
     val library = playbackState.libraryTracks
-    val groups: List<PlaylistGroup> = if (type == SmartPlaylistType.ALBUM) {
-        albumGroups(library, stringResource(R.string.playlist_unknown_album))
-    } else {
-        artistGroups(library, stringResource(R.string.music_scanner_unknown_artist))
+    val unknownAlbum = stringResource(R.string.playlist_unknown_album)
+    val unknownArtist = stringResource(R.string.music_scanner_unknown_artist)
+    // 分组是全库扫描 + 排序，缓存到曲库变化为止，避免每次重组重算
+    val groups: List<PlaylistGroup> = remember(library, type, unknownAlbum, unknownArtist) {
+        if (type == SmartPlaylistType.ALBUM) {
+            albumGroups(library, unknownAlbum)
+        } else {
+            artistGroups(library, unknownArtist)
+        }
     }
+    val libraryById = remember(library) { library.associateBy { it.id } }
     val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) AppIcons.Album else AppIcons.Person
     val currentKey = playbackState.playlistSource?.key
     LazyColumn(
@@ -280,19 +288,17 @@ private fun PlaylistSwitchGroups(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         items(groups, key = { it.key }) { group ->
-            val tracks = library.filter { track ->
-                if (type == SmartPlaylistType.ALBUM) {
-                    track.albumId == group.key.removePrefix("album:").toLongOrNull()
-                } else {
-                    track.artist == group.name
-                }
+            // 按分组自带的 id 列表查表还原曲目：逐行 filter 全库会形成 O(分组数 × 库大小)，
+            // 且原按 group.name 反查会漏掉「未知艺术家」组（其 name 是兜底文案，不等于实际 artist）
+            val tracks = remember(group.key, libraryById) {
+                group.trackIds.mapNotNull { libraryById[it] }
             }
             SwitchRow(
                 icon = icon,
                 title = group.name,
                 subtitle = stringResource(R.string.music_panel_track_count, group.trackIds.size),
                 isCurrent = currentKey == group.key,
-                coverTrack = library.firstOrNull { it.id == group.trackIds.firstOrNull() },
+                coverTrack = tracks.firstOrNull(),
                 onClick = { onSwitch(tracks, PlaylistSource(group.key, group.name)) },
             )
         }

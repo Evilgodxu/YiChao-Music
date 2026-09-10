@@ -24,22 +24,22 @@ import com.yichao.evilgodxu.domain.music.playback.refreshCurrentPlaybackSource
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.io.File
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Request
 
 // 在线歌曲缓存下载：流式下载到公共下载目录的媒体集合条目，完成后重定向播放源。
-// coverJob 为在线封面下载协程：内嵌元数据前先等待它就绪，避免封面未落盘时标题/艺术家被整体跳过
+// coverDeferred 为在线封面下载任务：内嵌元数据前先等待其就绪，并取回下载到的原图字节用于内嵌
 internal suspend fun cacheToDownloads(
     context: Context,
     result: NeteaseSongSearchResult,
     url: String,
     trackId: Long,
     playbackState: MusicPlaybackState,
-    coverJob: Job? = null,
+    coverDeferred: Deferred<ByteArray?>? = null,
 ) {
     // 缓存进行中的曲目切歌后仍保留在播放列表，等待下载完成将索引指向本地文件
     playbackState.cacheInProgressIds.add(trackId)
@@ -57,10 +57,9 @@ internal suspend fun cacheToDownloads(
                 // 复用已有缓存：仅把播放列表索引指向本地文件，当前播放仍保持在线流
                 updateTrackAudioUri(playbackState, trackId, existingUri)
             }
-            // 等待在线封面下载就绪后再内嵌，保证封面原图不因时序竞态丢失
-            coverJob?.join()
-            // 把在线播放时的标题/艺术家与封面原图写入缓存文件，供刷新后正确显示
-            embedCachedMetadata(context, playbackState, trackId)
+            // 等待在线封面下载就绪后再内嵌：既避免封面未落盘时标题/艺术家被整体跳过，
+            // 也让下载到的封面原图与标题/艺术家一并写入缓存文件，供刷新后正确显示
+            embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await())
             // 提取封面/歌词展示缓存并清理冗余封面文件
             GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
             // 复用旧缓存同样登记本地音频库并刷新，避免旧缓存文件从未入库
@@ -106,12 +105,11 @@ internal suspend fun cacheToDownloads(
         withContext(Dispatchers.Main) {
             updateTrackAudioUri(playbackState, trackId, audioUri)
         }
-        // 等待在线封面下载协程结束，确保 coverCachePath 就绪后再内嵌标题/艺术家/封面，
+        // 等待在线封面下载协程结束再内嵌：确保封面缓存与原图字节都已就绪，
         // 消除“封面尚未落盘即触发写入导致元数据整体丢失”的时序竞态
-        coverJob?.join()
         // 缓存完成时播放源仍是在线流，文件未被播放占用，可安全整文件重写；
-        // 将标题/艺术家与封面原图一次写入本地文件，刷新后不再丢失元数据
-        embedCachedMetadata(context, playbackState, trackId)
+        // 将标题/艺术家与下载到的封面原图一次写入本地文件，刷新后不再丢失元数据
+        embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await())
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
         GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
         // 缓存完成：登记本地音频库并刷新播放列表，建立本地索引
@@ -347,22 +345,27 @@ internal fun updateTrackAudioUri(
     playbackState.persistPlaylist()
 }
 
-// 缓存完成后把在线播放时的标题/艺术家与封面原图写入本地文件；
+// 缓存完成后把在线播放时的标题/艺术家与封面原图写入本地文件。
+// 封面优先内嵌本次下载到的原图字节；原图不可得（下载失败或跨进程恢复）时才回退读缓存文件——
+// 缓存是重编码后的 WebP，仅作兜底，避免整段元数据写入被跳过。
 // 标题/艺术家不依赖封面是否就绪，封面缺失时仅写标题/艺术家并记录缘由，不再整段静默跳过
 private suspend fun embedCachedMetadata(
     context: Context,
     playbackState: MusicPlaybackState,
     trackId: Long,
+    coverOriginal: ByteArray?,
 ) {
     val track = playbackState.playlist.firstOrNull { it.id == trackId } ?: return
-    val coverBytes = MusicMetadataCache.loadCoverBytes(track.coverCachePath)
-    when {
-        track.coverCachePath.isBlank() -> CrashLogManager.logException(
-            "MusicDownloader",
-            "缓存完成时在线封面尚未就绪，仅写入标题/艺术家: 歌曲=${track.title} - ${track.artist}",)
-        coverBytes == null -> CrashLogManager.logException(
-            "MusicDownloader",
-            "封面缓存文件缺失或损坏，仅写入标题/艺术家: 歌曲=${track.title} - ${track.artist}, 封面=${track.coverCachePath}",)
+    val coverBytes = coverOriginal ?: MusicMetadataCache.loadCoverBytes(track.coverCachePath)
+    if (coverOriginal == null) {
+        when {
+            track.coverCachePath.isBlank() -> CrashLogManager.logException(
+                "MusicDownloader",
+                "缓存完成时在线封面尚未就绪，仅写入标题/艺术家: 歌曲=${track.title} - ${track.artist}",)
+            coverBytes == null -> CrashLogManager.logException(
+                "MusicDownloader",
+                "封面缓存文件缺失或损坏，仅写入标题/艺术家: 歌曲=${track.title} - ${track.artist}, 封面=${track.coverCachePath}",)
+        }
     }
     val ok = MusicMetadataWriter.writeMetadataToSource(context, track, track.title, track.artist, coverBytes)
     if (!ok) {

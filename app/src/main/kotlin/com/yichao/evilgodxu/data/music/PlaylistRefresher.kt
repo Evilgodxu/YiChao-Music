@@ -39,18 +39,18 @@ class PlaylistRefresher(private val playlistStore: PlaylistStore) {
             if (!started) return@withLock
             try {
                 val tracks = MusicScanner.scan(context)
-                // 合并去重在 IO 线程执行：同一文件可能经 SAF 选择器 / 缓存下载 / MediaStore 多条 URI
-                // 形态进入列表，仅按 URI 去重会残留同文件多条目且每次刷新重新产生，故按真实文件路径合并
-                val mergedBase = withContext(Dispatchers.IO) {
+                // 合并去重、缓存复用索引建立与排序全为纯计算，与扫描同放 IO：
+                // 原先这段留在主线程，数千首的库在刷新期间会持续占用主线程
+                val sortedLibrary = withContext(Dispatchers.IO) {
                     // 在线播放曲目（含已缓存）仅保留当前播放项，其余未播放的一律丢弃，
                     // 其余外部曲目（path 为空）照常合并，避免刷新后在线歌曲常驻
                     val activeId = state.currentTrack?.id
                     val externalTracks = state.playlist.filter {
                         it.path.isBlank() && (!it.isOnlinePlay || it.id == activeId)
                     }
-                    (tracks + externalTracks).distinctBy { trackIdentityKey(context, it) }
-                }
-                withContext(Dispatchers.Main) {
+                    // 合并去重：同一文件可能经 SAF 选择器 / 缓存下载 / MediaStore 多条 URI
+                    // 形态进入列表，仅按 URI 去重会残留同文件多条目且每次刷新重新产生，故按真实文件路径合并
+                    val mergedBase = (tracks + externalTracks).distinctBy { trackIdentityKey(context, it) }
                     // 缓存复用索引以全量库为准而非当前列表：停留在歌单时当前列表只是全量库子集，
                     // 仅按它建索引会丢掉库内其他歌曲的歌词/封面缓存引用，导致切歌单后缓存污染
                     val cachedLibrary = state.libraryTracks
@@ -75,11 +75,13 @@ class PlaylistRefresher(private val playlistStore: PlaylistStore) {
                                 lyricFailed = cached.lyricFailed,
                             )
                         }
+                    state.sortPlaylistForDefaultOrder(mergedTracks)
+                }
+                withContext(Dispatchers.Main) {
                     // 扫描前快照当前歌单选择，扫描后按新库重建并保持选中而非回到默认
                     val selectedSource = state.playlistSource
                     val currentId = state.currentTrack?.id
-                    state.setSortedPlaylist(mergedTracks)
-                    val sortedLibrary = state.playlist
+                    state.applySortedPlaylist(sortedLibrary)
                     if (selectedSource != null) {
                         val rebuilt = rebuildFromSource(context, state, sortedLibrary, selectedSource)
                         if (rebuilt.isNotEmpty()) {
@@ -129,19 +131,21 @@ class PlaylistRefresher(private val playlistStore: PlaylistStore) {
         library: List<MusicTrack>,
         source: PlaylistSource,
     ): List<MusicTrack> {
-        playlistStore.ensureLoaded(context)
+        playlistStore.awaitLoaded(context)
         return when {
-            source.key == "smart:RECENT" ->
-                state.recentPlayedIds.mapNotNull { id -> library.find { it.id == id } }
+            source.key == "smart:RECENT" -> {
+                val byId = library.associateBy { it.id }
+                state.recentPlayedIds.mapNotNull { id -> byId[id] }
+            }
             source.key == "smart:FAVORITE" ->
                 library.filter { it.id in state.likedIds }
             source.key.startsWith("smart:FORMAT:") -> {
                 val format = source.key.removePrefix("smart:FORMAT:")
-                // 假无损 / AI 音乐为识别类目：逐曲校验（缓存命中即瞬时返回），放 IO 线程避免阻塞刷新协程
-                if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY ||
-                    format == AiMusicAnalyzer.AI_MUSIC_KEY
-                ) {
-                    withContext(Dispatchers.IO) {
+                // 识别类目逐曲校验、格式类目逐曲判定都在 IO 执行，避免占用主线程
+                withContext(Dispatchers.IO) {
+                    if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY ||
+                        format == AiMusicAnalyzer.AI_MUSIC_KEY
+                    ) {
                         buildList {
                             library.forEach { track ->
                                 val hit = if (format == FakeLosslessAnalyzer.FAKE_LOSSLESS_KEY) {
@@ -152,9 +156,9 @@ class PlaylistRefresher(private val playlistStore: PlaylistStore) {
                                 if (hit) add(track)
                             }
                         }
+                    } else {
+                        library.filter { trackFormatCategory(context, it) == format }
                     }
-                } else {
-                    library.filter { trackFormatCategory(context, it) == format }
                 }
             }
             source.key.startsWith("custom:") -> {
@@ -162,7 +166,9 @@ class PlaylistRefresher(private val playlistStore: PlaylistStore) {
                     ?: return emptyList()
                 val playlist = playlistStore.playlists.find { it.id == playlistId }
                     ?: return emptyList()
-                playlist.trackIds.mapNotNull { trackId -> library.find { it.id == trackId } }
+                // 建一次 id 索引再查表：逐个线性扫描全库会退化为 O(歌单长度 × 库大小)
+                val byId = library.associateBy { it.id }
+                playlist.trackIds.mapNotNull { trackId -> byId[trackId] }
             }
             source.key.startsWith("album:") -> {
                 val albumId = source.key.removePrefix("album:").toLongOrNull()

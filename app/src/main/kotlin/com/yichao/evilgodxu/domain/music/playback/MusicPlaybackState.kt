@@ -492,7 +492,8 @@ class MusicPlaybackState(
         removeTrack(track.id, advanceToNext = true)
         likedIds = likedIds - track.id
         removeFromRecentPlayed(track.id)
-        playlistStore.ensureLoaded(context)
+        // 读盘切到 IO：首次 getSharedPreferences 需同步解析整份歌单 JSON，不应占用主线程
+        playlistStore.awaitLoaded(context)
         playlistStore.removeTrackFromAll(context, track.id)
     }
 
@@ -766,21 +767,22 @@ class MusicPlaybackState(
         playlistPersistJob?.cancel()
         playlistPersistJob = playbackScope.launch {
             withContext(Dispatchers.IO) {
-                saveCachedPlaylist(context, playlistCacheKey, playlist)
-                // 歌单来源与默认库备份随播放列表一同持久化，重启后恢复选中状态
-                val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
+                // 单次 Editor 一次落盘：当前列表、歌单来源、默认库备份同属一份 XML，
+                // 拆成三次 commit 会把整份文件重写三遍，且中途进程被杀会留下
+                // 「列表已更新、来源或备份未更新」的不一致状态
                 val source = playlistSource
-                // 同步写盘：播放列表缓存为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
-                prefs.edit()
-                    .putString(playlistSourceKeyPref, source?.key)
-                    .putString(playlistSourceNamePref, source?.name)
-                    .commit()
                 val backup = defaultPlaylistBackup
+                val editor = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE).edit()
+                editor.putString(playlistCacheKey, encodePlaylist(playlist))
+                editor.putString(playlistSourceKeyPref, source?.key)
+                editor.putString(playlistSourceNamePref, source?.name)
                 if (backup != null) {
-                    saveCachedPlaylist(context, defaultPlaylistCacheKeyPref, backup)
+                    editor.putString(defaultPlaylistCacheKeyPref, encodePlaylist(backup))
                 } else {
-                    prefs.edit().remove(defaultPlaylistCacheKeyPref).commit()
+                    editor.remove(defaultPlaylistCacheKeyPref)
                 }
+                // 同步写盘：播放列表缓存为用户关键数据，apply 异步落盘存在进程被杀丢失窗口
+                editor.commit()
             }
         }
     }
@@ -852,7 +854,8 @@ class MusicPlaybackState(
         }
     }
 
-    private fun saveCachedPlaylist(context: Context, cacheKey: String, tracks: List<MusicTrack>) {
+    // 曲目列表序列化为 JSON 文本，交由调用方与其它键合并到同一次落盘
+    private fun encodePlaylist(tracks: List<MusicTrack>): String {
         val array = JSONArray()
         tracks.forEach { track ->
             array.put(JSONObject().apply {
@@ -875,10 +878,7 @@ class MusicPlaybackState(
                 put("lyricFailed", track.lyricFailed)
             })
         }
-        context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-            .edit()
-            .putString(cacheKey, array.toString())
-            .commit()
+        return array.toString()
     }
 
     var pendingSavedUri: String? = null
@@ -999,12 +999,16 @@ class MusicPlaybackState(
         timerRemaining = 0
     }
 
-    // 将原始曲目列表按默认规则排序（歌手聚合 → 专辑聚合 → 标题），并保留当前曲目索引
-    fun setSortedPlaylist(tracks: List<MusicTrack>) {
-        val currentId = currentTrack?.id
-        val sorted = tracks
-            .map { it.copy(isFavorite = likedIds.contains(it.id)) }
+    // 排序规则的纯计算部分（收藏回填 + 歌手/专辑/标题排序）：不触碰状态，
+    // 供调用方在 IO 线程算好后回主线程赋值，避免大库排序占用主线程
+    fun sortPlaylistForDefaultOrder(tracks: List<MusicTrack>): List<MusicTrack> =
+        tracks
+            .map { it.copy(isFavorite = it.id in likedIds) }
             .sortedByDefaultOrder()
+
+    // 应用已排好序的播放列表，并保留当前曲目索引
+    fun applySortedPlaylist(sorted: List<MusicTrack>) {
+        val currentId = currentTrack?.id
         playlist = sorted
         currentIndex = sorted.indexOfFirst { it.id == currentId }.coerceAtLeast(-1)
     }
@@ -1039,9 +1043,12 @@ class MusicPlaybackState(
         coverRevision++
     }
 
-    // 批量更新曲目元数据（封面等），一次触发重组 + 一次持久化；
-    // 同时回写全量库备份，保证切歌单后其他歌单的歌曲引用到最新封面
-    fun batchUpdateTracks(updates: List<MusicTrack>) {
+    // 批量更新曲目元数据（封面等），一次触发重组；
+    // 同时回写全量库备份，保证切歌单后其他歌单的歌曲引用到最新封面。
+    // persist=false 时只更新内存态，由调用方按节流策略统一落盘（渐进补全用，
+    // 使列表能逐条刷新而不必为每条回写整份播放列表）
+    fun batchUpdateTracks(updates: List<MusicTrack>, persist: Boolean = true) {
+        if (updates.isEmpty()) return
         val updateMap = updates.associateBy { it.id }
         val applyUpdates: (List<MusicTrack>) -> List<MusicTrack> = { list ->
             list.map { orig ->
@@ -1051,7 +1058,7 @@ class MusicPlaybackState(
         playlist = applyUpdates(playlist)
         currentTrack = currentTrack?.let { updateMap[it.id] ?: it }
         defaultPlaylistBackup = defaultPlaylistBackup?.let(applyUpdates)
-        persistPlaylist()
+        if (persist) persistPlaylist()
     }
 
     // 按需补全单曲封面/歌词（懒加载）：幂等，由 UI 可见项触发，
