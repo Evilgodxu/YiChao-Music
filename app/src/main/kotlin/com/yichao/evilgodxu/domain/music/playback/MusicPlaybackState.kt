@@ -274,6 +274,9 @@ class MusicPlaybackState(
     var playbackSpeed by mutableFloatStateOf(PLAYBACK_SPEED_DEFAULT)
     var errorMsg by mutableStateOf<String?>(null)
     var isScanning by mutableStateOf(false)
+    // 元数据补全（封面解码 / 歌词读取）进行中：曲库分析的自动触发据此让路，
+    // 避免频谱解码与封面解码在同一时间窗内争抢 CPU 与原生解码器内存
+    var isEnrichingMetadata by mutableStateOf(false)
     var isLyricsVisible by mutableStateOf(false)
 
     // 在线搜索相关状态

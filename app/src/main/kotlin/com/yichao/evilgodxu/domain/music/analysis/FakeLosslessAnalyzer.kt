@@ -6,7 +6,8 @@ import kotlin.math.log10
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// 假无损识别器：两级判定，逐曲串行，契合资源受限设备整库校验。
+// 假无损识别器：两级判定。单曲入口（歌单过滤）逐曲执行；整库校验走合并批量分析，
+// 由调用方在限并发调度器上推进（并发上限见 LibraryAnalysisRunner）。
 // ① 轻量预筛：扩展名 + FLAC 容器头，仅排除非 FLAC 与超低规格（<44.1kHz/<16bit/<2ch）文件；
 //    不设码率压缩比/头部规格免检路径——伪造文件可借量化噪声/上采样令码率虚高，
 //    头部参数亦不可信，任何候选文件都不得绕过频谱判定；
@@ -19,7 +20,7 @@ import kotlinx.coroutines.withContext
 //       经去相关性与转码特征（编码器截止网格 / 高频掩蔽空洞）两级佐证区分，佐证不足放行；
 //    c) 高解析：非升频的硬墙视为自然滚降，直接放行，避免把母带高频滚降误判为转码。
 // 结果持久化缓存与批量增量校验复用 TrackVerdictCache；
-// 进度由调用方逐曲驱动，协程取消即时释放解码器。
+// 进度由调用方驱动，协程取消即时释放解码器。
 internal object FakeLosslessAnalyzer {
 
     // 假无损智能歌单过滤键：与本地化展示名解耦，保证序列化歌单 key 跨语言环境稳定

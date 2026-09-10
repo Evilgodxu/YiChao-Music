@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +58,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,8 +82,13 @@ internal fun LibraryAnalysisSheet(
         analyzeLibraryFormats(context, playbackState.libraryTracks)
     }
     // 对话框打开或曲库变化时触发分析：任务由控制器在首页层后台执行，
-    // 关闭对话框不中断，重开时沿用进行中的进度
+    // 关闭对话框不中断，重开时沿用进行中的进度。
+    // 首次启动的扫描与封面/歌词补全进行中时让路：频谱解码与封面位图解码同为 CPU 重活，
+    // 并发只会同时拖慢首屏补齐与分析本身，故等库就绪（既不扫描也不补全）后再自动开始；
+    // 等待期间收起对话框即取消本次触发，不会留下后台任务
     LaunchedEffect(playbackState.libraryTracks) {
+        snapshotFlow { playbackState.isScanning || playbackState.isEnrichingMetadata }
+            .first { !it }
         analysis.onSheetOpen(playbackState.libraryTracks)
     }
     val currentKey = playbackState.playlistSource?.key

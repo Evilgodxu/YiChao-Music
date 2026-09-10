@@ -15,6 +15,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -57,23 +58,34 @@ class MetadataEnricher {
         context: Context,
         playbackState: MusicPlaybackState,
         reclaimOrphans: Boolean = false,
-    ) = enrichMutex.withLock {
-        enrichPlaylistMetadata(context, playbackState)
-        if (reclaimOrphans) {
-            // 封面/歌词跨歌单共享：引用集 = 全量库 ∪ 当前歌单，其他歌单仍要使用的文件
-            // 因在全量库中存在引用而不会被误删。libraryTracks 是 getter
-            // （默认库备份 ?: 当前歌单），自定义歌单下已包含默认库备份
-            val referenced = withContext(Dispatchers.Main) {
-                (playbackState.libraryTracks + playbackState.playlist)
-                    .flatMap { listOf(it.coverCachePath, it.lyricCachePath) }
-                    .toSet()
-            }
-            withContext(Dispatchers.IO) {
-                MusicMetadataCache.reclaimStaleOrphans(context, referenced)
+    ) {
+        enrichMutex.withLock {
+            // 补全全程置位：曲库分析的自动触发读到该标记即延后，避免频谱解码与封面解码并发争抢资源
+            withContext(Dispatchers.Main) { playbackState.isEnrichingMetadata = true }
+            try {
+                enrichPlaylistMetadata(context, playbackState)
+                if (reclaimOrphans) {
+                    // 封面/歌词跨歌单共享：引用集 = 全量库 ∪ 当前歌单，其他歌单仍要使用的文件
+                    // 因在全量库中存在引用而不会被误删。libraryTracks 是 getter
+                    // （默认库备份 ?: 当前歌单），自定义歌单下已包含默认库备份
+                    val referenced = withContext(Dispatchers.Main) {
+                        (playbackState.libraryTracks + playbackState.playlist)
+                            .flatMap { listOf(it.coverCachePath, it.lyricCachePath) }
+                            .toSet()
+                    }
+                    withContext(Dispatchers.IO) {
+                        MusicMetadataCache.reclaimStaleOrphans(context, referenced)
+                    }
+                }
+                // 封面补全后刷新系统媒体面板的当前 MediaItem，避免封面就绪后仍显示空封面
+                refreshCurrentMediaItem(playbackState)
+            } finally {
+                // 取消（切歌单 / 退出）路径同样要复位，否则自动分析会被永久挡住
+                withContext(Dispatchers.Main + NonCancellable) {
+                    playbackState.isEnrichingMetadata = false
+                }
             }
         }
-        // 封面补全后刷新系统媒体面板的当前 MediaItem，避免封面就绪后仍显示空封面
-        refreshCurrentMediaItem(playbackState)
     }
 
     private suspend fun enrichPlaylistMetadata(context: Context, playbackState: MusicPlaybackState) {
