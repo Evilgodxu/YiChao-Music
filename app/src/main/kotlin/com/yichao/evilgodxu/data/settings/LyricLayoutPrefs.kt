@@ -16,14 +16,14 @@ object LyricLayoutDefaults {
     const val HOME_PORTRAIT_FONT_SIZE_SP = 16
     const val LANDSCAPE_FONT_SIZE_SP = 14
     const val MUSIC_PANEL_VISIBLE_LINES = 5
-    const val HOME_PORTRAIT_VISIBLE_LINES = 5
-    const val LANDSCAPE_VISIBLE_LINES = 7
+    const val HOME_PORTRAIT_VISIBLE_LINES = 9
+    const val LANDSCAPE_VISIBLE_LINES = 11
     const val LANDSCAPE_3D_INTENSITY = 1f
     const val FONT_SIZE_MIN_SP = 12
     const val FONT_SIZE_MAX_SP = 24
-    // 奇数行预设：当前行居中，上下各 (n-1)/2 行；音乐面板 3/5，首页竖屏 3/5/7/9，横屏 7/9/11
+    // 奇数行预设：当前行居中，上下各 (n-1)/2 行；音乐面板 3/5，首页竖屏 3/5/7/9/11，横屏 7/9/11
     val PORTRAIT_LINE_PRESETS = listOf(3, 5)
-    val HOME_PORTRAIT_LINE_PRESETS = listOf(3, 5, 7, 9)
+    val HOME_PORTRAIT_LINE_PRESETS = listOf(3, 5, 7, 9, 11)
     val LANDSCAPE_LINE_PRESETS = listOf(7, 9, 11)
     const val THREE_D_MIN = 0f
     const val THREE_D_MAX = 2f

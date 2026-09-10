@@ -123,7 +123,11 @@ class MetadataEnricher {
             }
             if (updated != track) {
                 withContext(Dispatchers.Main) {
-                    playbackState.updateTrack(updated)
+                    // 传入曲目可能落后于内存态（UI 组合期间捕获的快照），与全量支路并发时
+                    // 整体替换会抹掉对方刚写入的字段，故只应用本次实际替换过的字段
+                    val base = playbackState.playlist.firstOrNull { it.id == updated.id }
+                    val merged = if (base == null) updated else mergeOnDemandUpdate(base, track, updated)
+                    if (merged != base) playbackState.updateTrack(merged)
                 }
             }
         } finally {
@@ -200,11 +204,15 @@ class MetadataEnricher {
                 async(metadataDispatcher) {
                     val updated = enrichLocalCover(context, track) ?: return@async null
                     if (updated.coverCachePath.isNotBlank()) {
-                        val now = System.currentTimeMillis()
-                        val shouldPersist = now - lastPersistAt.get() >= PROGRESSIVE_PERSIST_MIN_INTERVAL_MS
-                        if (shouldPersist) lastPersistAt.set(now)
                         withContext(Dispatchers.Main) {
-                            playbackState.batchUpdateTracks(listOf(updated), persist = shouldPersist)
+                            val merged = mergeCoverUpdate(playbackState, updated)
+                            if (merged != null) {
+                                val now = System.currentTimeMillis()
+                                val shouldPersist =
+                                    now - lastPersistAt.get() >= PROGRESSIVE_PERSIST_MIN_INTERVAL_MS
+                                if (shouldPersist) lastPersistAt.set(now)
+                                playbackState.batchUpdateTracks(listOf(merged), persist = shouldPersist)
+                            }
                         }
                     }
                     updated
@@ -219,7 +227,12 @@ class MetadataEnricher {
             if (failed.isEmpty()) {
                 playbackState.persistPlaylist()
             } else {
-                playbackState.batchUpdateTracks(failed, persist = true)
+                val mergedFailed = failed.mapNotNull { mergeCoverUpdate(playbackState, it) }
+                if (mergedFailed.isNotEmpty()) {
+                    playbackState.batchUpdateTracks(mergedFailed, persist = true)
+                } else {
+                    playbackState.persistPlaylist()
+                }
             }
         }
         return coveredIds
@@ -358,4 +371,38 @@ class MetadataEnricher {
         )
         return merged.takeIf { it != base }
     }
+
+    /** 合并单曲封面结果：封面基于扫描快照，合并时以当前内存态为基准、只取封面字段，
+     *  避免快照里的空歌词字段覆盖歌词阶段已逐首写入的结果（封面解码慢于歌词读取，
+     *  整体替换会让刚显示的歌词被抹回占位）；无实际变化返回 null */
+    private fun mergeCoverUpdate(
+        playbackState: MusicPlaybackState,
+        cover: MusicTrack
+    ): MusicTrack? {
+        val base = playbackState.playlist.firstOrNull { it.id == cover.id } ?: return cover
+        // 路径与失败标记均取本次提取结果：成功时落盘新路径并清闩锁，
+        // 失败时保留仍有效的旧式命名缓存、丢弃已失效引用
+        val merged = base.copy(
+            coverCachePath = cover.coverCachePath,
+            coverFailed = cover.coverFailed,
+        )
+        return merged.takeIf { it != base }
+    }
+
+    /** 按需补全结果的字段级合并：只应用本次相对传入曲目确实被替换过的封面/歌词字段，
+     *  其余字段以当前内存态为准。判定用引用比较，故未命中的分支返回的仍是入参本身 */
+    private fun mergeOnDemandUpdate(
+        base: MusicTrack,
+        original: MusicTrack,
+        updated: MusicTrack,
+    ): MusicTrack = base.copy(
+        coverCachePath = updated.coverCachePath
+            .takeIf { it !== original.coverCachePath } ?: base.coverCachePath,
+        coverFailed = if (updated.coverFailed != original.coverFailed) updated.coverFailed else base.coverFailed,
+        lyricCachePath = updated.lyricCachePath
+            .takeIf { it !== original.lyricCachePath } ?: base.lyricCachePath,
+        lyricLines = updated.lyricLines
+            .takeIf { it !== original.lyricLines } ?: base.lyricLines,
+        lyricFailed = if (updated.lyricFailed != original.lyricFailed) updated.lyricFailed else base.lyricFailed,
+    )
 }

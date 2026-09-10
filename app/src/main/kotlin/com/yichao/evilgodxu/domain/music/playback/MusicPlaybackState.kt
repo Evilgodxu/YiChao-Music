@@ -1031,10 +1031,16 @@ class MusicPlaybackState(
         persistPlaylist()
     }
 
-    // 更新播放列表中指定曲目的元数据并持久化（列表与当前曲目同步替换）
+    // 更新播放列表中指定曲目的元数据并持久化（列表、当前曲目与全量库备份同步替换）。
+    // 备份必须一并替换：扫描刷新的缓存复用索引取自 libraryTracks（getter 优先返回备份），
+    // 备份落后会在下次刷新时把旧字段（歌词等）搬回列表，抹掉刚写入的结果
     fun updateTrack(updated: MusicTrack) {
-        playlist = playlist.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }
+        val replace: (List<MusicTrack>) -> List<MusicTrack> = { list ->
+            list.map { if (it.id == updated.id) updated.copy(isFavorite = likedIds.contains(it.id)) else it }
+        }
+        playlist = replace(playlist)
         currentTrack = currentTrack?.let { if (it.id == updated.id) updated else it }
+        defaultPlaylistBackup = defaultPlaylistBackup?.let(replace)
         persistPlaylist()
     }
 
