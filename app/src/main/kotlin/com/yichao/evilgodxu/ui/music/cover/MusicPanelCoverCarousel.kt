@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.ui.music.SongGradientBackground
+import com.yichao.evilgodxu.ui.music.component.SongGradientBackground
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch

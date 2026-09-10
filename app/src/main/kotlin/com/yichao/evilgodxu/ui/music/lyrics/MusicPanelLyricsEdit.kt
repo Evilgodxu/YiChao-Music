@@ -26,8 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 
 // 歌词原文编辑对话框：预填整行原始文本(时间戳/逐字/翻译)，校验格式后确认
 @Composable
@@ -38,7 +38,7 @@ internal fun LyricsEditDialog(
     onCancel: () -> Unit,
 ) {
     if (visible) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        DialogCard(onDismiss = onCancel) {
             var value by remember(initialValue) { mutableStateOf(initialValue) }
             // 无法解析出歌词行(缺时间戳前缀)时禁用确认并提示
             var invalid by remember(initialValue) { mutableStateOf(false) }

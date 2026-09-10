@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.overlay
+package com.yichao.evilgodxu.ui.music.miniplayer.window
 
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
@@ -31,9 +31,14 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.log.CrashLogManager
+import com.yichao.evilgodxu.ui.music.miniplayer.MINI_BUTTON_COUNT
+import com.yichao.evilgodxu.ui.music.miniplayer.MINI_BUTTON_DP
+import com.yichao.evilgodxu.ui.music.miniplayer.MINI_COVER_DP
+import com.yichao.evilgodxu.ui.music.miniplayer.MINI_PADDING_H_DP
+import com.yichao.evilgodxu.ui.music.miniplayer.MiniPlayerOverlay
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.math.max

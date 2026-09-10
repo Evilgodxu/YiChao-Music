@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music
+package com.yichao.evilgodxu.domain.music.playback
 
 import android.content.ContentResolver
 import android.content.Context
@@ -23,12 +23,13 @@ import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.data.music.model.PlayMode
+import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.data.music.trackIdentityKey
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.settings.settingsDataStore
+import com.yichao.evilgodxu.domain.music.analysis.TrackAudioInfoReader
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
-import com.yichao.evilgodxu.ui.music.cover.RecentCover
 import java.io.File
 import kotlin.jvm.JvmName
 import kotlinx.coroutines.CoroutineScope

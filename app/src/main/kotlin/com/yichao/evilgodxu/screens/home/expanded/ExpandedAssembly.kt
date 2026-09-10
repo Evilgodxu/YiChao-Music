@@ -21,8 +21,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.screens.home.component.bar.HomeTopBar
-import com.yichao.evilgodxu.screens.home.component.overlay.HomeDialogs
-import com.yichao.evilgodxu.screens.home.component.overlay.HomePanels
+import com.yichao.evilgodxu.screens.home.component.dialog.HomeDialogs
+import com.yichao.evilgodxu.screens.home.component.panel.HomePanels
 import com.yichao.evilgodxu.screens.home.component.panel.HomePanelState
 import com.yichao.evilgodxu.screens.home.component.shell.HomeShell
 import com.yichao.evilgodxu.screens.home.expanded.player.LandscapePlayer

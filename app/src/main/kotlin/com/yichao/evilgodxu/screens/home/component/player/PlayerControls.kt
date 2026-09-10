@@ -22,13 +22,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.data.music.model.PlayMode
-import com.yichao.evilgodxu.dialog.SpeedDialog
-import com.yichao.evilgodxu.domain.music.applyPlaybackMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
+import com.yichao.evilgodxu.domain.music.playback.applyPlaybackMode
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.playTrackAt
+import com.yichao.evilgodxu.domain.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.music.dialog.SpeedDialog
 import kotlinx.coroutines.launch
 
 // 底部控制栏：与迷你播放器控件布局一致（播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表）

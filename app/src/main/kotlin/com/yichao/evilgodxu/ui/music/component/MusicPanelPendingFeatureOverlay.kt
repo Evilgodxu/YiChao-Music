@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.overlay
+package com.yichao.evilgodxu.ui.music.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.HeaderIconButton
 
 // 待实现功能占位面板：仅保留标题与关闭入口，功能待后续实现
 @Composable

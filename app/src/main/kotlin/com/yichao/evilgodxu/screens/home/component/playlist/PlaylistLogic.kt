@@ -1,7 +1,7 @@
 package com.yichao.evilgodxu.screens.home.component.playlist
 
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
+import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 
 // 按 id 集合从全量曲目中解析曲目，保持集合顺序
 internal fun resolveTracks(all: List<MusicTrack>, ids: Collection<Long>): List<MusicTrack> =

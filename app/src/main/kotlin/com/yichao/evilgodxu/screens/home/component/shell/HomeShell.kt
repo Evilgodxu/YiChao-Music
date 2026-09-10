@@ -14,7 +14,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import com.yichao.evilgodxu.screens.home.component.panel.HomePanelState
-import com.yichao.evilgodxu.ui.music.SongGradientBackground
+import com.yichao.evilgodxu.ui.music.component.SongGradientBackground
 
 // 首页共享骨架：沉浸式渐变背景 + 透明 Scaffold + 滑动容器；形态差异由调用方通过插槽装配
 @Composable

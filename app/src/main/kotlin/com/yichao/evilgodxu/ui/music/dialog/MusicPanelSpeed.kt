@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.dialog
+package com.yichao.evilgodxu.ui.music.dialog
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,8 +24,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 
 // 播放调速对话框：调节实时生效，点击外部或返回键关闭
 @Composable
@@ -36,7 +37,7 @@ internal fun SpeedDialog(
     onDismiss: () -> Unit,
 ) {
     if (visible) {
-        MetadataDialogCard(onDismiss = onDismiss) {
+        DialogCard(onDismiss = onDismiss) {
             SpeedPanelContent(
                 speed = speed,
                 onSpeedChange = onSpeedChange,

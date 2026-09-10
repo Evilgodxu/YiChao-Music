@@ -24,8 +24,8 @@ import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.ui.AppContent
 import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
-import com.yichao.evilgodxu.ui.music.LocalMusicPanelController
-import com.yichao.evilgodxu.ui.music.MusicPanelController
+import com.yichao.evilgodxu.ui.music.window.LocalMusicPanelController
+import com.yichao.evilgodxu.ui.music.window.MusicPanelController
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.utils.localization.toLocale

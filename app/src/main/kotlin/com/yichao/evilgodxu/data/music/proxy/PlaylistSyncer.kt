@@ -8,10 +8,10 @@ import com.yichao.evilgodxu.data.music.api.NeteaseMusicApi
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
-import com.yichao.evilgodxu.domain.music.downloadTrackToLibrary
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.normalizeTitle
-import com.yichao.evilgodxu.domain.music.resolvePlayUrlByQuality
+import com.yichao.evilgodxu.domain.music.download.downloadTrackToLibrary
+import com.yichao.evilgodxu.domain.music.panel.normalizeTitle
+import com.yichao.evilgodxu.domain.music.panel.resolvePlayUrlByQuality
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request

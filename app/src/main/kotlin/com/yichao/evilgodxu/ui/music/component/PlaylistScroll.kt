@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.ui.music
+package com.yichao.evilgodxu.ui.music.component
 
 import androidx.compose.foundation.lazy.LazyListState
 

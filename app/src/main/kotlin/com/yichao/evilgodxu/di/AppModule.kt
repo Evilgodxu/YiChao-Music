@@ -5,13 +5,13 @@ import android.content.pm.PackageManager
 import com.yichao.evilgodxu.YiChaoActivityViewModel
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.repository.SettingsRepository
-import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeViewModel
 import com.yichao.evilgodxu.screens.settings.SettingsViewModel
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import com.yichao.evilgodxu.screens.typography.TypographyViewModel
-import com.yichao.evilgodxu.ui.music.MusicPanelController
+import com.yichao.evilgodxu.ui.music.window.MusicPanelController
 import com.yichao.evilgodxu.update.UpdateViewModel
 import com.yichao.evilgodxu.utils.localization.LocalizationManager
 import org.koin.android.ext.koin.androidApplication

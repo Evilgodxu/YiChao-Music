@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.ui.music
+package com.yichao.evilgodxu.ui.music.window
 
 import android.content.Context
 import android.content.Intent
@@ -9,14 +9,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
-import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.settings.miniPlayerEnabledFlow
+import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.log.CrashLogManager
-import com.yichao.evilgodxu.overlay.miniPlayerEnabledFlow
-import com.yichao.evilgodxu.overlay.MiniPlayerViewManager
-import com.yichao.evilgodxu.overlay.MusicPanelPermissionActivity
-import com.yichao.evilgodxu.overlay.MusicPanelPermissionBridge
-import com.yichao.evilgodxu.overlay.MusicPanelViewManager
 import com.yichao.evilgodxu.service.MusicPlaybackService
+import com.yichao.evilgodxu.ui.music.miniplayer.window.MiniPlayerViewManager
+import com.yichao.evilgodxu.ui.music.window.MusicPanelPermissionActivity
+import com.yichao.evilgodxu.ui.music.window.MusicPanelPermissionBridge
+import com.yichao.evilgodxu.ui.music.window.MusicPanelViewManager
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

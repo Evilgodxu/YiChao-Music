@@ -15,7 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.HomeScreen
 import com.yichao.evilgodxu.screens.settings.SettingsScreen

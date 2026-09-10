@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.dialog
+package com.yichao.evilgodxu.update
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,8 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.update.DownloadState
-import com.yichao.evilgodxu.update.UpdateInfo
 
 // 更新对话框：显示更新日志、下载进度与失败状态，由 UpdateViewModel 驱动
 @Composable

@@ -45,17 +45,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.PlaylistSource
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
+import com.yichao.evilgodxu.data.playlist.Playlist
+import com.yichao.evilgodxu.data.playlist.PlaylistGroup
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
+import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.PlaylistSource
+import com.yichao.evilgodxu.domain.music.playback.playTrackAt
+import com.yichao.evilgodxu.domain.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.data.Playlist
-import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import org.koin.compose.koinInject
-import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
+import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 import kotlinx.coroutines.CoroutineScope
@@ -427,7 +427,7 @@ internal fun RemoveTrackDialog(
     confirmRes: Int = R.string.playlist_remove_track_confirm,
 ) {
     if (track == null) return
-    MetadataDialogCard(onDismiss = onDismiss) {
+    DialogCard(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -495,7 +495,7 @@ internal fun EditAlbumDialog(
     onDismiss: () -> Unit,
 ) {
     if (track == null) return
-    MetadataDialogCard(onDismiss = onDismiss) {
+    DialogCard(onDismiss = onDismiss) {
         var value by remember(track.id) { mutableStateOf(track.albumName) }
         Column(
             modifier = Modifier

@@ -19,9 +19,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.dialog.UpdateDialog
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
+import com.yichao.evilgodxu.update.UpdateDialog
 import com.yichao.evilgodxu.update.UpdateManager
 import com.yichao.evilgodxu.update.UpdateViewModel
 import org.koin.compose.koinInject

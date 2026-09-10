@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.overlay
+package com.yichao.evilgodxu.data.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey

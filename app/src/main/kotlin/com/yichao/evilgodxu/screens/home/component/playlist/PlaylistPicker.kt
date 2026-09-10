@@ -44,11 +44,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
+import com.yichao.evilgodxu.data.playlist.Playlist
+import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.data.Playlist
-import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import org.koin.compose.koinInject
+import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 
@@ -63,7 +63,7 @@ internal fun CreatePlaylistDialog(
     val context = LocalContext.current
     val playlistStore = koinInject<PlaylistStore>()
     var name by remember { mutableStateOf("") }
-    MetadataDialogCard(onDismiss = onDismiss) {
+    DialogCard(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -139,7 +139,7 @@ internal fun RenamePlaylistDialog(
     val context = LocalContext.current
     val playlistStore = koinInject<PlaylistStore>()
     var name by remember(playlist.id) { mutableStateOf(playlist.name) }
-    MetadataDialogCard(onDismiss = onDismiss) {
+    DialogCard(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -214,7 +214,7 @@ internal fun DeletePlaylistDialog(
     if (playlist == null) return
     val context = LocalContext.current
     val playlistStore = koinInject<PlaylistStore>()
-    MetadataDialogCard(onDismiss = onDismiss) {
+    DialogCard(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

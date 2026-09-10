@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.overlay
+package com.yichao.evilgodxu.ui.music.miniplayer
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -41,12 +41,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.playTrackAt
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
-import com.yichao.evilgodxu.ui.music.scrollPlaylistTo
+import com.yichao.evilgodxu.ui.music.component.scrollPlaylistTo
 import kotlinx.coroutines.launch
 
 @Composable

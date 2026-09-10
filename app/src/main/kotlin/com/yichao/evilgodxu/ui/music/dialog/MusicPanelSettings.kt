@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.dialog
+package com.yichao.evilgodxu.ui.music.dialog
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.HeaderIconButton
+import com.yichao.evilgodxu.ui.music.component.HeaderIconButton
 
 @Composable
 internal fun SettingsOverlay(

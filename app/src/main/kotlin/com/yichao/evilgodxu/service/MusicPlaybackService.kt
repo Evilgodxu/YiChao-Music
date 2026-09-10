@@ -18,10 +18,10 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.yichao.evilgodxu.domain.music.AudioSignalPathFormat
-import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.TrackAudioInfoReader
+import com.yichao.evilgodxu.domain.music.analysis.TrackAudioInfoReader
+import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.playback.AudioSignalPathFormat
+import com.yichao.evilgodxu.domain.music.playback.playTrackAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent

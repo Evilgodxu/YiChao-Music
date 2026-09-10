@@ -47,11 +47,11 @@ import coil3.request.ImageRequest
 import com.yichao.evilgodxu.data.music.api.sourceNameRes
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.searchLosslessUpgradeCandidates
-import com.yichao.evilgodxu.domain.music.upgradeTrackToLossless
+import com.yichao.evilgodxu.domain.music.download.upgradeTrackToLossless
+import com.yichao.evilgodxu.domain.music.panel.searchLosslessUpgradeCandidates
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.launch
 
@@ -78,7 +78,7 @@ internal fun LosslessUpgradeDialog(
     }
 
     if (!visible || track == null) return
-    MetadataDialogCard(onDismiss = { if (!playbackState.losslessUpgradeBusy) onDismiss() }) {
+    DialogCard(onDismiss = { if (!playbackState.losslessUpgradeBusy) onDismiss() }) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

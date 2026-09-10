@@ -57,9 +57,9 @@ import com.yichao.evilgodxu.data.music.api.sourceNameRes
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 
 @Composable
@@ -112,7 +112,7 @@ internal fun CoverRefreshDialog(
     onCancel: () -> Unit,
 ) {
     if (visible && track != null) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        DialogCard(onDismiss = onCancel) {
             CoverRefreshContent(
                 playbackState = playbackState,
                 selectedId = selectedId,
@@ -325,7 +325,7 @@ internal fun CoverReplaceDialog(
     onCancel: () -> Unit,
 ) {
     if (visible && track != null && candidate != null) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        DialogCard(onDismiss = onCancel) {
             CoverReplaceContent(
                 track = track,
                 candidate = candidate,

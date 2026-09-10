@@ -61,13 +61,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.api.MusicQuality
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
-import com.yichao.evilgodxu.dialog.SearchResultsLazyList
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.performSearch
-import com.yichao.evilgodxu.domain.music.playSearchResultWithQuality
-import com.yichao.evilgodxu.domain.music.tryPlayLocalMatch
+import com.yichao.evilgodxu.domain.music.panel.performSearch
+import com.yichao.evilgodxu.domain.music.panel.playSearchResultWithQuality
+import com.yichao.evilgodxu.domain.music.panel.tryPlayLocalMatch
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.music.dialog.SearchResultsLazyList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 

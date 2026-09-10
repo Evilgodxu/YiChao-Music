@@ -52,11 +52,11 @@ import com.yichao.evilgodxu.data.music.api.sourceNameRes
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
-import com.yichao.evilgodxu.domain.music.MusicErrorBanner
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.music.component.MusicErrorBanner
 
 @Composable
 internal fun LyricsRefreshOverlay(
@@ -115,7 +115,7 @@ internal fun LyricsRefreshDialog(
     onCancel: () -> Unit,
 ) {
     if (visible && track != null) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        DialogCard(onDismiss = onCancel) {
             LyricsRefreshContent(
                 playbackState = playbackState,
                 selectedId = selectedId,

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music
+package com.yichao.evilgodxu.domain.music.playback
 
 import android.content.ComponentName
 import android.content.Context

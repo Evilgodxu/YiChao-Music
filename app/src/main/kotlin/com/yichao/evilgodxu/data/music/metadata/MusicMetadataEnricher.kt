@@ -6,8 +6,8 @@ import com.yichao.evilgodxu.data.music.api.NeteaseMusicApi
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.refreshCurrentMediaItem
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.refreshCurrentMediaItem
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async

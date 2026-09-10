@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.proxy.PlaylistSyncer
 import com.yichao.evilgodxu.data.music.proxy.RemotePlaylistLink
-import com.yichao.evilgodxu.dialog.MetadataDialogCard
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 import kotlinx.coroutines.launch
 
 // 从平台分享链接导入歌单：输入链接 → 解析预览歌单 → 确认后回调启动后台同步
@@ -80,7 +80,7 @@ internal fun PlaylistImportDialog(
         }
     }
 
-    MetadataDialogCard(onDismiss = { if (!parsing) onDismiss() }) {
+    DialogCard(onDismiss = { if (!parsing) onDismiss() }) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

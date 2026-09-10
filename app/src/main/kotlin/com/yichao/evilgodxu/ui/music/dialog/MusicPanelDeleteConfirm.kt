@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.dialog
+package com.yichao.evilgodxu.ui.music.dialog
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn

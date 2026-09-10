@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.ui.music
+package com.yichao.evilgodxu.ui.music.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,10 +21,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.data.music.model.PlayMode
-import com.yichao.evilgodxu.domain.music.applyPlaybackMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playTrackAt
-import com.yichao.evilgodxu.domain.music.togglePlayPause
+import com.yichao.evilgodxu.domain.music.playback.applyPlaybackMode
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.playTrackAt
+import com.yichao.evilgodxu.domain.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.launch

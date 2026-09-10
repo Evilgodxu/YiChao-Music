@@ -47,12 +47,12 @@ import androidx.compose.ui.window.PopupProperties
 import coil3.compose.AsyncImage
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.copyToClipboard
-import com.yichao.evilgodxu.domain.music.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.DiscArt
+import com.yichao.evilgodxu.ui.music.component.DiscArt
+import com.yichao.evilgodxu.utils.copyToClipboard
 import org.koin.compose.koinInject
 import java.io.File
 

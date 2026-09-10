@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.component.overlay
+package com.yichao.evilgodxu.screens.home.component.panel
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding

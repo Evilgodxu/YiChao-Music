@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.dialog
+package com.yichao.evilgodxu.ui.music.dialog
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -34,8 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 
 @Composable
 internal fun TimerOverlay(
@@ -88,7 +88,7 @@ internal fun TimerDialog(
     onCancel: () -> Unit,
 ) {
     if (visible) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        DialogCard(onDismiss = onCancel) {
             TimerPanelContent(
                 minutes = minutes,
                 onMinutesChange = onMinutesChange,
@@ -96,24 +96,6 @@ internal fun TimerDialog(
                 onCancel = onCancel,
                 modifier = Modifier.padding(16.dp),
             )
-        }
-    }
-}
-
-// 统一卡片对话框容器：供定时关闭与长按面板复用的圆角卡片
-@Composable
-internal fun MetadataDialogCard(
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        ) {
-            content()
         }
     }
 }

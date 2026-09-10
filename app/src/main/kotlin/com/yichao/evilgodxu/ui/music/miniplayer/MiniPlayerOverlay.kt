@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.overlay
+package com.yichao.evilgodxu.ui.music.miniplayer
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.data.settings.settingsFlow
 import com.yichao.evilgodxu.data.settings.ThemeMode
-import com.yichao.evilgodxu.domain.music.MusicPlaybackState
+import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme
 

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music
+package com.yichao.evilgodxu.domain.music.analysis
 
 import android.content.Context
 import java.io.File

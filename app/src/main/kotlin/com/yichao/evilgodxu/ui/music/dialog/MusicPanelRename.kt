@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.dialog
+package com.yichao.evilgodxu.ui.music.dialog
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.ui.component.DialogCard
 
 @Composable
 internal fun RenameOverlay(
@@ -89,7 +90,7 @@ internal fun RenameDialog(
     onCancel: () -> Unit,
 ) {
     if (visible) {
-        MetadataDialogCard(onDismiss = onCancel) {
+        DialogCard(onDismiss = onCancel) {
             RenameContent(
                 initialValue = initialValue,
                 isTitle = isTitle,
