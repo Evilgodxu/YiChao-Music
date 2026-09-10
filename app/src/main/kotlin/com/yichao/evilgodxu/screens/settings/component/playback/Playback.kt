@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.player_area
+package com.yichao.evilgodxu.screens.settings.component.playback
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,14 +16,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.section.GroupCard
 
-// 播放分区：悬浮播放与逐字渲染开关、排版入口
+// 播放设置：悬浮播放与逐字渲染开关、排版入口
 @Composable
-fun PlayerArea(
+fun Playback(
     miniPlayerEnabled: Boolean,
     onMiniPlayerEnabledChange: (Boolean) -> Unit,
     wordByWordRendering: Boolean,
@@ -32,7 +32,7 @@ fun PlayerArea(
     onSwipeToChangeTrackChange: (Boolean) -> Unit,
     onTypographyClick: () -> Unit,
 ) {
-    SettingsSection(title = stringResource(R.string.settings_section_player)) {
+    GroupCard(title = stringResource(R.string.settings_section_player)) {
         PlayerSwitchRow(
             title = stringResource(R.string.settings_mini_player_title),
             description = stringResource(R.string.settings_mini_player_desc),
@@ -51,7 +51,7 @@ fun PlayerArea(
             checked = swipeToChangeTrack,
             onCheckedChange = onSwipeToChangeTrackChange,
         )
-        SettingsClickableItem(
+        SettingsEntry(
             icon = AppIcons.TextFields,
             title = stringResource(R.string.settings_typography_title),
             subtitle = stringResource(R.string.settings_typography_desc),

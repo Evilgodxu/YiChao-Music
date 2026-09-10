@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.title_area
+package com.yichao.evilgodxu.screens.home.component.bar
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -29,7 +29,6 @@ import com.yichao.evilgodxu.ui.icons.AppIcons
 @Composable
 internal fun HomeTopBar(
     playbackState: MusicPlaybackState,
-    isLandscapeMode: Boolean,
     isLiked: Boolean,
     favoriteEnabled: Boolean,
     onShowTimer: () -> Unit,

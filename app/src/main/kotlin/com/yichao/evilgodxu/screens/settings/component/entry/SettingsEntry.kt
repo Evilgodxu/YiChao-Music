@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem
+package com.yichao.evilgodxu.screens.settings.component.entry
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.sp
 
 // 设置项：可点击列表项，支持返回点击坐标以驱动主题切换动效
 @Composable
-fun SettingsClickableItem(
+fun SettingsEntry(
     icon: ImageVector,
     title: String,
     subtitle: String,

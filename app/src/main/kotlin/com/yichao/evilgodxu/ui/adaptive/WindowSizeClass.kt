@@ -1,5 +1,6 @@
 package com.yichao.evilgodxu.ui.adaptive
 
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
@@ -24,4 +25,13 @@ fun ProvideWindowSizeClass(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
         content()
     }
+}
+
+// 宽屏形态判定：旋转为横屏，或窗口宽度达到宽屏断点；供页面按形态分派组装器
+@Composable
+fun rememberExpandedForm(): Boolean {
+    val orientation = LocalConfiguration.current.orientation
+    val windowSizeClass = LocalWindowSizeClass.current
+    return orientation == Configuration.ORIENTATION_LANDSCAPE ||
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 }

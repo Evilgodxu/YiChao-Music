@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.app_info_area
+package com.yichao.evilgodxu.screens.settings.component.info
 
 import android.app.Activity
 import android.content.Intent
@@ -29,7 +29,7 @@ import com.yichao.evilgodxu.ui.icons.AppIcons
 
 // 关于分区：应用信息，点击版本号主动检查更新
 @Composable
-fun AppInfoArea(
+fun AppInfo(
     version: String,
     onVersionClick: () -> Unit,
 ) {

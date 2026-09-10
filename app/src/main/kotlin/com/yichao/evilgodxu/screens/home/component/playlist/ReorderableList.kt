@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
+package com.yichao.evilgodxu.screens.home.component.playlist
 
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring

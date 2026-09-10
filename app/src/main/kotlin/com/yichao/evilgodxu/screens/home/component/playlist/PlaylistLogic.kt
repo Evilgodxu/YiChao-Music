@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
+package com.yichao.evilgodxu.screens.home.component.playlist
 
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.screens.home.data.PlaylistGroup

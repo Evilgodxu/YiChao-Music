@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.proxy_source_area
+package com.yichao.evilgodxu.screens.settings.component.proxy
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,17 +28,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceSpec
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.dialog.ProxySourceImportDialog
-import com.yichao.evilgodxu.screens.settings.dialog.ProxySourceInputDialog
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.dialog.ProxySourceImportDialog
+import com.yichao.evilgodxu.screens.settings.component.dialog.ProxySourceInputDialog
+import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.section.GroupCard
 import kotlinx.coroutines.delay
 
-// 代理音源分区：导入、管理第三方音源并展示导入结果
+// 代理音源设置：导入、管理第三方音源并展示导入结果
 @Composable
-fun ProxySourceArea(
+fun ProxySource(
     sources: List<ProxySourceSpec>,
     importMessage: String?,
     importFailed: Boolean,
@@ -63,8 +63,8 @@ fun ProxySourceArea(
         if (!text.isNullOrBlank()) onImport(text)
     }
 
-    SettingsSection(title = stringResource(R.string.settings_section_proxy_source)) {
-        SettingsClickableItem(
+    GroupCard(title = stringResource(R.string.settings_section_proxy_source)) {
+        SettingsEntry(
             icon = AppIcons.Folder,
             title = stringResource(R.string.settings_proxy_source_import_title),
             subtitle = stringResource(R.string.settings_proxy_source_import_desc),

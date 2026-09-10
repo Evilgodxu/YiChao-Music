@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly
+package com.yichao.evilgodxu.screens.home.component.swipe
 
 import android.content.Context
 import androidx.compose.animation.core.animate

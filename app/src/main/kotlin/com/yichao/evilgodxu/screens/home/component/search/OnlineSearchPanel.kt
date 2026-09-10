@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.online_search
+package com.yichao.evilgodxu.screens.home.component.search
 
 import android.content.Context
 import androidx.compose.animation.AnimatedContent

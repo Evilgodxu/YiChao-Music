@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.permission_area
+package com.yichao.evilgodxu.screens.home.component.permission
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

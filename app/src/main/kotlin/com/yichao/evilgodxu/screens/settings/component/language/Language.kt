@@ -1,18 +1,18 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.language_area
+package com.yichao.evilgodxu.screens.settings.component.language
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.section.GroupCard
 
-// 语言分区
+// 语言设置
 @Composable
-fun LanguageArea(language: AppLanguage, onLanguageSelected: (AppLanguage) -> Unit, onShowDialog: () -> Unit) {
-    SettingsSection(title = stringResource(R.string.settings_section_language)) {
-        SettingsClickableItem(
+fun Language(language: AppLanguage, onLanguageSelected: (AppLanguage) -> Unit, onShowDialog: () -> Unit) {
+    GroupCard(title = stringResource(R.string.settings_section_language)) {
+        SettingsEntry(
             icon = AppIcons.Language,
             title = stringResource(R.string.settings_language_title),
             subtitle = when (language) {

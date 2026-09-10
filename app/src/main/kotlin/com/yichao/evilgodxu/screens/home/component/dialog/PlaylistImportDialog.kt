@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.dialog
+package com.yichao.evilgodxu.screens.home.component.dialog
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

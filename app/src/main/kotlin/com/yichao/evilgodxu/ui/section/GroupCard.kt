@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.component.section
+package com.yichao.evilgodxu.ui.section
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -13,9 +13,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// 设置页分区卡片容器
+// 分区卡片容器：标题 + 圆角卡片内容，供设置类页面复用
 @Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
+fun GroupCard(title: String, content: @Composable () -> Unit) {
     Column {
         Text(
             title,

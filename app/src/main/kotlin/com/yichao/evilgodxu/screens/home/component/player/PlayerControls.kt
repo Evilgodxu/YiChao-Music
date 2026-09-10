@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.player_area
+package com.yichao.evilgodxu.screens.home.component.player
 
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement

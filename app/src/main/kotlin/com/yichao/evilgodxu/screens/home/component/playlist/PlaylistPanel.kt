@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.playlist_area
+package com.yichao.evilgodxu.screens.home.component.playlist
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -54,7 +54,7 @@ import com.yichao.evilgodxu.screens.home.data.PlaylistGroup
 import com.yichao.evilgodxu.screens.home.data.PlaylistStore
 import org.koin.compose.koinInject
 import com.yichao.evilgodxu.screens.home.data.SmartPlaylistType
-import com.yichao.evilgodxu.screens.home.dialog.PlaylistImportDialog
+import com.yichao.evilgodxu.screens.home.component.dialog.PlaylistImportDialog
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
 import kotlinx.coroutines.delay

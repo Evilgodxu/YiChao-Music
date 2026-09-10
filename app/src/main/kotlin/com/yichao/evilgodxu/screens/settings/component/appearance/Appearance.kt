@@ -1,19 +1,19 @@
-package com.yichao.evilgodxu.screens.settings.settings_assembly.appearance_area
+package com.yichao.evilgodxu.screens.settings.component.appearance
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import com.yichao.evilgodxu.data.settings.ThemeMode
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.clickableItem.SettingsClickableItem
-import com.yichao.evilgodxu.screens.settings.settings_assembly.component.section.SettingsSection
+import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.section.GroupCard
 
-// 外观分区
+// 外观设置
 @Composable
-fun AppearanceArea(themeMode: ThemeMode, onThemeClick: (Offset) -> Unit) {
-    SettingsSection(title = stringResource(R.string.settings_section_appearance)) {
-        SettingsClickableItem(
+fun Appearance(themeMode: ThemeMode, onThemeClick: (Offset) -> Unit) {
+    GroupCard(title = stringResource(R.string.settings_section_appearance)) {
+        SettingsEntry(
             icon = AppIcons.Palette,
             title = stringResource(R.string.settings_theme_title),
             subtitle = when (themeMode) {

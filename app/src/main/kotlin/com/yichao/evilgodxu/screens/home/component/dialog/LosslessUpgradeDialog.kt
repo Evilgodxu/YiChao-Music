@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.dialog
+package com.yichao.evilgodxu.screens.home.component.dialog
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable

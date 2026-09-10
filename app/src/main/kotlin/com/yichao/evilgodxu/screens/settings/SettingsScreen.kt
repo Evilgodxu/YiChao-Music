@@ -12,14 +12,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.yichao.evilgodxu.screens.settings.settings_assembly.SettingsAssembly
+import com.yichao.evilgodxu.screens.settings.compact.CompactAssembly
+import com.yichao.evilgodxu.screens.settings.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
+import com.yichao.evilgodxu.ui.adaptive.rememberExpandedForm
 import com.yichao.evilgodxu.update.UpdateViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
-// 页面入口：编排设置页分区
+// 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -54,21 +56,43 @@ fun SettingsScreen(
 
     // 状态栏图标跟随主题：浅色主题深色图标，深色主题白色图标
     StatusBarStyleEffect()
-    SettingsAssembly(
-        uiState = uiState,
-        onBack = onBack,
-        onThemeSelected = viewModel::setThemeMode,
-        onLanguageSelected = viewModel::setLanguage,
-        onThemeClick = onThemeClick,
-        onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
-        onWordByWordRenderingChange = viewModel::setWordByWordRendering,
-        onSwipeToChangeTrackChange = viewModel::setSwipeToChangeTrack,
-        onVersionClick = { updateViewModel.checkForUpdate(force = true) },
-        onOpenTypography = onOpenTypography,
-        onProxySourceImport = viewModel::importProxySource,
-        onProxySourceToggle = viewModel::setProxySourceEnabled,
-        onProxySourceRemove = viewModel::removeProxySource,
-        onProxyImportMessageDismiss = viewModel::clearProxyImportMessage,
-        modifier = modifier,
-    )
+
+    // 形态分派：旋转状态与窗口宽度尺寸类共同决定显示内容
+    if (rememberExpandedForm()) {
+        ExpandedAssembly(
+            uiState = uiState,
+            onBack = onBack,
+            onThemeSelected = viewModel::setThemeMode,
+            onLanguageSelected = viewModel::setLanguage,
+            onThemeClick = onThemeClick,
+            onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
+            onWordByWordRenderingChange = viewModel::setWordByWordRendering,
+            onSwipeToChangeTrackChange = viewModel::setSwipeToChangeTrack,
+            onVersionClick = { updateViewModel.checkForUpdate(force = true) },
+            onOpenTypography = onOpenTypography,
+            onProxySourceImport = viewModel::importProxySource,
+            onProxySourceToggle = viewModel::setProxySourceEnabled,
+            onProxySourceRemove = viewModel::removeProxySource,
+            onProxyImportMessageDismiss = viewModel::clearProxyImportMessage,
+            modifier = modifier,
+        )
+    } else {
+        CompactAssembly(
+            uiState = uiState,
+            onBack = onBack,
+            onThemeSelected = viewModel::setThemeMode,
+            onLanguageSelected = viewModel::setLanguage,
+            onThemeClick = onThemeClick,
+            onMiniPlayerEnabledChange = viewModel::setMiniPlayerEnabled,
+            onWordByWordRenderingChange = viewModel::setWordByWordRendering,
+            onSwipeToChangeTrackChange = viewModel::setSwipeToChangeTrack,
+            onVersionClick = { updateViewModel.checkForUpdate(force = true) },
+            onOpenTypography = onOpenTypography,
+            onProxySourceImport = viewModel::importProxySource,
+            onProxySourceToggle = viewModel::setProxySourceEnabled,
+            onProxySourceRemove = viewModel::removeProxySource,
+            onProxyImportMessageDismiss = viewModel::clearProxyImportMessage,
+            modifier = modifier,
+        )
+    }
 }

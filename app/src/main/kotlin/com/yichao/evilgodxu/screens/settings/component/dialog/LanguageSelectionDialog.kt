@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.settings.dialog
+package com.yichao.evilgodxu.screens.settings.component.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

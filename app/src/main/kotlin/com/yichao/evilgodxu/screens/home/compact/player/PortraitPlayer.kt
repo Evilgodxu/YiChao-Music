@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.screens.home.home_assembly.player_area
+package com.yichao.evilgodxu.screens.home.compact.player
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
@@ -75,10 +75,13 @@ import com.yichao.evilgodxu.domain.music.MusicPlaybackState
 import com.yichao.evilgodxu.domain.music.searchCoverCandidates
 import com.yichao.evilgodxu.domain.music.searchLyricsCandidates
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.screens.home.dialog.LosslessUpgradeDialog
-import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.LibraryAnalysisController
-import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.LibraryAnalysisSheet
-import com.yichao.evilgodxu.screens.home.home_assembly.playlist_area.PlaylistSheet
+import com.yichao.evilgodxu.screens.home.component.dialog.LosslessUpgradeDialog
+import com.yichao.evilgodxu.screens.home.component.player.HomeImmersiveCover
+import com.yichao.evilgodxu.screens.home.component.player.MarqueeInfoLine
+import com.yichao.evilgodxu.screens.home.component.player.PlayerControls
+import com.yichao.evilgodxu.screens.home.component.playlist.LibraryAnalysisController
+import com.yichao.evilgodxu.screens.home.component.playlist.LibraryAnalysisSheet
+import com.yichao.evilgodxu.screens.home.component.playlist.PlaylistSheet
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.applyLocalCover
 import com.yichao.evilgodxu.ui.music.cover.CoverContextMenu
@@ -98,9 +101,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-// 首页播放器主体：沉浸封面 + 歌词 + 标题与艺术家 + 底部控制栏
+// 竖屏播放器主体：沉浸封面 + 歌词 + 标题与艺术家 + 底部控制栏
 @Composable
-internal fun PlayerArea(
+internal fun PortraitPlayer(
     modifier: Modifier = Modifier,
     // 标题栏区域高度：封面顶部渐隐区与错误横幅避让基准
     topBarInset: Dp = 0.dp,
