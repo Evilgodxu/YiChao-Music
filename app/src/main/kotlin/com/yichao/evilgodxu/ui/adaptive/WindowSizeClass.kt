@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.window.core.layout.computeWindowSizeClass
 import androidx.window.core.layout.WindowSizeClass
 
@@ -14,24 +15,31 @@ val LocalWindowSizeClass = compositionLocalOf<WindowSizeClass> {
 }
 
 // 提供窗口尺寸类给子组件，用于响应式布局适配
-// 直接用屏幕 dp 尺寸计算，避免 adaptive 在校验设备上注册窗口监听而崩溃
+// 取窗口实测 dp 尺寸计算：该值随窗口尺寸变化自动刷新，且不注册窗口监听，避免校验设备崩溃
 @Composable
 fun ProvideWindowSizeClass(content: @Composable () -> Unit) {
-    val config = LocalConfiguration.current
+    val windowDpSize = LocalWindowInfo.current.containerDpSize
     val windowSizeClass = WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(
-        config.screenWidthDp.toFloat(),
-        config.screenHeightDp.toFloat()
+        windowDpSize.width.value,
+        windowDpSize.height.value,
     )
     CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
         content()
     }
 }
 
-// 宽屏形态判定：旋转为横屏，或窗口宽度达到宽屏断点；供页面按形态分派组装器
+// 窗口是否横向：以窗口实测宽高比为准；配置中的朝向作为尺寸未就绪时的兜底
+@Composable
+fun rememberWindowLandscape(): Boolean {
+    val windowDpSize = LocalWindowInfo.current.containerDpSize
+    return windowDpSize.width > windowDpSize.height ||
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+}
+
+// 宽屏形态判定：窗口横向，或窗口宽度达到宽屏断点；供页面按形态分派组装器
 @Composable
 fun rememberExpandedForm(): Boolean {
-    val orientation = LocalConfiguration.current.orientation
     val windowSizeClass = LocalWindowSizeClass.current
-    return orientation == Configuration.ORIENTATION_LANDSCAPE ||
+    return rememberWindowLandscape() ||
         windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 }

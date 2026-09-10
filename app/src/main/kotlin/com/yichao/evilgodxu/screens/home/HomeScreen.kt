@@ -2,7 +2,6 @@ package com.yichao.evilgodxu.screens.home
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.view.WindowInsets
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivityResultRegistryOwner
@@ -11,7 +10,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
@@ -20,6 +18,7 @@ import com.yichao.evilgodxu.screens.home.component.panel.rememberHomePanelState
 import com.yichao.evilgodxu.screens.home.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.ui.adaptive.rememberExpandedForm
+import com.yichao.evilgodxu.ui.adaptive.rememberWindowLandscape
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -50,12 +49,12 @@ fun HomeScreen(
     }
 
     val activity = LocalActivityResultRegistryOwner.current as? Activity
-    val orientation = LocalConfiguration.current.orientation
-    val isPortrait = orientation == Configuration.ORIENTATION_PORTRAIT
+    // 朝向以窗口实测宽高比为准：Activity 自行处理方向变更，配置读取可能不随之刷新
+    val isPortrait = !rememberWindowLandscape()
 
     // 竖屏沉浸式：默认隐藏状态栏，不再做状态栏变色处理；横屏由 Activity 统一隐藏系统栏
     val insetsController = activity?.window?.insetsController
-    DisposableEffect(orientation, insetsController) {
+    DisposableEffect(isPortrait, insetsController) {
         SystemBarAppearance.isHomePortraitImmersive = isPortrait
         insetsController?.hide(WindowInsets.Type.statusBars())
         onDispose {
@@ -80,6 +79,8 @@ fun HomeScreen(
     // 跨形态共享状态：旋转不重建 Activity，面板显隐与后台分析需在形态切换间保持
     val panelState = rememberHomePanelState()
     val playbackState = panelState.playbackState.state
+    // 左右滑动结算：松手后按阈值平滑展开或回弹；挂在形态分派之上，切换形态不重启动画
+    panelState.swipeController.SettleEffect()
     // 在线搜索覆盖层打开时返回键：优先清空搜索结果与输入框；搜索状态已清空时才关闭覆盖层返回播放器
     BackHandler(enabled = panelState.swipeController.showOnlineSearch) {
         val hasSearchContent = playbackState.searchQuery.isNotBlank() ||
