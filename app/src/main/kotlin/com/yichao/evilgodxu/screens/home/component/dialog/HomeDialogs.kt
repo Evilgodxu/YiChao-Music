@@ -6,7 +6,7 @@ import com.yichao.evilgodxu.data.permission.PermissionType
 import com.yichao.evilgodxu.screens.home.component.panel.HomePanelState
 import com.yichao.evilgodxu.screens.home.component.permission.PermissionDialog
 import com.yichao.evilgodxu.screens.home.HomeUiState
-import com.yichao.evilgodxu.ui.music.dialog.TimerDialog
+import com.yichao.evilgodxu.ui.dialog.TimerDialog
 
 // 首页跨形态对话框：权限申请与定时关闭
 @Composable

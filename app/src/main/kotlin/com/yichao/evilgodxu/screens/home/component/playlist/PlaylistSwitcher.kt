@@ -49,7 +49,7 @@ import com.yichao.evilgodxu.data.music.playback.PlaylistSource
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
+import com.yichao.evilgodxu.ui.component.PlaylistArt
 import kotlinx.coroutines.launch
 
 // 切换到指定歌单队列并播放该歌单第一首歌曲

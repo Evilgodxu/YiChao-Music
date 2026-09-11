@@ -50,7 +50,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
+import com.yichao.evilgodxu.ui.component.PlaylistArt
 
 // 新建歌单弹窗，创建成功后回调返回新歌单
 @Composable

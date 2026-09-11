@@ -57,7 +57,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
+import com.yichao.evilgodxu.ui.component.PlaylistArt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 

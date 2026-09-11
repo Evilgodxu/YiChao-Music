@@ -10,7 +10,7 @@ import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.localization.LocalizationManager
-import com.yichao.evilgodxu.ui.music.window.MusicPanelController
+import com.yichao.evilgodxu.floatingwindow.MusicPanelController
 import com.yichao.evilgodxu.update.UpdateViewModel
 
 // 手动 DI 容器：Application 启动时构造并持有全部应用级单例

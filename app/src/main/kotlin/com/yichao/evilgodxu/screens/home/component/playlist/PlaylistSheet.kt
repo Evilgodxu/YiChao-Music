@@ -78,9 +78,9 @@ import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.music.component.HeaderIconButton
-import com.yichao.evilgodxu.ui.music.component.PlaylistRow
-import com.yichao.evilgodxu.ui.music.component.scrollPlaylistTo
+import com.yichao.evilgodxu.ui.component.HeaderIconButton
+import com.yichao.evilgodxu.ui.component.PlaylistRow
+import com.yichao.evilgodxu.ui.component.scrollPlaylistTo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
