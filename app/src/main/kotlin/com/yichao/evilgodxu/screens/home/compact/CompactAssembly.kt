@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.yichao.evilgodxu.data.permission.PermissionType
-import com.yichao.evilgodxu.domain.music.panel.performSearch
+import com.yichao.evilgodxu.data.music.panel.performSearch
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.compact.player.PortraitPlayer
 import com.yichao.evilgodxu.screens.home.component.bar.HomeTopBar

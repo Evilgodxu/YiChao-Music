@@ -29,10 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.domain.music.analysis.isLosslessFormat
-import com.yichao.evilgodxu.domain.music.playback.AudioSignalPathFormat
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playback.seekTo
+import com.yichao.evilgodxu.data.music.analysis.isLosslessFormat
+import com.yichao.evilgodxu.data.music.playback.AudioSignalPathFormat
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.seekTo
 import com.yichao.evilgodxu.utils.formatTime
 
 @Composable

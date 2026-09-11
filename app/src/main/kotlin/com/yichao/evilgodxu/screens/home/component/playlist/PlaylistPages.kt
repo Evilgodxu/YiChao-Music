@@ -49,10 +49,10 @@ import com.yichao.evilgodxu.data.playlist.Playlist
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playback.PlaylistSource
-import com.yichao.evilgodxu.domain.music.playback.playTrackAt
-import com.yichao.evilgodxu.domain.music.playback.togglePlayPause
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.PlaylistSource
+import com.yichao.evilgodxu.data.music.playback.playTrackAt
+import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import org.koin.compose.koinInject
 import com.yichao.evilgodxu.ui.component.DialogCard

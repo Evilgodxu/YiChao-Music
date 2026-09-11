@@ -47,9 +47,9 @@ import coil3.request.ImageRequest
 import com.yichao.evilgodxu.data.music.api.sourceNameRes
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
-import com.yichao.evilgodxu.domain.music.download.upgradeTrackToLossless
-import com.yichao.evilgodxu.domain.music.panel.searchLosslessUpgradeCandidates
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.download.upgradeTrackToLossless
+import com.yichao.evilgodxu.data.music.panel.searchLosslessUpgradeCandidates
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons

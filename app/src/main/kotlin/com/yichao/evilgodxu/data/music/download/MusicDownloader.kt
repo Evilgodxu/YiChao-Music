@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music.download
+package com.yichao.evilgodxu.data.music.download
 
 import android.content.ContentValues
 import android.content.Context
@@ -16,11 +16,11 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
-import com.yichao.evilgodxu.domain.music.analysis.isLosslessFormatName
-import com.yichao.evilgodxu.domain.music.analysis.TrackAudioInfoReader
-import com.yichao.evilgodxu.domain.music.panel.resolvePlayUrlByQuality
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playback.refreshCurrentPlaybackSource
+import com.yichao.evilgodxu.data.music.analysis.isLosslessFormatName
+import com.yichao.evilgodxu.data.music.analysis.TrackAudioInfoReader
+import com.yichao.evilgodxu.data.music.panel.resolvePlayUrlByQuality
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.refreshCurrentPlaybackSource
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.io.File
 import kotlin.coroutines.resume

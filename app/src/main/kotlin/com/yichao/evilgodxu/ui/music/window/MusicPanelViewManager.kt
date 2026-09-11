@@ -31,9 +31,9 @@ import com.yichao.evilgodxu.data.music.normalizedAudioUri
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.resolveLocalPath
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
-import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playback.playTrackAt
+import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.yichao.evilgodxu.log.CrashLogManager

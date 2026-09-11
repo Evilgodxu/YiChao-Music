@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
-import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.theme.md_theme_dark_background
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.Dispatchers

@@ -7,7 +7,7 @@ import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.repository.SettingsRepository
-import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeViewModel
 import com.yichao.evilgodxu.screens.settings.SettingsViewModel
 import com.yichao.evilgodxu.screens.typography.TypographyViewModel

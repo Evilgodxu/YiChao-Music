@@ -10,7 +10,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.data.settings.swipeToChangeTrackFlow
-import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.component.playlist.LibraryAnalysisController
 import com.yichao.evilgodxu.screens.home.component.swipe.HomeSwipeController
 import com.yichao.evilgodxu.screens.home.component.swipe.rememberHomeSwipeController

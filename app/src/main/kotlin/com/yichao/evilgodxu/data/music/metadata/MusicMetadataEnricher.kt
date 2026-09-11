@@ -5,8 +5,8 @@ import android.net.Uri
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playback.refreshCurrentMediaItem
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.refreshCurrentMediaItem
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong

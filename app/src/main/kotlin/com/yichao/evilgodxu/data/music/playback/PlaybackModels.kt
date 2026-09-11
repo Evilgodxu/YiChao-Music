@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music.playback
+package com.yichao.evilgodxu.data.music.playback
 
 // 当前曲目的音频格式信息（音频信息条展示用）
 data class AudioSignalPathFormat(

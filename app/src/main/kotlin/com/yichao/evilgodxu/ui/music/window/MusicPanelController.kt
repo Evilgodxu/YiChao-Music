@@ -10,7 +10,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
 import com.yichao.evilgodxu.data.settings.miniPlayerEnabledFlow
-import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.service.MusicPlaybackService
 import com.yichao.evilgodxu.ui.music.miniplayer.window.MiniPlayerViewManager

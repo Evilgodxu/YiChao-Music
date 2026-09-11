@@ -1,6 +1,6 @@
-package com.yichao.evilgodxu.domain.music.analysis
+package com.yichao.evilgodxu.data.music.analysis
 
-import com.yichao.evilgodxu.domain.music.playback.AudioSignalPathFormat
+import com.yichao.evilgodxu.data.music.playback.AudioSignalPathFormat
 
 // 无损格式集合：命中的格式已无需再升级
 private val LOSSLESS_FORMATS = setOf(

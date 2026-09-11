@@ -31,8 +31,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.yichao.evilgodxu.domain.music.panel.MusicPanelStateHolder
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.ui.music.miniplayer.MINI_BUTTON_COUNT
 import com.yichao.evilgodxu.ui.music.miniplayer.MINI_BUTTON_DP

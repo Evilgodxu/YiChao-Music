@@ -69,9 +69,9 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
-import com.yichao.evilgodxu.domain.music.panel.loadMoreSearchResults
-import com.yichao.evilgodxu.domain.music.panel.performSearch
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.panel.loadMoreSearchResults
+import com.yichao.evilgodxu.data.music.panel.performSearch
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.component.HeaderIconButton

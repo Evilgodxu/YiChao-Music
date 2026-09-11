@@ -1,10 +1,10 @@
-package com.yichao.evilgodxu.domain.music.analysis
+package com.yichao.evilgodxu.data.music.analysis
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.domain.music.playback.AudioSignalPathFormat
+import com.yichao.evilgodxu.data.music.playback.AudioSignalPathFormat
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import java.io.File

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music.panel
+package com.yichao.evilgodxu.data.music.panel
 
 import android.content.Context
 import android.net.Uri
@@ -16,10 +16,10 @@ import com.yichao.evilgodxu.data.music.model.MusicSearchSource
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.model.NeteaseSongSearchResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceEngine
-import com.yichao.evilgodxu.domain.music.download.cacheToDownloads
-import com.yichao.evilgodxu.domain.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.domain.music.playback.playTrackAt
-import com.yichao.evilgodxu.domain.music.playback.refreshCurrentMediaItem
+import com.yichao.evilgodxu.data.music.download.cacheToDownloads
+import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.playTrackAt
+import com.yichao.evilgodxu.data.music.playback.refreshCurrentMediaItem
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import kotlinx.coroutines.async

@@ -12,7 +12,7 @@ import android.provider.MediaStore
 import android.util.Log
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.music.model.LyricWord
-import com.yichao.evilgodxu.domain.music.download.sanitizeFileName
+import com.yichao.evilgodxu.data.music.download.sanitizeFileName
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.io.ByteArrayOutputStream
 import java.io.File

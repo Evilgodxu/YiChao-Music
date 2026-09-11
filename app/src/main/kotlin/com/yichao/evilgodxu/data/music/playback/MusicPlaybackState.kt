@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.domain.music.playback
+package com.yichao.evilgodxu.data.music.playback
 
 import android.content.ContentResolver
 import android.content.Context
@@ -27,7 +27,7 @@ import com.yichao.evilgodxu.data.music.model.RecentCover
 import com.yichao.evilgodxu.data.music.trackIdentityKey
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.settings.settingsDataStore
-import com.yichao.evilgodxu.domain.music.analysis.TrackAudioInfoReader
+import com.yichao.evilgodxu.data.music.analysis.TrackAudioInfoReader
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import java.io.File
