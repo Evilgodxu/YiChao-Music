@@ -34,8 +34,6 @@ import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.ui.music.MusicPanelOverlay
 import kotlinx.coroutines.async
@@ -53,19 +51,19 @@ import kotlinx.coroutines.withContext
 // 音乐面板悬浮窗管理器
 class MusicPanelViewManager(
     private val context: Context,
+    private val stateHolder: MusicPanelStateHolder,
+    private val playlistRefresher: PlaylistRefresher,
+    private val metadataEnricher: MetadataEnricher,
     private val onDismiss: () -> Unit,
     private val onShowFailed: ((WindowManager.BadTokenException) -> Unit)? = null
-) : KoinComponent {
+) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var composeView: ComposeView? = null
     private var isDismissing = false
     private val managerJob = SupervisorJob()
     private val managerScope = CoroutineScope(managerJob + Dispatchers.IO)
 
-    private val stateHolder: MusicPanelStateHolder by inject()
     private val playbackState: MusicPlaybackState get() = stateHolder.state
-    private val playlistRefresher: PlaylistRefresher by inject()
-    private val metadataEnricher: MetadataEnricher by inject()
     private var pendingExternalUri: android.net.Uri? = null
     private val externalTrackMutex = Mutex()
     private var initialization: Deferred<Unit>? = null

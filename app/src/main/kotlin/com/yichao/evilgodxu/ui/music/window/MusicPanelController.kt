@@ -10,6 +10,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.yichao.evilgodxu.data.permission.mediaAudioPermission
 import com.yichao.evilgodxu.data.permission.mediaImagePermission
 import com.yichao.evilgodxu.data.settings.miniPlayerEnabledFlow
+import com.yichao.evilgodxu.data.music.PlaylistRefresher
+import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.service.MusicPlaybackService
@@ -24,17 +26,19 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 // 向 Compose 层暴露音乐面板控制器的组合局部
 val LocalMusicPanelController = staticCompositionLocalOf<MusicPanelController?> { null }
 
 // 音乐面板与迷你播放器控制器：由 Activity 生命周期驱动悬浮窗的显示与隐藏
-class MusicPanelController(private val context: Context) : KoinComponent {
+class MusicPanelController(
+    private val context: Context,
+    private val stateHolder: MusicPanelStateHolder,
+    private val playlistRefresher: PlaylistRefresher,
+    private val metadataEnricher: MetadataEnricher,
+) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val stateHolder: MusicPanelStateHolder by inject()
     private var panelManager: MusicPanelViewManager? = null
     private var miniPlayerManager: MiniPlayerViewManager? = null
     private var miniPlayerTemporarilyHidden = false
@@ -75,6 +79,9 @@ class MusicPanelController(private val context: Context) : KoinComponent {
     fun playExternalInBackground(uri: android.net.Uri) {
         val manager = panelManager ?: MusicPanelViewManager(
             context = context,
+            stateHolder = stateHolder,
+            playlistRefresher = playlistRefresher,
+            metadataEnricher = metadataEnricher,
             onDismiss = {
                 panelManager = null
                 maybeShowMiniPlayer()
@@ -94,6 +101,9 @@ class MusicPanelController(private val context: Context) : KoinComponent {
         val showPanel = {
             val manager = panelManager ?: MusicPanelViewManager(
                 context = context,
+                stateHolder = stateHolder,
+                playlistRefresher = playlistRefresher,
+                metadataEnricher = metadataEnricher,
                 onDismiss = {
                     panelManager = null
                     maybeShowMiniPlayer()
@@ -131,6 +141,7 @@ class MusicPanelController(private val context: Context) : KoinComponent {
         if (!android.provider.Settings.canDrawOverlays(context)) return
         miniPlayerManager = MiniPlayerViewManager(
             context = context,
+            stateHolder = stateHolder,
             onExpandPanel = { openMusicPanel() },
             onSwipedDismiss = {
                 miniPlayerTemporarilyHidden = true

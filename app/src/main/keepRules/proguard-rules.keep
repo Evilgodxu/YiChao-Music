@@ -31,14 +31,6 @@
 }
 
 # ============================================================
-# Koin 依赖注入（官方推荐规则）
-# ============================================================
--keep class * extends org.koin.core.module.Module { *; }
--keepclassmembers class * {
-    @org.koin.core.annotation.* *;
-}
-
-# ============================================================
 # Navigation Compose 类型安全 API
 # ============================================================
 -keep class * implements androidx.navigation.NavType { *; }

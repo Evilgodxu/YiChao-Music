@@ -31,16 +31,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
-import org.koin.core.component.inject
-import org.koin.core.component.KoinComponent
 
 class SettingsViewModel(
     application: Application,
     private val settingsRepository: SettingsRepository,
-) : AndroidViewModel(application), KoinComponent {
+    private val localizationManager: LocalizationManager,
+) : AndroidViewModel(application) {
 
     private val context get() = getApplication<Application>()
-    private val localizationManager: LocalizationManager by inject()
 
     // 代理音源存储变更监听：分享导入等外部写入不经过本 ViewModel，存储变化后统一驱动列表刷新
     private val proxyChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->

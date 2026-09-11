@@ -47,7 +47,7 @@ import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.playlist.Playlist
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.R
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.cover.PlaylistArt
@@ -61,7 +61,7 @@ internal fun CreatePlaylistDialog(
 ) {
     if (!visible) return
     val context = LocalContext.current
-    val playlistStore = koinInject<PlaylistStore>()
+    val playlistStore = LocalAppContainer.current.playlistStore
     var name by remember { mutableStateOf("") }
     DialogCard(onDismiss = onDismiss) {
         Column(
@@ -137,7 +137,7 @@ internal fun RenamePlaylistDialog(
 ) {
     if (playlist == null) return
     val context = LocalContext.current
-    val playlistStore = koinInject<PlaylistStore>()
+    val playlistStore = LocalAppContainer.current.playlistStore
     var name by remember(playlist.id) { mutableStateOf(playlist.name) }
     DialogCard(onDismiss = onDismiss) {
         Column(
@@ -213,7 +213,7 @@ internal fun DeletePlaylistDialog(
 ) {
     if (playlist == null) return
     val context = LocalContext.current
-    val playlistStore = koinInject<PlaylistStore>()
+    val playlistStore = LocalAppContainer.current.playlistStore
     DialogCard(onDismiss = onDismiss) {
         Column(
             modifier = Modifier

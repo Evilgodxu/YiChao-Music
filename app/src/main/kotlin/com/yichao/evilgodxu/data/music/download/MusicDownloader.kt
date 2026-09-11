@@ -11,7 +11,6 @@ import com.yichao.evilgodxu.data.music.api.MusicHttpClient
 import com.yichao.evilgodxu.data.music.api.MusicQuality
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
-import org.koin.core.context.GlobalContext
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
@@ -41,6 +40,8 @@ internal suspend fun cacheToDownloads(
     url: String,
     trackId: Long,
     playbackState: MusicPlaybackState,
+    metadataEnricher: MetadataEnricher,
+    playlistRefresher: PlaylistRefresher,
     coverDeferred: Deferred<ByteArray?>? = null,
     lyricDeferred: Deferred<String?>? = null,
 ) {
@@ -64,9 +65,9 @@ internal suspend fun cacheToDownloads(
             // 也让下载到的封面原图与标题/艺术家一并写入缓存文件，供刷新后正确显示
             embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await(), lyricDeferred.awaitLyrics())
             // 提取封面/歌词展示缓存并清理冗余封面文件
-            GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
+            metadataEnricher.enrichAndCleanup(context, playbackState)
             // 复用旧缓存同样登记本地音频库并刷新，避免旧缓存文件从未入库
-            registerCachedFileAsLocal(context, playbackState, trackId, existingUri)
+            registerCachedFileAsLocal(context, playbackState, trackId, existingUri, playlistRefresher)
             return
         }
 
@@ -114,9 +115,9 @@ internal suspend fun cacheToDownloads(
         // 将标题/艺术家与下载到的封面原图一次写入本地文件，刷新后不再丢失元数据
         embedCachedMetadata(context, playbackState, trackId, coverDeferred?.await(), lyricDeferred.awaitLyrics())
         // 下载完成：提取封面/歌词展示缓存并清理冗余封面文件
-        GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, playbackState)
+        metadataEnricher.enrichAndCleanup(context, playbackState)
         // 缓存完成：登记本地音频库并刷新播放列表，建立本地索引
-        registerCachedFileAsLocal(context, playbackState, trackId, audioUri)
+        registerCachedFileAsLocal(context, playbackState, trackId, audioUri, playlistRefresher)
     } catch (e: Exception) {
         CrashLogManager.logException("MusicDownloader", "缓存下载文件失败", e)
     } finally {
@@ -131,6 +132,7 @@ private suspend fun registerCachedFileAsLocal(
     playbackState: MusicPlaybackState,
     trackId: Long,
     audioUri: String,
+    playlistRefresher: PlaylistRefresher,
 ) {
     val path = queryMediaPath(context, Uri.parse(audioUri)) ?: return
     // 等待扫描完成再刷新，确保 MusicScanner 能读到新条目
@@ -141,7 +143,7 @@ private suspend fun registerCachedFileAsLocal(
             }
         }
     }
-    GlobalContext.get().get<PlaylistRefresher>().refresh(context, playbackState, restoreCurrent = true)
+    playlistRefresher.refresh(context, playbackState, restoreCurrent = true)
     withContext(Dispatchers.Main) {
         val current = playbackState.currentTrack ?: return@withContext
         if (current.id != trackId) return@withContext

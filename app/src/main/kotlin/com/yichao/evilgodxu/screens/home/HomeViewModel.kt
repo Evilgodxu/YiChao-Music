@@ -16,15 +16,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
-class HomeViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
+class HomeViewModel(
+    application: Application,
+    private val stateHolder: MusicPanelStateHolder,
+    private val playlistRefresher: PlaylistRefresher,
+    private val metadataEnricher: MetadataEnricher,
+) : AndroidViewModel(application) {
 
     private val permissionMonitor = PermissionMonitor(getApplication())
-    private val stateHolder: MusicPanelStateHolder by inject()
-    private val playlistRefresher: PlaylistRefresher by inject()
-    private val metadataEnricher: MetadataEnricher by inject()
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()

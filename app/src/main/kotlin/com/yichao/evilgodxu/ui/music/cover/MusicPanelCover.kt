@@ -53,7 +53,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.music.component.DiscArt
 import com.yichao.evilgodxu.utils.copyToClipboard
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 import java.io.File
 
 @Composable
@@ -108,7 +108,7 @@ private fun coverModel(track: MusicTrack?): Any? {
 
 @Composable
 internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
-    val stateHolder = koinInject<MusicPanelStateHolder>()
+    val stateHolder = LocalAppContainer.current.stateHolder
     // 仅当封面相关字段变化时重算，避免列表重组时重复文件系统 stat
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
         coverModel(track)
@@ -144,7 +144,7 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
-    val stateHolder = koinInject<MusicPanelStateHolder>()
+    val stateHolder = LocalAppContainer.current.stateHolder
     // 列表小图直接使用磁盘缓存或在线原图，由 Coil 按显示尺寸高质量下采样；
     // 128px CDN 缩略图在高 DPI 下列表放大显示会模糊，故不再使用
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {

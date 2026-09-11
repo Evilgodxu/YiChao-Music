@@ -39,8 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
-import org.koin.core.context.GlobalContext
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
@@ -59,6 +58,7 @@ internal fun switchToPlaylistQueue(
     state: MusicPlaybackState,
     tracks: List<MusicTrack>,
     source: PlaylistSource?,
+    metadataEnricher: MetadataEnricher,
 ) {
     if (tracks.isEmpty()) {
         state.playlist = tracks
@@ -77,7 +77,7 @@ internal fun switchToPlaylistQueue(
     state.playbackScope.launch { playTrackAt(context, state, 0, autoPlay = false) }
     state.persistPlaylist()
     // 切换歌单后后台补全新歌单缺失的封面/歌词，缓存已就绪的歌曲直接命中不重复加载
-    state.playbackScope.launch { GlobalContext.get().get<MetadataEnricher>().enrichAndCleanup(context, state) }
+    state.playbackScope.launch { metadataEnricher.enrichAndCleanup(context, state) }
 }
 
 // 播放列表副标题快捷切换歌单弹层：默认 + 系统歌单 + 自定义歌单，专辑/艺术家支持分组二级导航
@@ -89,7 +89,8 @@ internal fun PlaylistSwitcher(
 ) {
     if (!visible) return
     val context = LocalContext.current
-    val playlistStore = koinInject<PlaylistStore>()
+    val container = LocalAppContainer.current
+    val playlistStore = container.playlistStore
     var showGroups by remember { mutableStateOf<SmartPlaylistType?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -138,7 +139,7 @@ internal fun PlaylistSwitcher(
                     playlistStore = playlistStore,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, tracks, source)
+                        switchToPlaylistQueue(context, playbackState, tracks, source, container.metadataEnricher)
                         onDismiss()
                     },
                     onOpenGroups = { showGroups = it },
@@ -148,7 +149,7 @@ internal fun PlaylistSwitcher(
                     type = type,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, tracks, source)
+                        switchToPlaylistQueue(context, playbackState, tracks, source, container.metadataEnricher)
                         onDismiss()
                     },
                 )

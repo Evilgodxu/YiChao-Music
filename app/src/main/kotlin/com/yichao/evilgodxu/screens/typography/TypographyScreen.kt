@@ -4,19 +4,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.screens.typography.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.typography.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import com.yichao.evilgodxu.windowSize.rememberExpandedForm
-import org.koin.androidx.compose.koinViewModel
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable
 fun TypographyScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: TypographyViewModel = koinViewModel(),
 ) {
+    val container = LocalAppContainer.current
+    val viewModel: TypographyViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                TypographyViewModel(application = container.application)
+            }
+        },
+    )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     // 状态栏图标跟随主题：浅色主题深色图标，深色主题白色图标
     StatusBarStyleEffect()

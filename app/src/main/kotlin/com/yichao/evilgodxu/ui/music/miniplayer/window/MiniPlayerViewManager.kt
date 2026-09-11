@@ -39,21 +39,19 @@ import com.yichao.evilgodxu.ui.music.miniplayer.MINI_BUTTON_DP
 import com.yichao.evilgodxu.ui.music.miniplayer.MINI_COVER_DP
 import com.yichao.evilgodxu.ui.music.miniplayer.MINI_PADDING_H_DP
 import com.yichao.evilgodxu.ui.music.miniplayer.MiniPlayerOverlay
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 // 迷你播放器浮动窗管理器：状态栏下方的紧凑播放条，支持展开完整面板与下拉播放列表
 class MiniPlayerViewManager(
     private val context: Context,
+    private val stateHolder: MusicPanelStateHolder,
     private val onExpandPanel: () -> Unit,
     private val onSwipedDismiss: () -> Unit,
-) : KoinComponent {
+) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var composeView: ComposeView? = null
     private var isDismissing = false
-    private val stateHolder: MusicPanelStateHolder by inject()
     private val playbackState: MusicPlaybackState get() = stateHolder.state
 
     // 播放列表展开状态（Compose 状态 + 窗口布局共用）

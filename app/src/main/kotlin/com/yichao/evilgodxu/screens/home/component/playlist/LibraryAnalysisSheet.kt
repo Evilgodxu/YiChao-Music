@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.analysis.AiMusicAnalyzer
 import com.yichao.evilgodxu.data.music.analysis.analyzeLibraryCombined
 import com.yichao.evilgodxu.data.music.analysis.FakeLosslessAnalyzer
@@ -77,6 +79,7 @@ internal fun LibraryAnalysisSheet(
 ) {
     if (!visible) return
     val context = LocalContext.current
+    val container = LocalAppContainer.current
     // 全量库统计：切换歌单时曲库范围不变，仅依赖全量库数据
     val stats = remember(playbackState.libraryTracks) {
         analyzeLibraryFormats(context, playbackState.libraryTracks)
@@ -220,7 +223,7 @@ internal fun LibraryAnalysisSheet(
                                 color = FORMAT_COLOR_PALETTE[index % FORMAT_COLOR_PALETTE.size],
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat)
+                                    switchToFormat(context, playbackState, stat, container.metadataEnricher)
                                     onDismiss()
                                 },
                             )
@@ -272,7 +275,7 @@ internal fun LibraryAnalysisSheet(
                                 specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat)
+                                    switchToFormat(context, playbackState, stat, container.metadataEnricher)
                                     onDismiss()
                                 },
                             )
@@ -291,7 +294,7 @@ internal fun LibraryAnalysisSheet(
                                 specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat)
+                                    switchToFormat(context, playbackState, stat, container.metadataEnricher)
                                     onDismiss()
                                 },
                             )
@@ -310,6 +313,7 @@ private fun switchToFormat(
     context: Context,
     playbackState: MusicPlaybackState,
     stat: FormatStat,
+    metadataEnricher: MetadataEnricher,
 ) {
     playbackState.playbackScope.launch {
         val tracks = playbackState.libraryTracks.filter { track ->
@@ -328,6 +332,7 @@ private fun switchToFormat(
             state = playbackState,
             tracks = tracks,
             source = PlaylistSource(formatSourceKey(stat.key), stat.name),
+            metadataEnricher = metadataEnricher,
         )
     }
 }

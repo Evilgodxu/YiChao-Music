@@ -33,7 +33,7 @@ import com.yichao.evilgodxu.theme.md_theme_dark_background
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 
 // 首页封面显示解码上限：与缓存保存上限对齐，避免超大图全尺寸进内存
 private const val DISPLAY_MAX_EDGE = 2048
@@ -43,7 +43,7 @@ private const val DISPLAY_MAX_EDGE = 2048
 @Composable
 internal fun HomeAlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val stateHolder = koinInject<MusicPanelStateHolder>()
+    val stateHolder = LocalAppContainer.current.stateHolder
     // 以路径与封面写入版本号为 key：路径变化或重新写入新封面时均强制重载
     val cachePath = track?.coverCachePath?.takeIf { MusicMetadataCache.isValid(it) }
     val cacheRevision = stateHolder.state.coverRevision

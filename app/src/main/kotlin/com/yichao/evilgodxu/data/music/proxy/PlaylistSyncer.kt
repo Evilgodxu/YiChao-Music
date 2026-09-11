@@ -15,8 +15,6 @@ import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 // 分享链接解析出的歌单引用：平台 + 歌单 ID
 internal data class RemotePlaylistLink(
@@ -47,8 +45,7 @@ internal sealed interface PlaylistSyncResult {
 
 // 歌单同步：解析分享链接 → 拉取歌单（代理音源优先，未配置或失败回退内置解析）→
 // 本地同名跳过 → 高音质优先下载入库
-internal object PlaylistSyncer : KoinComponent {
-    private val playlistRefresher: PlaylistRefresher by inject()
+internal object PlaylistSyncer {
 
     // 解析分享链接为平台 + 歌单 ID；直接解析失败时尝试跟随重定向
     suspend fun parseLink(context: Context, raw: String): RemotePlaylistLink? {
@@ -120,6 +117,7 @@ internal object PlaylistSyncer : KoinComponent {
         context: Context,
         state: MusicPlaybackState,
         link: RemotePlaylistLink,
+        playlistRefresher: PlaylistRefresher,
         onProgress: (done: Int, total: Int, title: String) -> Unit,
     ): PlaylistSyncResult {
         val fetched = fetchRemote(context, link)

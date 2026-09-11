@@ -9,20 +9,20 @@ import coil3.SingletonImageLoader
 import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
 import com.yichao.evilgodxu.data.settings.settingsDataStore
 import com.yichao.evilgodxu.data.settings.writeBootLanguage
-import com.yichao.evilgodxu.di.appModule
 import com.yichao.evilgodxu.log.CrashLogManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
-import org.koin.android.ext.koin.androidContext
-import org.koin.android.ext.koin.androidLogger
-import org.koin.core.context.startKoin
 
 class App : Application() {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // 手动 DI 容器：Application 级单例，宿主 Activity/Service 启动时取用
+    lateinit var container: AppContainer
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -48,12 +48,7 @@ class App : Application() {
                 .build()
         }
 
-        startKoin {
-            // 仅保留错误级日志，避免 release 输出依赖解析噪声
-            androidLogger(level = org.koin.core.logger.Level.ERROR)
-            androidContext(this@App)
-            modules(appModule)
-        }
+        container = AppContainer(this)
     }
 
     // 仅调试构建启用：检测主线程磁盘读写与网络访问并输出日志。

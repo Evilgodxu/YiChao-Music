@@ -15,7 +15,7 @@ import com.yichao.evilgodxu.screens.home.component.playlist.LibraryAnalysisContr
 import com.yichao.evilgodxu.screens.home.component.swipe.HomeSwipeController
 import com.yichao.evilgodxu.screens.home.component.swipe.rememberHomeSwipeController
 import com.yichao.evilgodxu.theme.md_theme_dark_surface
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 
 // 首页跨形态共享状态：在形态分派之上创建；旋转不重建 Activity，面板显隐与后台分析需跨形态保持
 @Stable
@@ -40,7 +40,7 @@ internal class HomePanelState(
 @Composable
 internal fun rememberHomePanelState(): HomePanelState {
     val context = LocalContext.current
-    val playbackState = koinInject<MusicPanelStateHolder>()
+    val playbackState = LocalAppContainer.current.stateHolder
     val scope = rememberCoroutineScope()
     // 播放偏好：滑动切歌开关
     val swipeToChangeTrack by context.swipeToChangeTrackFlow()

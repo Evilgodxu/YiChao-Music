@@ -12,24 +12,37 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.screens.settings.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.settings.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import com.yichao.evilgodxu.windowSize.rememberExpandedForm
 import com.yichao.evilgodxu.update.UpdateViewModel
-import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.koinInject
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = koinViewModel(),
-    updateViewModel: UpdateViewModel = koinInject(),
     onOpenTypography: () -> Unit = {},
 ) {
+    val container = LocalAppContainer.current
+    val viewModel: SettingsViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                SettingsViewModel(
+                    application = container.application,
+                    settingsRepository = container.settingsRepository,
+                    localizationManager = container.localizationManager,
+                )
+            }
+        },
+    )
+    val updateViewModel = container.updateViewModel
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onThemeClick: (Offset) -> Unit = LocalThemeTransitionController.current::revealAt
     val context = LocalContext.current

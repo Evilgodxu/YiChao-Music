@@ -12,26 +12,39 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.screens.home.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.home.component.panel.rememberHomePanelState
 import com.yichao.evilgodxu.screens.home.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.windowSize.rememberExpandedForm
 import com.yichao.evilgodxu.windowSize.rememberWindowLandscape
-import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.koinInject
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit,
-    viewModel: HomeViewModel = koinViewModel(),
 ) {
+    val container = LocalAppContainer.current
+    val viewModel: HomeViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                HomeViewModel(
+                    application = container.application,
+                    stateHolder = container.stateHolder,
+                    playlistRefresher = container.playlistRefresher,
+                    metadataEnricher = container.metadataEnricher,
+                )
+            }
+        },
+    )
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val stateHolder = koinInject<MusicPanelStateHolder>()
+    val stateHolder = container.stateHolder
     // 冷启动恢复持久化的播放列表，并定位当前曲目
     LaunchedEffect(Unit) {
         val state = stateHolder.state

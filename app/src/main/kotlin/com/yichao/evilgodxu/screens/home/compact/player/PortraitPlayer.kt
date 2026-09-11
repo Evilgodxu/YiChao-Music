@@ -99,7 +99,7 @@ import com.yichao.evilgodxu.ui.music.lyrics.LyricsRefreshDialog
 import com.yichao.evilgodxu.utils.copyToClipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 
 // 竖屏播放器主体：沉浸封面 + 歌词 + 标题与艺术家 + 底部控制栏
 @Composable
@@ -116,7 +116,7 @@ internal fun PortraitPlayer(
     onPlaylistVisibilityChange: (Boolean) -> Unit,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
-    val playbackState = koinInject<MusicPanelStateHolder>().state
+    val playbackState = LocalAppContainer.current.stateHolder.state
 
     // 播放列表与曲库分析展开时，系统返回键收起面板（曲库分析关闭不中断后台任务）
     BackHandler(enabled = playlistVisible || libraryAnalysis.visible) {

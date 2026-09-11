@@ -14,10 +14,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
+import androidx.activity.viewModels
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
 import com.yichao.evilgodxu.data.settings.AppLanguage
@@ -35,14 +38,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.koin.android.ext.android.inject
-import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsController
-    private val localizationManager: LocalizationManager by inject()
-    private val activityViewModel: MainViewModel by viewModel()
-    private val musicPanelController: MusicPanelController by inject()
+
+    // 手动 DI：经 Application 容器取依赖，ViewModel 以工厂注入构造参数
+    private val appContainer: AppContainer
+        get() = (application as App).container
+    private val localizationManager: LocalizationManager
+        get() = appContainer.localizationManager
+    private val musicPanelController: MusicPanelController
+        get() = appContainer.musicPanelController
+    private val activityViewModel: MainViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                MainViewModel(
+                    settingsRepository = appContainer.settingsRepository,
+                    appVersion = appContainer.appVersion,
+                )
+            }
+        }
+    }
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
     override fun attachBaseContext(newBase: Context) {
@@ -79,11 +95,13 @@ class MainActivity : ComponentActivity() {
         })
 
         setContent {
-            CompositionLocalProvider(LocalMainViewModel provides activityViewModel) {
-                ProvideLocalizedContext(localizationManager) {
-                    CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
-                        ProvideWindowSizeClass {
-                            AppContent()
+            CompositionLocalProvider(LocalAppContainer provides appContainer) {
+                CompositionLocalProvider(LocalMainViewModel provides activityViewModel) {
+                    ProvideLocalizedContext(localizationManager) {
+                        CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
+                            ProvideWindowSizeClass {
+                                AppContent()
+                            }
                         }
                     }
                 }

@@ -72,7 +72,7 @@ import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
-import org.koin.compose.koinInject
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
@@ -95,8 +95,9 @@ internal fun PlaylistSheet(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
-    val playlistRefresher = koinInject<PlaylistRefresher>()
-    val metadataEnricher = koinInject<MetadataEnricher>()
+    val container = LocalAppContainer.current
+    val playlistRefresher = container.playlistRefresher
+    val metadataEnricher = container.metadataEnricher
     // 歌单副标题点击后的快捷切换弹层
     var showSwitcher by remember { mutableStateOf(false) }
     // 长按删除目标：非空时显示确认弹窗

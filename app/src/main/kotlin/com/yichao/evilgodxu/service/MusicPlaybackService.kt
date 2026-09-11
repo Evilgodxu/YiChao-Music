@@ -18,19 +18,20 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.yichao.evilgodxu.App
 import com.yichao.evilgodxu.data.music.analysis.TrackAudioInfoReader
 import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.data.music.playback.AudioSignalPathFormat
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 @OptIn(UnstableApi::class)
-class MusicPlaybackService : MediaSessionService(), KoinComponent {
+class MusicPlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
-    private val stateHolder: MusicPanelStateHolder by inject()
+    // 系统创建的服务无法构造注入，经 Application 容器取共享单例
+    private val stateHolder: MusicPanelStateHolder
+        get() = (application as App).container.stateHolder
     private var mediaSession: MediaSession? = null
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null

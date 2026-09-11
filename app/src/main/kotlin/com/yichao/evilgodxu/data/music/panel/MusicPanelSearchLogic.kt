@@ -10,6 +10,8 @@ import com.yichao.evilgodxu.data.music.api.NeteaseMusicApi
 import com.yichao.evilgodxu.data.music.api.OnlineMusicSource
 import com.yichao.evilgodxu.data.music.api.QQMusicApi
 import com.yichao.evilgodxu.data.music.api.sourceOf
+import com.yichao.evilgodxu.data.music.PlaylistRefresher
+import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicSearchSource
@@ -445,6 +447,8 @@ internal suspend fun downloadAndPlay(
     playbackState: MusicPlaybackState,
     result: NeteaseSongSearchResult,
     url: String,
+    metadataEnricher: MetadataEnricher,
+    playlistRefresher: PlaylistRefresher,
 ) {
     val trackId = result.id + 1000000L
     val track = MusicTrack(
@@ -538,7 +542,10 @@ internal suspend fun downloadAndPlay(
     }
 
     playbackState.playbackScope.launch(Dispatchers.IO) {
-        cacheToDownloads(context, result, url, trackId, playbackState, coverJob, lyricsJob)
+        cacheToDownloads(
+            context, result, url, trackId, playbackState,
+            metadataEnricher, playlistRefresher, coverJob, lyricsJob,
+        )
     }
 }
 
@@ -619,6 +626,8 @@ internal suspend fun playSearchResult(
     playbackState: MusicPlaybackState,
     context: Context,
     scope: kotlinx.coroutines.CoroutineScope,
+    metadataEnricher: MetadataEnricher,
+    playlistRefresher: PlaylistRefresher,
 ) {
     if (tryPlayLocalMatch(target, playbackState, context, scope)) return
 
@@ -665,7 +674,7 @@ internal suspend fun playSearchResult(
     if (url != null) {
         playbackState.errorMsg = null
         playbackState.closeSearchResultsOnReady = true
-        downloadAndPlay(context, playbackState, playTarget, url)
+        downloadAndPlay(context, playbackState, playTarget, url, metadataEnricher, playlistRefresher)
     } else {
         playbackState.errorMsg = context.getString(R.string.music_panel_play_error)
         playbackState.pendingSearchResults = emptyList()
@@ -694,10 +703,12 @@ internal suspend fun playSearchResultWithQuality(
     quality: MusicQuality,
     playbackState: MusicPlaybackState,
     context: Context,
+    metadataEnricher: MetadataEnricher,
+    playlistRefresher: PlaylistRefresher,
 ): Boolean {
     val url = resolvePlayUrlByQuality(context, target, quality) ?: return false
     playbackState.pendingQualityPlayTrackId = target.id + 1000000L
     playbackState.closeSearchResultsOnReady = true
-    downloadAndPlay(context, playbackState, target, url)
+    downloadAndPlay(context, playbackState, target, url, metadataEnricher, playlistRefresher)
     return true
 }

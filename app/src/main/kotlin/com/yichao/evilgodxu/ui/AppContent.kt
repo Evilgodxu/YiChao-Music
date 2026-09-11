@@ -19,18 +19,18 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.R
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
 import com.yichao.evilgodxu.update.UpdateDialog
 import com.yichao.evilgodxu.update.UpdateManager
 import com.yichao.evilgodxu.update.UpdateViewModel
-import org.koin.compose.koinInject
 
 // 应用宿主内容：挂载主题、导航与全局副作用（更新检查、焦点清理、更新对话框），
 // 由 Activity 作为入口调用，Activity 本身不持有界面内容
 @Composable
 fun AppContent() {
-    val updateViewModel = koinInject<UpdateViewModel>()
+    val updateViewModel = LocalAppContainer.current.updateViewModel
     val context = LocalContext.current
     val activity = LocalActivity.current
     val lifecycleOwner = LocalLifecycleOwner.current
