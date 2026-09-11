@@ -58,7 +58,7 @@
 | UI | Jetpack Compose(BOM 2026.08.00)+ Material 3 |
 | 播放 | Media3 ExoPlayer 1.11.0 + MediaSessionService |
 | 导航 | AndroidX Navigation3 1.1.7(类型安全路由) |
-| 依赖注入 | Koin 4.2.2 |
+| 依赖注入 | 手动 DI(AppContainer) |
 | 持久化 | DataStore Preferences 1.2.1 |
 | 图片加载 | Coil 3.6.1 |
 | 网络 | OkHttp 5.5.0 |
@@ -77,28 +77,36 @@
 │       │   ├── data/                    # 数据层
 │       │   │   ├── music/               #   曲库扫描 / 在线音源 / 元数据 / 代理音源
 │       │   │   │   ├── api/             #     在线音乐源(网易云 / QQ / 酷狗 / 酷我 / 咪咕)
+│       │   │   │   ├── analysis/        #     无损格式与曲库分析
+│       │   │   │   ├── download/        #     在线曲目下载与缓存
 │       │   │   │   ├── metadata/        #     封面管理与元数据读写
 │       │   │   │   ├── model/           #     曲目数据模型
+│       │   │   │   ├── panel/           #     面板状态持有器与搜索逻辑
+│       │   │   │   ├── playback/        #     播放状态与 AudioTrack 工具
 │       │   │   │   └── proxy/           #     代理音源(导入 / 解析 / 引擎 / 存储)
 │       │   │   ├── permission/          #   权限与悬浮窗授权监控
+│       │   │   ├── playlist/            #   歌单存储(智能 / 自定义)
 │       │   │   ├── repository/          #   设置仓库
 │       │   │   └── settings/            #   设置 DataStore 与歌词排版偏好
-│       │   ├── di/                      # Koin 模块
-│       │   ├── dialog/                  # 悬浮窗内对话框(搜索 / 重命名 / 定时 / 变速 / 设置 / 更新)
-│       │   ├── domain/music/            # 领域层(播放状态 / 下载 / 信号路径 / 工具)
+│       │   ├── floatingwindow/          # 悬浮窗 / 迷你播放器视图管理与权限流程
+│       │   ├── localization/            # 应用内多语言管理
 │       │   ├── log/                     # CrashLogManager
 │       │   ├── navigation/              # Navigation3 类型安全路由
-│       │   ├── overlay/                 # 悬浮窗 / 迷你播放器 UI 与视图管理(含权限流程)
-│       │   ├── screens/                 # 页面(首页 / 设置)
+│       │   ├── screens/                 # 页面(首页 / 设置 / 排版)
 │       │   │   ├── home/                #   首页播放器 + 权限流程 + 歌单 + 在线搜索
-│       │   │   └── settings/            #   外观 / 语言 / 播放 / 排版 / 代理音源 / 关于
+│       │   │   ├── settings/            #   外观 / 语言 / 播放 / 排版 / 代理音源 / 关于
+│       │   │   └── typography/          #   歌词排版设置
 │       │   ├── service/                 # MediaSessionService 播放引擎
 │       │   ├── theme/                   # Material 3 配色与字体
-│       │   ├── ui/                      # 全局共享 UI(自适应布局 / 图标 / 音乐面板组件)
+│       │   ├── ui/                      # 全局共享 UI(自适应布局 / 图标 / 组件 / 弹窗)
 │       │   ├── update/                  # 检查更新与应用内更新
-│       │   ├── utils/localization/      # 应用内多语言管理
-│       │   ├── YiChaoActivity.kt
-│       │   └── YiChaoApplication.kt
+│       │   ├── utils/                   # 通用工具
+│       │   ├── windowSize/              # 窗口尺寸类判定
+│       │   ├── App.kt                   # Application 入口(持有 AppContainer)
+│       │   ├── AppContainer.kt          # 手动 DI 容器(应用级单例)
+│       │   ├── AppUiState.kt            # 应用级 UI 状态(主题 / 语言 / 版本)
+│       │   ├── MainActivity.kt          # 唯一 Activity
+│       │   └── MainViewModel.kt         # Activity 专属 ViewModel
 │       └── res/                         # 资源(values / values-en)
 ├── gradle/
 │   ├── libs.versions.toml               # 版本目录(依赖管理)
@@ -112,15 +120,16 @@
 
 ## 架构
 
-应用遵循 **MVVM + 单向数据流**:状态由 `ViewModel` → `UiState` → UI 自上而下流动,事件由 UI 自下而上传递;共享数据逻辑位于 `data/` 层并通过 Repository 暴露,全部由 Koin 组装。
+应用遵循 **MVVM + 单向数据流**:状态由 `ViewModel` → `UiState` → UI 自上而下流动,事件由 UI 自下而上传递;共享数据逻辑位于 `data/` 层并通过 Repository 暴露,全部由**手动依赖注入**组装——`Application.onCreate()` 中构建一次 `AppContainer`,持有全部应用级单例,并通过 CompositionLocal 暴露给界面树。
 
-页面代码采用**分区架构(assembly/area 模式)**:
+页面代码采用**分形态组装(per-form assembly)模式**:
 
-- `{Screen}Screen.kt` — 页面入口,负责将 ViewModel 与 UI 关联
-- `{Screen}Assembly.kt` — 页面分区组装器,编排各分区
-- `{Name}Area.kt` — 语义单一、自包含的 UI 分区
+- `{Screen}Screen.kt` — 页面入口:在 compact/expanded 形态间分发并处理跨形态副作用,不承载布局
+- `{Screen}ViewModel.kt` / `{Screen}UiState.kt` — 页面级状态与事件
+- `compact/`、`expanded/` 下的 `{Screen}Assembly` — 按窗口尺寸类与旋转状态选择对应形态的组装器
+- `component/` — 页面专用可组合项,按语义子目录分组(如 bar/、dialog/、panel/、playlist/、player/)
 
-被两个及以上功能复用的代码上提至顶层(`data/`、`theme/`、`utils/`、`ui/`),仅单页使用的代码保留在页面模块内。播放领域逻辑位于 `domain/music`(状态 / 下载 / 工具),底层由 `data/music` 层支撑,并通过窗口级 `MusicPanelStateHolder` 暴露给 UI;悬浮 UI(完整面板 + 迷你播放器)拆分为 `overlay/`(视图管理)与 `ui/music`(可组合项),实际播放由 `service/MusicPlaybackService`(Media3 ExoPlayer + `MediaSessionService`)驱动。
+被两个及以上功能复用的代码上提至顶层(`data/`、`theme/`、`utils/`、`ui/`),仅单页使用的代码保留在页面模块内。播放逻辑位于 `data/music`(播放 / 下载 / 分析 / 面板),通过窗口级 `MusicPanelStateHolder` 暴露给 UI;悬浮 UI(完整面板 + 迷你播放器)拆分为 `floatingwindow/`(视图管理)与 `ui/component`(可组合项),实际播放由 `service/MusicPlaybackService`(Media3 ExoPlayer + `MediaSessionService`)驱动。
 
 ## 权限
 

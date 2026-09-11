@@ -28,8 +28,8 @@ object SettingsKeys {
     val LANGUAGE = stringPreferencesKey("language")
 }
 
-// 冷启动引导：Koin 尚未初始化时读取持久化语言，
-// 供 attachBaseContext 配置启动语言，避免依赖注入实例在此阶段创建
+// 冷启动引导：在依赖容器就绪前读取持久化语言，
+// 供 attachBaseContext 配置启动语言，避免在此阶段创建依赖实例
 suspend fun Context.bootstrapAppLanguage(): AppLanguage = settingsDataStore.data.first().let { preferences ->
     AppLanguage.entries.find { it.languageTag == preferences[SettingsKeys.LANGUAGE] } ?: AppLanguage.SYSTEM
 }

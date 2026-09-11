@@ -58,7 +58,7 @@
 | UI | Jetpack Compose (BOM 2026.08.00) + Material 3 |
 | Playback | Media3 ExoPlayer 1.11.0 + MediaSessionService |
 | Navigation | AndroidX Navigation3 1.1.7 (typed routes) |
-| DI | Koin 4.2.2 |
+| DI | Manual DI (AppContainer) |
 | Persistence | DataStore Preferences 1.2.1 |
 | Image loading | Coil 3.6.1 |
 | Network | OkHttp 5.5.0 |
@@ -77,28 +77,36 @@
 │       │   ├── data/                    # Data layer
 │       │   │   ├── music/               #   Music scanning / online sources / metadata / proxy source
 │       │   │   │   ├── api/             #     Online music sources (Netease / QQ / Kugou / Kuwo / Migu)
+│       │   │   │   ├── analysis/        #     Lossless-format & library analysis
+│       │   │   │   ├── download/        #     Online track download & cache
 │       │   │   │   ├── metadata/        #     Cover management & metadata read/write
 │       │   │   │   ├── model/           #     Track data models
+│       │   │   │   ├── panel/           #     Panel state holder & search logic
+│       │   │   │   ├── playback/        #     Playback state & AudioTrack helper
 │       │   │   │   └── proxy/           #     Proxy source (import / parse / engine / store)
 │       │   │   ├── permission/          #   Permission & overlay-grant monitors
+│       │   │   ├── playlist/            #   Playlist store (smart & custom)
 │       │   │   ├── repository/          #   Settings repository
 │       │   │   └── settings/            #   Settings DataStore & lyric layout preferences
-│       │   ├── di/                      # Koin modules
-│       │   ├── dialog/                  # Floating-panel dialogs (search / rename / timer / speed / settings / update)
-│       │   ├── domain/music/            # Domain layer (playback state / download / signal path / utils)
+│       │   ├── floatingwindow/          # Floating panel / mini player view managers & permission flow
+│       │   ├── localization/            # In-app localization manager
 │       │   ├── log/                     # CrashLogManager
 │       │   ├── navigation/              # Navigation3 typed routes
-│       │   ├── overlay/                 # Floating panel / mini player UI & view managers (incl. permission flow)
-│       │   ├── screens/                 # Screens (home / settings)
+│       │   ├── screens/                 # Screens (home / settings / typography)
 │       │   │   ├── home/                #   Home player + permission flow + playlists + online search
-│       │   │   └── settings/            #   Appearance / language / playback / typography / proxy source / about
+│       │   │   ├── settings/            #   Appearance / language / playback / typography / proxy source / about
+│       │   │   └── typography/          #   Lyric typography settings
 │       │   ├── service/                 # MediaSessionService playback engine
 │       │   ├── theme/                   # Material 3 color & typography
-│       │   ├── ui/                      # Shared UI (adaptive layout / icons / music panel components)
+│       │   ├── ui/                      # Shared UI (adaptive layout / icons / components / dialogs)
 │       │   ├── update/                  # Version check & in-app update
-│       │   ├── utils/localization/      # In-app localization manager
-│       │   ├── YiChaoActivity.kt
-│       │   └── YiChaoApplication.kt
+│       │   ├── utils/                   # Shared utilities
+│       │   ├── windowSize/              # Window size class detection
+│       │   ├── App.kt                   # Application entry (holds AppContainer)
+│       │   ├── AppContainer.kt          # Manual DI container (app-level singletons)
+│       │   ├── AppUiState.kt            # App-level UI state (theme / language / version)
+│       │   ├── MainActivity.kt          # Sole activity
+│       │   └── MainViewModel.kt         # Activity-scoped ViewModel
 │       └── res/                         # Resources (values / values-en)
 ├── gradle/
 │   ├── libs.versions.toml               # Version catalog (dependencies)
@@ -112,15 +120,16 @@
 
 ## Architecture
 
-The app follows **MVVM with unidirectional data flow**: state flows down from `ViewModel` → `UiState` → UI, while events flow up from the UI to the `ViewModel`. Shared data logic lives in the `data/` layer behind a repository, and everything is wired together by Koin.
+The app follows **MVVM with unidirectional data flow**: state flows down from `ViewModel` → `UiState` → UI, while events flow up from the UI to the `ViewModel`. Shared data logic lives in the `data/` layer behind a repository, and everything is wired together by **manual dependency injection** — an `AppContainer` built once in `Application.onCreate()` holds every app-level singleton and is exposed to the UI through a CompositionLocal.
 
-Screens are organized with a **zone-based (assembly/area) pattern**:
+Screens are organized with a **per-form assembly pattern**:
 
-- `{Screen}Screen.kt` — screen entry, wires the ViewModel to the UI
-- `{Screen}Assembly.kt` — composes the areas of the screen
-- `{Name}Area.kt` — a self-contained UI zone with a single semantic responsibility
+- `{Screen}Screen.kt` — screen entry, dispatches between compact/expanded forms and handles cross-form side effects (no layout)
+- `{Screen}ViewModel.kt` / `{Screen}UiState.kt` — screen-level state & events
+- `{Screen}Assembly` under `compact/` and `expanded/` — per-form assembly selected by window size class & rotation
+- `component/` — page-specific composables grouped into semantic subdirectories (e.g. `bar/`, `dialog/`, `panel/`, `playlist/`, `player/`)
 
-Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The playback domain lives in `domain/music` (state, download, helpers) backed by the `data/music` layer and exposed to the UI through a window-level `MusicPanelStateHolder`; the floating UI (full panel + mini player) is split between `overlay/` (view managers) and `ui/music` (composables), while playback runs in `service/MusicPlaybackService` (Media3 ExoPlayer + `MediaSessionService`).
+Code reused by two or more features is promoted to the top level (`data/`, `theme/`, `utils/`, `ui/`); feature-specific code stays inside the feature module. The playback logic lives in `data/music` (playback, download, analysis, panel) and is exposed to the UI through a window-level `MusicPanelStateHolder`; the floating UI (full panel + mini player) is split between `floatingwindow/` (view managers) and `ui/component` (composables), while playback runs in `service/MusicPlaybackService` (Media3 ExoPlayer + `MediaSessionService`).
 
 ## Permissions
 
