@@ -17,6 +17,7 @@ import android.view.MotionEvent
 import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -31,6 +32,9 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.yichao.evilgodxu.App
+import com.yichao.evilgodxu.AppContainer
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.log.CrashLogManager
@@ -69,6 +73,10 @@ class MiniPlayerViewManager(
     }
 
     val isShowing: Boolean get() = composeView != null
+
+    // 悬浮窗组合树所需的应用级 DI 容器：经 Application 单例取用
+    private fun appContainer(): AppContainer =
+        (context.applicationContext as App).container
 
     private val lifecycleOwner = object : LifecycleOwner {
         private val lifecycleRegistry = LifecycleRegistry(this)
@@ -115,18 +123,22 @@ class MiniPlayerViewManager(
         val view = ComposeView(context).apply {
             translationY = (-barH).toFloat()
             setContent {
-                MiniPlayerOverlay(
-                    playbackState = playbackState,
-                    barHeightPx = barH,
-                    barWidthPx = barWidthPx(),
-                    playlistExpanded = playlistExpanded.value,
-                    visualExpanded = visualExpanded.value,
-                    onPlaylistExpandedChange = { expanded -> setPlaylistExpanded(expanded) },
-                    onLayoutChanged = { applyWindowLayout() },
-                    onCollapseAnimationEnd = { finalizeCollapse() },
-                    onExpandPanel = onExpandPanel,
-                    onSwipeDismiss = { temporaryDismiss() }
-                )
+                // 悬浮窗独立于 Activity 组合树，须自行为本地容器提供值，
+                // 否则内部组件读取 LocalAppContainer 会触发默认 error 崩溃
+                CompositionLocalProvider(LocalAppContainer provides appContainer()) {
+                    MiniPlayerOverlay(
+                        playbackState = playbackState,
+                        barHeightPx = barH,
+                        barWidthPx = barWidthPx(),
+                        playlistExpanded = playlistExpanded.value,
+                        visualExpanded = visualExpanded.value,
+                        onPlaylistExpandedChange = { expanded -> setPlaylistExpanded(expanded) },
+                        onLayoutChanged = { applyWindowLayout() },
+                        onCollapseAnimationEnd = { finalizeCollapse() },
+                        onExpandPanel = onExpandPanel,
+                        onSwipeDismiss = { temporaryDismiss() }
+                    )
+                }
             }
         }
 

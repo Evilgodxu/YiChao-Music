@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -25,6 +26,9 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.yichao.evilgodxu.App
+import com.yichao.evilgodxu.AppContainer
+import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
 import com.yichao.evilgodxu.data.music.normalizedAudioUri
@@ -117,6 +121,10 @@ class MusicPanelViewManager(
     // 当前是否展示全屏悬浮窗
     val hasWindow: Boolean get() = composeView != null
 
+    // 悬浮窗组合树所需的应用级 DI 容器：经 Application 单例取用
+    private fun appContainer(): AppContainer =
+        (context.applicationContext as App).container
+
     private val lifecycleOwner = object : LifecycleOwner {
         private val lifecycleRegistry = LifecycleRegistry(this)
         override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -166,11 +174,15 @@ class MusicPanelViewManager(
             scaleX = 0.8f
             scaleY = 0.8f
             setContent {
-                MusicPanelOverlay(
-                playbackState = playbackState,
-                onScan = { requestScan() },
-                onDismiss = { dismiss() }
-            )
+                // 悬浮窗独立于 Activity 组合树，须自行为本地容器提供值，
+                // 否则内部组件读取 LocalAppContainer 会触发默认 error 崩溃
+                CompositionLocalProvider(LocalAppContainer provides appContainer()) {
+                    MusicPanelOverlay(
+                        playbackState = playbackState,
+                        onScan = { requestScan() },
+                        onDismiss = { dismiss() }
+                    )
+                }
             }
         }
 
