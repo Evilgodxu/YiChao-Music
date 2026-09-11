@@ -17,8 +17,8 @@ import com.yichao.evilgodxu.screens.home.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.home.component.panel.rememberHomePanelState
 import com.yichao.evilgodxu.screens.home.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.SystemBarAppearance
-import com.yichao.evilgodxu.ui.adaptive.rememberExpandedForm
-import com.yichao.evilgodxu.ui.adaptive.rememberWindowLandscape
+import com.yichao.evilgodxu.windowSize.rememberExpandedForm
+import com.yichao.evilgodxu.windowSize.rememberWindowLandscape
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 

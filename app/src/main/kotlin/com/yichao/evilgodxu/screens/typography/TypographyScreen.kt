@@ -7,7 +7,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.screens.typography.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.typography.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
-import com.yichao.evilgodxu.ui.adaptive.rememberExpandedForm
+import com.yichao.evilgodxu.windowSize.rememberExpandedForm
 import org.koin.androidx.compose.koinViewModel
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局

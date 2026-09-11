@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.ui.adaptive
+package com.yichao.evilgodxu.windowSize
 
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable

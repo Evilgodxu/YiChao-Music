@@ -16,7 +16,7 @@ import com.yichao.evilgodxu.screens.settings.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.settings.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
-import com.yichao.evilgodxu.ui.adaptive.rememberExpandedForm
+import com.yichao.evilgodxu.windowSize.rememberExpandedForm
 import com.yichao.evilgodxu.update.UpdateViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject

@@ -20,7 +20,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 
-class YiChaoApplication : Application() {
+class App : Application() {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -51,7 +51,7 @@ class YiChaoApplication : Application() {
         startKoin {
             // 仅保留错误级日志，避免 release 输出依赖解析噪声
             androidLogger(level = org.koin.core.logger.Level.ERROR)
-            androidContext(this@YiChaoApplication)
+            androidContext(this@App)
             modules(appModule)
         }
     }

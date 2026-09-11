@@ -25,12 +25,12 @@ import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
 import com.yichao.evilgodxu.data.settings.readBootLanguage
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.ui.AppContent
-import com.yichao.evilgodxu.ui.adaptive.ProvideWindowSizeClass
+import com.yichao.evilgodxu.windowSize.ProvideWindowSizeClass
 import com.yichao.evilgodxu.ui.music.window.LocalMusicPanelController
 import com.yichao.evilgodxu.ui.music.window.MusicPanelController
-import com.yichao.evilgodxu.utils.localization.LocalizationManager
-import com.yichao.evilgodxu.utils.localization.ProvideLocalizedContext
-import com.yichao.evilgodxu.utils.localization.toLocale
+import com.yichao.evilgodxu.localization.LocalizationManager
+import com.yichao.evilgodxu.localization.ProvideLocalizedContext
+import com.yichao.evilgodxu.localization.toLocale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -38,10 +38,10 @@ import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
-class YiChaoActivity : ComponentActivity() {
+class MainActivity : ComponentActivity() {
     private lateinit var windowInsetsController: WindowInsetsController
     private val localizationManager: LocalizationManager by inject()
-    private val activityViewModel: YiChaoActivityViewModel by viewModel()
+    private val activityViewModel: MainViewModel by viewModel()
     private val musicPanelController: MusicPanelController by inject()
 
     // 冷启动按持久化语言创建配置上下文，进入界面即正确语言
@@ -79,7 +79,7 @@ class YiChaoActivity : ComponentActivity() {
         })
 
         setContent {
-            CompositionLocalProvider(LocalYiChaoActivityViewModel provides activityViewModel) {
+            CompositionLocalProvider(LocalMainViewModel provides activityViewModel) {
                 ProvideLocalizedContext(localizationManager) {
                     CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
                         ProvideWindowSizeClass {
@@ -178,7 +178,7 @@ class YiChaoActivity : ComponentActivity() {
             }.getOrNull()
             val message = when {
                 text.isNullOrBlank() -> getString(R.string.settings_proxy_source_import_read_error)
-                else -> when (val result = ProxySourceStore.import(this@YiChaoActivity, text)) {
+                else -> when (val result = ProxySourceStore.import(this@MainActivity, text)) {
                     is ProxyParseResult.Success ->
                         getString(R.string.settings_proxy_source_import_success)
                     is ProxyParseResult.Failure -> getString(
@@ -188,7 +188,7 @@ class YiChaoActivity : ComponentActivity() {
                 }
             }
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@YiChaoActivity, message, Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
             }
         }
     }

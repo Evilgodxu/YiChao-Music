@@ -2,7 +2,7 @@ package com.yichao.evilgodxu.di
 
 import android.content.Context
 import android.content.pm.PackageManager
-import com.yichao.evilgodxu.YiChaoActivityViewModel
+import com.yichao.evilgodxu.MainViewModel
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
@@ -13,7 +13,7 @@ import com.yichao.evilgodxu.screens.settings.SettingsViewModel
 import com.yichao.evilgodxu.screens.typography.TypographyViewModel
 import com.yichao.evilgodxu.ui.music.window.MusicPanelController
 import com.yichao.evilgodxu.update.UpdateViewModel
-import com.yichao.evilgodxu.utils.localization.LocalizationManager
+import com.yichao.evilgodxu.localization.LocalizationManager
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
@@ -34,7 +34,7 @@ val appModule = module {
     single { MetadataEnricher() }
     // 应用版本号：供 Activity/设置页展示
     single { appVersionName(androidContext()) }
-    viewModelOf(::YiChaoActivityViewModel)
+    viewModelOf(::MainViewModel)
     // 更新检查以单例共享，主页自动检查与设置页手动检查读写同一状态
     single { UpdateViewModel(androidApplication()) }
     viewModelOf(::HomeViewModel)

@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.utils.localization
+package com.yichao.evilgodxu.localization
 
 import android.app.Activity
 import android.content.Context
@@ -11,7 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.yichao.evilgodxu.LocalYiChaoActivityViewModel
+import com.yichao.evilgodxu.LocalMainViewModel
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import java.util.Locale
 
@@ -78,7 +78,7 @@ fun ProvideLocalizedContext(
     localizationManager: LocalizationManager,
     content: @Composable () -> Unit,
 ) {
-    val appUiState by LocalYiChaoActivityViewModel.current.uiState.collectAsStateWithLifecycle()
+    val appUiState by LocalMainViewModel.current.uiState.collectAsStateWithLifecycle()
     val localizedContext = localizationManager.createLocalizedContext(
         localizationManager.resolveLanguage(appUiState.language),
     )

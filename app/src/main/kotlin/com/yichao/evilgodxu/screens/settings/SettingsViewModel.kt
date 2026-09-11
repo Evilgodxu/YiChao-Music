@@ -22,7 +22,7 @@ import com.yichao.evilgodxu.data.settings.ThemeMode
 import com.yichao.evilgodxu.data.settings.wordByWordRenderingFlow
 import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.utils.localization.LocalizationManager
+import com.yichao.evilgodxu.localization.LocalizationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -14,13 +14,13 @@ import kotlinx.coroutines.launch
 
 // 应用级（Activity 作用域）UI 状态持有者：以 DataStore 为单一事实源，聚合主题与语言，
 // 供全局主题与本地化共同消费，UI 层不直连数据源
-class YiChaoActivityViewModel(
+class MainViewModel(
     private val settingsRepository: SettingsRepository,
     appVersion: String,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(YiChaoAppUiState(version = appVersion))
-    val uiState: StateFlow<YiChaoAppUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(AppUiState(version = appVersion))
+    val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
 
     init {
         // 数据流回流更新 UI 状态，写入后经同一持有者广播
@@ -46,6 +46,6 @@ class YiChaoActivityViewModel(
 }
 
 // 供界面树消费的 CompositionLocal，由宿主 Activity 提供
-val LocalYiChaoActivityViewModel = staticCompositionLocalOf<YiChaoActivityViewModel> {
-    error("YiChaoActivityViewModel is not provided")
+val LocalMainViewModel = staticCompositionLocalOf<MainViewModel> {
+    error("MainViewModel is not provided")
 }

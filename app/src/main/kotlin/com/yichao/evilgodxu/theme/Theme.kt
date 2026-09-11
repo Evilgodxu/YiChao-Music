@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.drawToBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.yichao.evilgodxu.LocalYiChaoActivityViewModel
+import com.yichao.evilgodxu.LocalMainViewModel
 import com.yichao.evilgodxu.data.settings.ThemeMode
 
 class ThemeTransitionController {
@@ -168,7 +168,7 @@ fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val appUiState by LocalYiChaoActivityViewModel.current.uiState.collectAsStateWithLifecycle()
+    val appUiState by LocalMainViewModel.current.uiState.collectAsStateWithLifecycle()
 
     val isDarkTheme = when (appUiState.themeMode) {
         ThemeMode.DARK -> true
