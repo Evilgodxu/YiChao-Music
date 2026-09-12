@@ -1,16 +1,11 @@
 package com.yichao.evilgodxu.ui.component
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -52,6 +48,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
@@ -60,6 +57,8 @@ import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.settings.wordByWordRenderingFlow
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -120,18 +119,42 @@ internal fun LyricsPanel(
     val activeIndex = lines.indexOfLast { it.timeMs <= lyricPosition }.coerceAtLeast(0)
     // 当前行居中，上下各显示 (total-1)/2 行（total 为奇数）
     val offset = visibleLines / 2
-    // 视口上限按 N 行标准高度计算：超长句换行与译文叠层会让内容高于 N 行标准，
-    // 窗口固定在 N 行之内，滚动超出部分交由边缘渐隐与裁剪处理
+    // 视口高度按 N 行标准高度计算：超长句换行与译文叠层会让单行高于标准，
+    // 视口固定为 N 行标准高，超出部分交由边缘渐隐与裁剪处理
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val maxViewportHeight = remember(visibleLines, fontSize, density) {
-        val lineHeightPx = textMeasurer.measure(
+    // 标准单行高度（含行内上下内边距）：视口上限与窗口内占位行共用，使滚动基准线不随占位行变化
+    val lyricLineHeightPx = remember(fontSize, density) {
+        textMeasurer.measure(
             AnnotatedString("歌词"),
             TextStyle(fontSize = fontSize, fontWeight = FontWeight.Normal),
         ).size.height
-        val slotPx = lineHeightPx + with(density) { 4.dp.roundToPx() }
+    }
+    val maxViewportHeight = remember(visibleLines, lyricLineHeightPx, density) {
+        val slotPx = lyricLineHeightPx + with(density) { 4.dp.roundToPx() }
         val spacingPx = with(density) { 2.dp.roundToPx() }
         slotPx * visibleLines + spacingPx * (visibleLines - 1)
+    }
+    val standardSlotHeight = with(density) { (lyricLineHeightPx + 4.dp.roundToPx()).toDp() }
+
+    // 滚动动画位置：以“行号”为单位的浮点值。当前行变化时在其上平滑过渡，布局据此整体平移内容，
+    // 形成连续的自然上移；跨度过大（拖动进度/切歌）时直接定位，避免长距离滚动
+    val animatedIndex = remember(playbackState.currentTrack?.id) { Animatable(0f) }
+    LaunchedEffect(activeIndex, playbackState.currentTrack?.id) {
+        val target = activeIndex.toFloat()
+        if (abs(target - animatedIndex.value) <= LYRIC_SCROLL_MAX_STEP) {
+            animatedIndex.animateTo(
+                targetValue = target,
+                animationSpec = tween(LYRIC_SCROLL_DURATION_MS, easing = FastOutSlowInEasing),
+            )
+        } else {
+            animatedIndex.snapTo(target)
+        }
+    }
+    // 动画位置与目标跨度较大时（拖动进度/切歌瞬间）动画尚未归位，本帧直接用目标行定位，
+    // 避免追赶期间把窗口内的错误行居中
+    val displayPosition = animatedIndex.value.let { value ->
+        if (abs(value - activeIndex) > LYRIC_SCROLL_MAX_STEP) activeIndex.toFloat() else value
     }
 
     Box(
@@ -156,95 +179,83 @@ internal fun LyricsPanel(
                 )
             }
         } else {
-            // 窗口容器固定，滚动与过渡都在其内部进行：行溢出与滑出内容经过边缘即被渐隐裁剪
+            // 窗口容器固定，滚动与渐变都在其内部进行：行溢出与滚出内容经过边缘即被渐隐裁剪
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .animateContentSize(animationSpec = tween(220))
                     .clipToBounds()
                     .verticalFadeMask(fadeFraction = FADE_TOTAL_LINES / visibleLines),
             ) {
-                AnimatedContent(
-                    targetState = activeIndex,
-                    transitionSpec = {
-                        val movingForward = targetState > initialState
-                        val distance = { height: Int -> (height / 4).coerceAtLeast(1) }
-                        if (movingForward) {
-                            (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it }
-                                + fadeIn(animationSpec = tween(180))) togetherWith
-                                (slideOutVertically(animationSpec = tween(260)) { -distance(it) }
-                                    + fadeOut(animationSpec = tween(180)))
-                        } else {
-                            (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -distance(it) }
-                                + fadeIn(animationSpec = tween(180))) togetherWith
-                                (slideOutVertically(animationSpec = tween(260)) { it }
-                                    + fadeOut(animationSpec = tween(180)))
-                        }
-                    },
-                    // 换行时新旧可视区高度有差异，居中排列并由外层动画平滑窗口高度
-                    contentAlignment = Alignment.Center,
+                // 以当前行为中心上下各多渲染 buffer 行：滚动时新行已在窗口内，与旧行在同一坐标系
+                // 整体平移，因此只会连续上移，不会出现整块内容替换的突兀感
+                val windowStart = activeIndex - offset - LYRIC_WINDOW_BUFFER
+                LyricColumnLayout(
+                    windowStart = windowStart,
+                    animatedPosition = displayPosition,
+                    maxViewportHeight = maxViewportHeight,
                     modifier = Modifier.fillMaxWidth(),
-                    label = "lyric_column_scroll"
-                ) { renderedActiveIndex ->
-                    LyricColumnLayout(
-                        currentRow = offset,
-                        maxViewportHeight = maxViewportHeight,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                    repeat(visibleLines) { row ->
-                            val index = renderedActiveIndex - offset + row
+                ) {
+                    repeat(visibleLines + LYRIC_WINDOW_BUFFER * 2) { row ->
+                        val index = windowStart + row
+                        // 以行下标为键：窗口平移时同一行的状态（高亮进度等）得以保留，不会跳变
+                        key(index) {
                             val line = lines.getOrNull(index)
                             if (line == null) {
-                                LyricSpacer()
-                                return@repeat
+                                LyricSpacer(height = standardSlotHeight)
+                            } else {
+                                val isCurrent = index == activeIndex
+                                val emphasis by animateFloatAsState(
+                                    targetValue = if (isCurrent) 1f else 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    ),
+                                    label = "lyric_emphasis"
+                                )
+                                val scale = LYRIC_ROW_SCALE_BASE + LYRIC_ROW_SCALE_AMPLITUDE * emphasis
+                                // 非当前行整体降低不透明度，弱化其视觉存在感；随高亮进度平滑过渡
+                                val rowAlpha = LYRIC_INACTIVE_ALPHA + (1f - LYRIC_INACTIVE_ALPHA) * emphasis
+                                val nextTimeMs = lines.getOrNull(index + 1)?.timeMs ?: line.timeMs + 3000L
+                                LyricText(
+                                    line = line,
+                                    nextTimeMs = nextTimeMs,
+                                    positionMs = lyricPosition,
+                                    isCurrent = isCurrent,
+                                    wordByWordEnabled = wordByWordEnabled,
+                                    fontSize = fontSize,
+                                    fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
+                                    activeColor = activeColor,
+                                    pendingColor = pendingColor,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            alpha = rowAlpha
+                                            scaleX = scale
+                                            scaleY = scale
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                            val isCurrent = index == activeIndex
-                            val emphasis by animateFloatAsState(
-                                targetValue = if (isCurrent) 1f else 0f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
-                                ),
-                                label = "lyric_emphasis"
-                            )
-                            val scale = LYRIC_ROW_SCALE_BASE + LYRIC_ROW_SCALE_AMPLITUDE * emphasis
-                            val nextTimeMs = lines.getOrNull(index + 1)?.timeMs ?: line.timeMs + 3000L
-                            LyricText(
-                                line = line,
-                                nextTimeMs = nextTimeMs,
-                                positionMs = lyricPosition,
-                                isCurrent = isCurrent,
-                                wordByWordEnabled = wordByWordEnabled,
-                                fontSize = fontSize,
-                                fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
-                                activeColor = activeColor,
-                                pendingColor = pendingColor,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
-                                    }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
                         }
+                    }
                 }
-            }
             }
         }
     }
 }
 
 @Composable
-internal fun LyricSpacer() {
-    Spacer(modifier = Modifier.height(18.dp))
+internal fun LyricSpacer(height: Dp) {
+    Spacer(modifier = Modifier.height(height))
 }
 
-// 歌词纵向布局：歌词行高度随换行而不同，按固定行偏移排版会使当前行偏离中线。
-// 测量所有行后整体平移，使当前行中心始终对齐面板垂直中线，内容不足时顶部对齐。
+// 歌词纵向布局：窗口内按真实行高逐行排布，再以“动画浮点行号”定位目标位置在内容中的中心，
+// 整体平移使该中心对齐视口中线。行高随换行而不同，按固定行高偏移会使当前行偏离中线，
+// 故用实测高度换算；目标中心在相邻两行中心之间线性插值，跨行切换不会跳变。
 @Composable
 private fun LyricColumnLayout(
-    currentRow: Int,
+    windowStart: Int,
+    animatedPosition: Float,
     maxViewportHeight: Int,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -257,24 +268,35 @@ private fun LyricColumnLayout(
         val placeables = measurables.map {
             it.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
         }
-        val totalHeight = placeables.sumOf { it.height }
-        val currentTop = placeables.take(currentRow).sumOf { it.height }
-        val currentCenter = currentTop + (placeables.getOrNull(currentRow)?.height ?: 0) / 2f
-        // 行间间距同样占据版面，需计入布局高度，否则末行底部越界被视窗裁剪
-        val contentHeight = totalHeight + spacingPx * (placeables.size - 1).coerceAtLeast(0)
-        // 视口高度限在 N 行标准内，不随换行/译文叠层膨胀；超出部分滚动越界后由渐隐与裁剪处理
-        val boundedMax = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
-        val viewportLimit = minOf(maxViewportHeight, boundedMax)
-        val layoutHeight = contentHeight.coerceAtMost(viewportLimit).coerceAtLeast(1)
-        // 平移量 = 布局中线 - 当前行中心（含其上方行间距），使当前行保持居中
-        val shift = (layoutHeight / 2f - (currentCenter + spacingPx * currentRow)).roundToInt()
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
         else placeables.maxOfOrNull { it.width } ?: 0
-        layout(width, layoutHeight) {
-            var y = shift
-            placeables.forEachIndexed { i, placeable ->
-                placeable.placeRelative(0, y)
-                y += placeable.height + if (i < placeables.lastIndex) spacingPx else 0
+        // 视口高度固定为 N 行标准高度：窗口内多出的 buffer 行不撑高面板，滚动基准线保持稳定
+        val boundedMax = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+        val viewportHeight = minOf(maxViewportHeight, boundedMax).coerceAtLeast(1)
+        if (placeables.isEmpty()) {
+            layout(width, viewportHeight) {}
+        } else {
+            // 动画行号换算成窗口内相对行号，取整定位所在行，余数用于在相邻行中心之间插值
+            val relative = (animatedPosition - windowStart)
+                .coerceIn(0f, placeables.lastIndex.toFloat())
+            val row = floor(relative).toInt().coerceIn(0, placeables.lastIndex)
+            val fraction = relative - row
+            var rowTop = 0
+            for (i in 0 until row) rowTop += placeables[i].height + spacingPx
+            val rowCenter = rowTop + placeables[row].height / 2f
+            val rowToNextCenter = if (row < placeables.lastIndex) {
+                placeables[row].height / 2f + spacingPx + placeables[row + 1].height / 2f
+            } else {
+                0f
+            }
+            // 平移量 = 视口中线 - 动画行号对应位置的中心，使该位置始终居于中线
+            val shift = viewportHeight / 2f - (rowCenter + fraction * rowToNextCenter)
+            layout(width, viewportHeight) {
+                var y = shift
+                placeables.forEachIndexed { i, placeable ->
+                    placeable.placeRelative(0, y.roundToInt())
+                    y += placeable.height + if (i < placeables.lastIndex) spacingPx else 0
+                }
             }
         }
     }
@@ -390,6 +412,17 @@ private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
 // 歌词面板默认可见行数：保持奇数使当前行垂直居中（上下各 (n-1)/2 行）
 private const val DEFAULT_VISIBLE_LINES = 5
+
+// 窗口上下各多渲染的行数：滚动时新行已在窗口内、被移除的行已完全移出视口，
+// 两者在同一坐标系整体平移，因此只会连续上移，不会出现边缘闪现或整块替换
+private const val LYRIC_WINDOW_BUFFER = 2
+
+// 换行滚动：时长与缓动参照自然滚动（先快后慢）；跨度大于该行数（拖动进度/切歌）直接定位
+private const val LYRIC_SCROLL_DURATION_MS = 400
+private const val LYRIC_SCROLL_MAX_STEP = 2
+
+// 非当前行不透明度：弱化视觉存在感，随高亮进度平滑过渡
+private const val LYRIC_INACTIVE_ALPHA = 0.55f
 
 // 上下边缘渐变覆盖的总行数（上下各半）：随可见行数换算比例，行数增减时淡出区间保持一致
 private const val FADE_TOTAL_LINES = 1.25f
