@@ -109,11 +109,16 @@ private fun toMediaItem(context: Context, track: MusicTrack): MediaItem {
     val metadata = androidx.media3.common.MediaMetadata.Builder()
         .setTitle(track.title)
         .setArtist(track.artist)
-    // 使用 content:// URI 指向本地缓存封面，避免在 MediaItem 中嵌入 byte 数组
-    // Media3 的 MediaSession 会自动为 content:// URI 授予控制器读取权限
-    MusicCoverProvider.buildUri(context.packageName, track.coverCachePath)?.let { uri ->
-        metadata.setArtworkUri(uri)
+    // 系统媒体面板（通知栏/锁屏）以小图展示封面：MediaStore 索引曲目（albumId>0）直接用
+    // 系统专辑封面 URI，由 MediaProvider 提供并带系统缓存，符合面板小尺寸场景；
+    // 不再经自定义 Provider 暴露高分辨率缓存封面（锁屏小圆图用不上全量内嵌，也省去系统侧读取大文件）。
+    // 非索引曲目（albumId<=0 的外部导入/在线）回退到本地缓存 Provider。
+    val artworkUri = if (track.albumId > 0) {
+        Uri.parse("content://media/external/audio/albumart/${track.albumId}")
+    } else {
+        MusicCoverProvider.buildUri(context.packageName, track.coverCachePath)
     }
+    artworkUri?.let { metadata.setArtworkUri(it) }
     return MediaItem.Builder()
         .setMediaId(track.id.toString())
         .setUri(Uri.parse(track.audioUri))

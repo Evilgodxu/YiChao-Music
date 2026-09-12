@@ -166,8 +166,24 @@ object MusicScanner {
         albumId: Long,
         fallbackPath: String
     ): AlbumArtResult? {
-        // 内嵌封面原图优先：画质要求原图（最高 4K），256px 系统缩略图放大到列表/大封面会模糊，
-        // 故内嵌原图 → 专辑封面 → 系统缩略图兜底
+        // 分层优化：系统专辑封面优先（OS 扫描时已解析内嵌图并存缓存），
+        // 已入库曲目（albumId>0 且 MediaStore 已提取）直接命中，免去逐首
+        // MediaMetadataRetriever 打开文件的开销——这是批量补全的主要 I/O 成本。
+        // 画质说明：MediaStore 专辑封面是原图（非 256px 缩略图），仍按 ≤2048 采样解码，
+        // 首页大封面清晰度不受影响。
+        if (albumId > 0) {
+            try {
+                val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
+                contentResolver.openInputStream(uri)?.use { input ->
+                    MusicMetadataCache.decodeSampledBitmap(input.readBytes())
+                        ?.let { return AlbumArtResult(it, AlbumArtSource.ALBUM) }
+                }
+            } catch (e: Exception) {
+                CrashLogManager.logException("MusicScanner", "读取专辑封面失败: $fallbackPath", e)
+            }
+        }
+        // 无系统专辑封面时回退到内嵌全量提取：覆盖 albumId<=0 的外部导入曲目、
+        // MediaStore 未提取封面的文件，以及专辑内单曲封面各不相同（合集）的曲目。
         // 文件路径与 content URI 指向同一文件时，同一段内嵌标签不会读出两种结果：
         // 路径已能正常读出且无内嵌封面即不再重复打开，仅当文件读不出时才换 URI 重试
         if (fallbackPath.isNotBlank()) {
@@ -182,17 +198,6 @@ object MusicScanner {
         } else {
             val byUri = extractEmbeddedArt(context, audioUri)
             if (byUri is EmbeddedArt.Found) return AlbumArtResult(byUri.bitmap, AlbumArtSource.EMBEDDED)
-        }
-        if (albumId > 0) {
-            try {
-                val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
-                contentResolver.openInputStream(uri)?.use { input ->
-                    MusicMetadataCache.decodeSampledBitmap(input.readBytes())
-                        ?.let { return AlbumArtResult(it, AlbumArtSource.ALBUM) }
-                }
-            } catch (e: Exception) {
-                CrashLogManager.logException("MusicScanner", "读取专辑封面失败: $fallbackPath", e)
-            }
         }
         // 官方缩略图 API 兜底：从 MediaStore 缩略图缓存读取小图，最轻量且带系统缓存
         try {

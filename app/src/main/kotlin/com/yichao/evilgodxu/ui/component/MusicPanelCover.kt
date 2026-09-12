@@ -1,5 +1,8 @@
 package com.yichao.evilgodxu.ui.component
 
+import android.net.Uri
+import android.util.Size
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
@@ -22,11 +25,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -55,6 +62,8 @@ import com.yichao.evilgodxu.ui.component.DiscArt
 import com.yichao.evilgodxu.ui.copyToClipboard
 import com.yichao.evilgodxu.LocalMusicPanelStateHolder
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun CurrentCover(
@@ -97,37 +106,72 @@ internal fun CurrentCover(
     }
 }
 
-// 封面加载顺序：本地缓存（内嵌/已匹配在线）→ 占位符。
-// 本地音频源的内嵌封面由后台提取，提取完成前不直接回退在线封面，保证内嵌优先；
-// 在线曲目同样等封面缓存落盘后再展示，避免开始播放即请求在线封面地址
+// 封面加载顺序：系统 MediaStore 略缩图（即时命中缓存）→ 磁盘缓存/在线原图 → 占位符。
+// 仅 MediaStore 索引曲目可命中系统略缩图；外部导入/在线曲目与读取失败回退缓存；
+// 在线曲目仍等封面缓存落盘后再展示，避免开始播放即请求在线封面地址
 private fun coverModel(track: MusicTrack?): Any? {
     return track?.coverCachePath
         ?.takeIf { MusicMetadataCache.isValid(it) }
         ?.let { File(it) }
 }
 
+// 系统略缩图即时加载：MediaStore 索引曲目直接走 OS 常驻略缩图缓存（首帧命中），
+// 不等待全量解析器逐首读内嵌→解码→转码→落盘；非索引曲目回退磁盘缓存/占位符。
+// [thumbnailSize] 按显示尺寸适配：列表行 256px，音乐面板/轮播/迷你播放器 512px。
 @Composable
-internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
+private fun SystemCoverArt(
+    track: MusicTrack?,
+    modifier: Modifier,
+    thumbnailSize: Int,
+    placeholderIconSize: Dp,
+) {
+    val context = LocalContext.current
     val stateHolder = LocalMusicPanelStateHolder.current
-    // 仅当封面相关字段变化时重算，避免列表重组时重复文件系统 stat
+    val audioUri = track?.audioUri
+    val indexed = audioUri != null && audioUri.startsWith("content://media/")
+    val thumb by produceState<ImageBitmap?>(
+        initialValue = null,
+        audioUri,
+    ) {
+        value = if (indexed) {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.loadThumbnail(
+                        Uri.parse(audioUri),
+                        Size(thumbnailSize, thumbnailSize),
+                        null,
+                    ).asImageBitmap()
+                }.getOrNull()
+            }
+        } else null
+    }
+    // 磁盘缓存兜底：非 MediaStore 索引曲目 / 系统略缩图读取失败时使用既有缓存或在线原图
     val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
         coverModel(track)
     }
-    // 封面缺失时按需补全：幂等，补全成功后回写 coverCachePath 驱动重组重新加载
+    // 封面缺失时按需补全：幂等，补全成功后回写 coverCachePath 驱动重组重新加载；
+    // 仅 MediaStore 索引曲目不再依赖此回填来显示略缩图，但仍需其为大封面/歌词补全
     LaunchedEffect(track?.id, track?.coverCachePath, track?.neteaseCoverUrl, track?.coverFailed) {
         track?.let { stateHolder.state.requestMetadata(it) }
     }
-    if (model != null) {
-        AsyncImage(
-            model = model,
+    when {
+        thumb != null -> Image(
+            bitmap = thumb!!,
             contentDescription = track?.title,
             contentScale = ContentScale.Crop,
-            // 高清渲染：mipmap 三线性过滤，3D 透视/旋转缩放均无锯齿与模糊
+            // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
             filterQuality = FilterQuality.High,
             modifier = modifier.background(Color.Black),
         )
-    } else {
-        Box(
+        model != null -> AsyncImage(
+            model = model,
+            contentDescription = track?.title,
+            contentScale = ContentScale.Crop,
+            // 高清渲染：mipmap 三线性过滤，缩放/旋转均无锯齿与模糊
+            filterQuality = FilterQuality.High,
+            modifier = modifier.background(Color.Black),
+        )
+        else -> Box(
             modifier = modifier
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
@@ -136,47 +180,23 @@ internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
                 imageVector = AppIcons.MusicNote,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(placeholderIconSize)
             )
         }
     }
 }
 
 @Composable
+internal fun AlbumArt(track: MusicTrack?, modifier: Modifier = Modifier) {
+    // 音乐面板封面（DiscArt 迷你播放器、刷新预览、轮播）：走系统略缩图即时出图；
+    // 轮播居中封面最大约面板高度 55%，用 512px 请求保证清晰度，仍远轻于全量内嵌解码
+    SystemCoverArt(track, modifier, thumbnailSize = 512, placeholderIconSize = 24.dp)
+}
+
+@Composable
 internal fun PlaylistArt(track: MusicTrack?, modifier: Modifier = Modifier) {
-    val stateHolder = LocalMusicPanelStateHolder.current
-    // 列表小图直接使用磁盘缓存或在线原图，由 Coil 按显示尺寸高质量下采样；
-    // 128px CDN 缩略图在高 DPI 下列表放大显示会模糊，故不再使用
-    val model = remember(track?.id, track?.coverCachePath, track?.neteaseCoverUrl) {
-        coverModel(track)
-    }
-    // 列表项封面缺失时按需补全（懒加载）：滚入视口的曲目才触发提取
-    LaunchedEffect(track?.id, track?.coverCachePath, track?.neteaseCoverUrl, track?.coverFailed) {
-        track?.let { stateHolder.state.requestMetadata(it) }
-    }
-    if (model != null) {
-        AsyncImage(
-            model = model,
-            contentDescription = track?.title,
-            contentScale = ContentScale.Crop,
-            // 高清渲染：mipmap 三线性过滤，列表小图缩放平滑
-            filterQuality = FilterQuality.High,
-            modifier = modifier.background(Color.Black),
-        )
-    } else {
-        Box(
-            modifier = modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = AppIcons.MusicNote,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(12.dp)
-            )
-        }
-    }
+    // 列表行略缩图很小，256px 系统略缩图已足够
+    SystemCoverArt(track, modifier, thumbnailSize = 256, placeholderIconSize = 12.dp)
 }
 
 // 长按菜单定位：水平居中于父布局，纵向紧贴父布局顶部或底部
