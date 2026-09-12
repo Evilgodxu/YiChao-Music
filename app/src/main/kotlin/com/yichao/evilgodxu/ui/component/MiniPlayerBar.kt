@@ -119,7 +119,13 @@ internal fun MiniPlayerBar(
                 }
                 lastSyncMs = now
             } else {
-                lyricPosition = candidate
+                // 暂停时保持本地已推进的真实位置，仅跟随控制器前移（正向 seek）或大幅
+                // 回退（手动拖动），避免控制器滞后回报把已唱完的歌词高亮拉回
+                lyricPosition = when {
+                    candidate >= lyricPosition -> candidate
+                    lyricPosition - candidate > MINI_LYRIC_SEEK_TOLERANCE_MS -> candidate
+                    else -> lyricPosition
+                }
                 lastSyncMs = 0L
             }
             delay(if (playbackState.isPlaying) 50L else 200L)

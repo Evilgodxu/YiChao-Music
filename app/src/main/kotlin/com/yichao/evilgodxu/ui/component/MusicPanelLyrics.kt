@@ -117,7 +117,16 @@ internal fun LyricsPanel(
                 }
                 lastSyncMs = now
             } else {
-                if (!guarding) lyricPosition = candidate
+                // 暂停时保持本地已推进的真实位置，仅当控制器位置前移（正向 seek）或
+                // 大幅回退（手动拖动）时跟随；避免把播放期间已领先于控制器滞后回报的
+                // 本地位置拉回，导致已唱完的歌词高亮回退
+                if (!guarding) {
+                    lyricPosition = when {
+                        candidate >= lyricPosition -> candidate
+                        lyricPosition - candidate > LYRIC_SEEK_TOLERANCE_MS -> candidate
+                        else -> lyricPosition
+                    }
+                }
                 lastSyncMs = 0L
             }
             delay(if (playbackState.isPlaying) 50L else 200L)
