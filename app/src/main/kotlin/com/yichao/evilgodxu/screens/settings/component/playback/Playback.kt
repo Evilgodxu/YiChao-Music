@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
-import com.yichao.evilgodxu.theme.AppSwitch
+import com.yichao.evilgodxu.ui.component.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.section.GroupCard
 

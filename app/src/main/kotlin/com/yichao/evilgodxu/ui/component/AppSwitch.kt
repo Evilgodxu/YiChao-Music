@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.theme
+package com.yichao.evilgodxu.ui.component
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch

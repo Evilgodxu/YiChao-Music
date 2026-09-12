@@ -31,7 +31,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.component.dialog.ProxySourceImportDialog
 import com.yichao.evilgodxu.screens.settings.component.dialog.ProxySourceInputDialog
 import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
-import com.yichao.evilgodxu.theme.AppSwitch
+import com.yichao.evilgodxu.ui.component.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.section.GroupCard
 import kotlinx.coroutines.delay
