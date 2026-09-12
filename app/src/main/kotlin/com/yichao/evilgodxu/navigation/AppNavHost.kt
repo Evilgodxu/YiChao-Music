@@ -16,7 +16,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalMusicPanelStateHolder
 import com.yichao.evilgodxu.screens.home.HomeScreen
 import com.yichao.evilgodxu.screens.settings.SettingsScreen
 import com.yichao.evilgodxu.screens.typography.TypographyScreen
@@ -29,7 +29,7 @@ fun AppNavHost(
 ) {
     val backStack = rememberNavBackStack(Home)
     val context = LocalContext.current
-    val stateHolder = LocalAppContainer.current.stateHolder
+    val stateHolder = LocalMusicPanelStateHolder.current
     // LocalContext 已被本地化包装，宿主 Activity 需从注册表所有者获取
     val activity = LocalActivityResultRegistryOwner.current as? Activity
     // 预取提示文案，配置变化时由 Compose 自动更新，避免在回调中读取过期资源

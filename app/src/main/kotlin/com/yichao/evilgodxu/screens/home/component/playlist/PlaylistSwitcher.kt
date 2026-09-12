@@ -39,7 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalMetadataEnricher
+import com.yichao.evilgodxu.LocalPlaylistStore
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 import com.yichao.evilgodxu.data.playlist.PlaylistStore
@@ -89,8 +90,8 @@ internal fun PlaylistSwitcher(
 ) {
     if (!visible) return
     val context = LocalContext.current
-    val container = LocalAppContainer.current
-    val playlistStore = container.playlistStore
+    val playlistStore = LocalPlaylistStore.current
+    val metadataEnricher = LocalMetadataEnricher.current
     var showGroups by remember { mutableStateOf<SmartPlaylistType?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -139,7 +140,7 @@ internal fun PlaylistSwitcher(
                     playlistStore = playlistStore,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, tracks, source, container.metadataEnricher)
+                        switchToPlaylistQueue(context, playbackState, tracks, source, metadataEnricher)
                         onDismiss()
                     },
                     onOpenGroups = { showGroups = it },
@@ -149,7 +150,7 @@ internal fun PlaylistSwitcher(
                     type = type,
                     playbackState = playbackState,
                     onSwitch = { tracks, source ->
-                        switchToPlaylistQueue(context, playbackState, tracks, source, container.metadataEnricher)
+                        switchToPlaylistQueue(context, playbackState, tracks, source, metadataEnricher)
                         onDismiss()
                     },
                 )

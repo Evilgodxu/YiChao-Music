@@ -15,12 +15,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalApplication
+import com.yichao.evilgodxu.LocalLocalizationManager
+import com.yichao.evilgodxu.LocalSettingsRepository
 import com.yichao.evilgodxu.screens.settings.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.settings.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import com.yichao.evilgodxu.windowsize.rememberExpandedForm
+import com.yichao.evilgodxu.update.LocalUpdateViewModel
 import com.yichao.evilgodxu.update.UpdateViewModel
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
@@ -30,19 +33,21 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onOpenTypography: () -> Unit = {},
 ) {
-    val container = LocalAppContainer.current
+    val application = LocalApplication.current
+    val settingsRepository = LocalSettingsRepository.current
+    val localizationManager = LocalLocalizationManager.current
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
                 SettingsViewModel(
-                    application = container.application,
-                    settingsRepository = container.settingsRepository,
-                    localizationManager = container.localizationManager,
+                    application = application,
+                    settingsRepository = settingsRepository,
+                    localizationManager = localizationManager,
                 )
             }
         },
     )
-    val updateViewModel = container.updateViewModel
+    val updateViewModel = LocalUpdateViewModel.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onThemeClick: (Offset) -> Unit = LocalThemeTransitionController.current::revealAt
     val context = LocalContext.current

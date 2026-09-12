@@ -66,7 +66,8 @@ import com.yichao.evilgodxu.data.music.panel.playSearchResultWithQuality
 import com.yichao.evilgodxu.data.music.panel.tryPlayLocalMatch
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalMetadataEnricher
+import com.yichao.evilgodxu.LocalPlaylistRefresher
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.dialog.SearchResultsLazyList
 import kotlinx.coroutines.CoroutineScope
@@ -488,7 +489,8 @@ private fun QualitySelectDialog(
     scope: CoroutineScope,
 ) {
     val track = playbackState.qualityPickTrack ?: return
-    val container = LocalAppContainer.current
+    val metadataEnricher = LocalMetadataEnricher.current
+    val playlistRefresher = LocalPlaylistRefresher.current
     AlertDialog(
         onDismissRequest = {
             if (!playbackState.qualityBusy) {
@@ -537,7 +539,7 @@ private fun QualitySelectDialog(
                                 playbackState.qualityError = null
                                 val started = playSearchResultWithQuality(
                                     track, quality, playbackState, context,
-                                    container.metadataEnricher, container.playlistRefresher,
+                                    metadataEnricher, playlistRefresher,
                                 )
                                 // URL 解析失败直接提示；解析成功后保持忙碌态等待播放器就绪/失败回调结算
                                 if (!started) {

@@ -53,7 +53,8 @@ import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalPlaylistRefresher
+import com.yichao.evilgodxu.LocalPlaylistStore
 import com.yichao.evilgodxu.screens.home.component.dialog.PlaylistImportDialog
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.PlaylistArt
@@ -70,8 +71,8 @@ internal fun PlaylistPanel(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val container = LocalAppContainer.current
-    val playlistStore = container.playlistStore
+    val playlistStore = LocalPlaylistStore.current
+    val playlistRefresher = LocalPlaylistRefresher.current
     // 读盘切到 IO：首次 getSharedPreferences 需同步解析整份歌单 JSON，在主线程执行会阻塞首帧
     LaunchedEffect(Unit) { playlistStore.awaitLoaded(context) }
     var backStack by remember { mutableStateOf(listOf<PlaylistPage>(PlaylistPage.Overview)) }
@@ -99,7 +100,7 @@ internal fun PlaylistPanel(
         syncState = SyncUiState.Running(0, 0, "")
         syncJob = scope.launch {
             val result = PlaylistSyncer.syncToLibrary(
-                context, playbackState, link, container.playlistRefresher,
+                context, playbackState, link, playlistRefresher,
             ) { done, total, title ->
                 syncState = SyncUiState.Running(total, done, title)
             }

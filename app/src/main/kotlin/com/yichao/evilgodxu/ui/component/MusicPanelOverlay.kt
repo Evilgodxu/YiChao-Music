@@ -65,7 +65,8 @@ import com.yichao.evilgodxu.data.music.panel.searchLyricsCandidates
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalMetadataEnricher
+import com.yichao.evilgodxu.LocalPlaylistRefresher
 import com.yichao.evilgodxu.theme.DarkColorScheme
 import com.yichao.evilgodxu.theme.LightColorScheme
 import com.yichao.evilgodxu.ui.component.ControlBar
@@ -98,7 +99,8 @@ fun MusicPanelOverlay(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val container = LocalAppContainer.current
+    val metadataEnricher = LocalMetadataEnricher.current
+    val playlistRefresher = LocalPlaylistRefresher.current
 
     val settings by context.settingsFlow().collectAsStateWithLifecycle(initialValue = null)
     // 音乐面板歌词排版：字号与可见行数独立可调
@@ -397,7 +399,7 @@ fun MusicPanelOverlay(
                             scope.launch {
                                 playSearchResult(
                                     result, playbackState, context, scope,
-                                    container.metadataEnricher, container.playlistRefresher,
+                                    metadataEnricher, playlistRefresher,
                                 )
                             }
                         }

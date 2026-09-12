@@ -7,7 +7,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalApplication
 import com.yichao.evilgodxu.screens.typography.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.typography.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
@@ -19,11 +19,11 @@ fun TypographyScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val container = LocalAppContainer.current
+    val application = LocalApplication.current
     val viewModel: TypographyViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
-                TypographyViewModel(application = container.application)
+                TypographyViewModel(application = application)
             }
         },
     )

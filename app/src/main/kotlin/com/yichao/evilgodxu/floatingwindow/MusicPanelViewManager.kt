@@ -28,7 +28,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.yichao.evilgodxu.App
 import com.yichao.evilgodxu.AppContainer
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.ProvideAppDependencies
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.music.MusicScanner
 import com.yichao.evilgodxu.data.music.normalizedAudioUri
@@ -174,9 +174,9 @@ class MusicPanelViewManager(
             scaleX = 0.8f
             scaleY = 0.8f
             setContent {
-                // 悬浮窗独立于 Activity 组合树，须自行为本地容器提供值，
-                // 否则内部组件读取 LocalAppContainer 会触发默认 error 崩溃
-                CompositionLocalProvider(LocalAppContainer provides appContainer()) {
+                // 悬浮窗独立于 Activity 组合树，须自行为应用级依赖提供值，
+                // 否则内部组件读取组合局部会触发默认 error 崩溃
+                ProvideAppDependencies(appContainer()) {
                     MusicPanelOverlay(
                         playbackState = playbackState,
                         onScan = { requestScan() },

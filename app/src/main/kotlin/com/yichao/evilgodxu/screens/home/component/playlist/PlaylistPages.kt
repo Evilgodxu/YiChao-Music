@@ -54,7 +54,7 @@ import com.yichao.evilgodxu.data.music.playback.PlaylistSource
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalPlaylistStore
 import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.PlaylistArt
@@ -160,7 +160,7 @@ internal fun PlaylistTracksPage(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val playlistStore = LocalAppContainer.current.playlistStore
+    val playlistStore = LocalPlaylistStore.current
     // 实时读取最新歌单，添加/移除歌曲后立即刷新列表
     val currentPlaylist = playlistStore.playlists.find { it.id == playlist.id } ?: playlist
     val tracks = remember(playbackState.libraryTracks, currentPlaylist.trackIds) {

@@ -15,7 +15,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalApplication
+import com.yichao.evilgodxu.LocalMetadataEnricher
+import com.yichao.evilgodxu.LocalMusicPanelStateHolder
+import com.yichao.evilgodxu.LocalPlaylistRefresher
 import com.yichao.evilgodxu.screens.home.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.home.component.panel.rememberHomePanelState
 import com.yichao.evilgodxu.screens.home.expanded.ExpandedAssembly
@@ -29,22 +32,24 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit,
 ) {
-    val container = LocalAppContainer.current
+    val application = LocalApplication.current
+    val stateHolder = LocalMusicPanelStateHolder.current
+    val playlistRefresher = LocalPlaylistRefresher.current
+    val metadataEnricher = LocalMetadataEnricher.current
     val viewModel: HomeViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
                 HomeViewModel(
-                    application = container.application,
-                    stateHolder = container.stateHolder,
-                    playlistRefresher = container.playlistRefresher,
-                    metadataEnricher = container.metadataEnricher,
+                    application = application,
+                    stateHolder = stateHolder,
+                    playlistRefresher = playlistRefresher,
+                    metadataEnricher = metadataEnricher,
                 )
             }
         },
     )
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val stateHolder = container.stateHolder
     // 冷启动恢复持久化的播放列表，并定位当前曲目
     LaunchedEffect(Unit) {
         val state = stateHolder.state

@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.LocalAppContainer
+import com.yichao.evilgodxu.LocalMetadataEnricher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.analysis.AiMusicAnalyzer
 import com.yichao.evilgodxu.data.music.analysis.analyzeLibraryCombined
@@ -79,7 +79,7 @@ internal fun LibraryAnalysisSheet(
 ) {
     if (!visible) return
     val context = LocalContext.current
-    val container = LocalAppContainer.current
+    val metadataEnricher = LocalMetadataEnricher.current
     // 全量库统计：切换歌单时曲库范围不变，仅依赖全量库数据
     val stats = remember(playbackState.libraryTracks) {
         analyzeLibraryFormats(context, playbackState.libraryTracks)
@@ -223,7 +223,7 @@ internal fun LibraryAnalysisSheet(
                                 color = FORMAT_COLOR_PALETTE[index % FORMAT_COLOR_PALETTE.size],
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat, container.metadataEnricher)
+                                    switchToFormat(context, playbackState, stat, metadataEnricher)
                                     onDismiss()
                                 },
                             )
@@ -275,7 +275,7 @@ internal fun LibraryAnalysisSheet(
                                 specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat, container.metadataEnricher)
+                                    switchToFormat(context, playbackState, stat, metadataEnricher)
                                     onDismiss()
                                 },
                             )
@@ -294,7 +294,7 @@ internal fun LibraryAnalysisSheet(
                                 specialRowCount = specialRowCount,
                                 isCurrent = currentKey == formatSourceKey(stat.key),
                                 onClick = {
-                                    switchToFormat(context, playbackState, stat, container.metadataEnricher)
+                                    switchToFormat(context, playbackState, stat, metadataEnricher)
                                     onDismiss()
                                 },
                             )
