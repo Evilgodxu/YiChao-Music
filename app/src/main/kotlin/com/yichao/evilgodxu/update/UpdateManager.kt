@@ -24,6 +24,8 @@ data class UpdateInfo(
     val latestVersion: String,
     val downloadUrl: String,
     val changelog: String,
+    // APK 期望哈希：GitHub API 提供的 asset digest，已归一为小写十六进制；空表示不可校验
+    val sha256: String = "",
     val isDownloading: Boolean = false,
     val downloadId: Long? = null
 )
@@ -77,7 +79,9 @@ object UpdateManager {
     @Serializable
     private data class GitHubAsset(
         val name: String = "",
-        val browser_download_url: String = ""
+        val browser_download_url: String = "",
+        // GitHub API 自 2025-06 起为 release asset 提供 "sha256:<hex>" 摘要；缺失或旧资源可能为空
+        val digest: String = ""
     )
 
     /**
@@ -119,8 +123,12 @@ object UpdateManager {
 
             if (isNewerVersion(latest, current) && latest != ignored) {
                 val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
-                val downloadUrl = apkAsset?.browser_download_url?.takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("GitHub Release 未提供可用 APK")
+                val downloadUrl = apkAsset.browser_download_url.takeIf { it.isNotBlank() }
+                    ?: throw IllegalStateException("GitHub Release 未提供可用 APK")
+                // 期望哈希取自 asset digest（形如 "sha256:<hex>"），归一为小写十六进制；
+                // 缺失时留空，下载阶段会因无法校验而拒绝安装
+                val sha256 = apkAsset.digest.substringAfter("sha256:", "").trim().lowercase()
 
                 // 同步写盘：待更新信息用于冷启动恢复，异步落盘存在进程被杀丢失窗口
                 withContext(Dispatchers.IO) {
@@ -135,7 +143,8 @@ object UpdateManager {
                 UpdateInfo(
                     latestVersion = latest,
                     downloadUrl = downloadUrl,
-                    changelog = release.body
+                    changelog = release.body,
+                    sha256 = sha256
                 )
             } else {
                 withContext(Dispatchers.IO) {
@@ -241,6 +250,12 @@ object UpdateManager {
                 when (status) {
                     DownloadManager.STATUS_SUCCESSFUL -> {
                         onProgress(1f)
+                        // 完整性校验：与 GitHub 提供的 SHA-256 比对，不符或不可校验一律拒绝安装
+                        if (!verifyApkHash(outFile, updateInfo.sha256)) {
+                            outFile.delete()
+                            onProgress(-1f)
+                            return@withContext false
+                        }
                         // 下载完成，通过 FileProvider 打开安装界面
                         val uri = androidx.core.content.FileProvider.getUriForFile(
                             context,
@@ -287,6 +302,37 @@ object UpdateManager {
             onProgress(-1f)
             false
         }
+    }
+
+    // 校验已下载 APK 的 SHA-256：期望哈希缺失视为不可校验，与不符一律判失败
+    private fun verifyApkHash(file: java.io.File, expected: String): Boolean {
+        if (expected.isBlank()) {
+            CrashLogManager.logException(TAG, "APK 缺少期望哈希，拒绝安装: ${file.name}")
+            return false
+        }
+        val actual = runCatching { sha256Hex(file) }.getOrElse { e ->
+            CrashLogManager.logException(TAG, "计算 APK 哈希失败: ${file.name}", e)
+            return false
+        }
+        if (!actual.equals(expected, ignoreCase = true)) {
+            CrashLogManager.logException(TAG, "APK 哈希不匹配（期望 $expected，实际 $actual），拒绝安装")
+            return false
+        }
+        return true
+    }
+
+    // 流式计算文件 SHA-256（小写十六进制），避免整包读入内存
+    private fun sha256Hex(file: java.io.File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
     // 仅允许 HTTPS 下载地址，防止下载降级到明文传输

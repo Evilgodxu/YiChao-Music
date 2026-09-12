@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -68,17 +69,18 @@ fun AppContent() {
     val updateInfo by updateViewModel.updateInfo.collectAsStateWithLifecycle()
     val showUpdateDialog by updateViewModel.showUpdateDialog.collectAsStateWithLifecycle()
     val downloadState by updateViewModel.downloadState.collectAsStateWithLifecycle()
-    val checkFeedback by updateViewModel.checkFeedback.collectAsStateWithLifecycle()
 
-    LaunchedEffect(checkFeedback) {
-        when (checkFeedback) {
-            UpdateViewModel.CheckFeedback.UP_TO_DATE ->
-                Toast.makeText(context, R.string.update_toast_up_to_date, Toast.LENGTH_SHORT).show()
-            UpdateViewModel.CheckFeedback.ERROR ->
-                Toast.makeText(context, R.string.update_toast_error, Toast.LENGTH_SHORT).show()
-            null -> {}
+    // 手动检查结果提示：一次性事件，自动检查静默；以文案为键重建收集，避免语言切换后仍弹旧语言文案
+    val upToDateText = stringResource(R.string.update_toast_up_to_date)
+    val checkErrorText = stringResource(R.string.update_toast_error)
+    LaunchedEffect(upToDateText, checkErrorText) {
+        updateViewModel.messages.collect { message ->
+            val text = when (message) {
+                UpdateViewModel.CheckFeedback.UP_TO_DATE -> upToDateText
+                UpdateViewModel.CheckFeedback.ERROR -> checkErrorText
+            }
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
-        updateViewModel.clearCheckFeedback()
     }
 
     MyApplicationTheme {

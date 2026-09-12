@@ -6,7 +6,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.localization.LocalizationManager
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -30,17 +33,15 @@ class UpdateViewModel(
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
-    // 手动检查后的结果提示（已是最新 / 检查失败）
-    private val _checkFeedback = MutableStateFlow<CheckFeedback?>(null)
-    val checkFeedback: StateFlow<CheckFeedback?> = _checkFeedback.asStateFlow()
+    // 手动检查结果的一次性提示：无回放，自动检查静默、仅手动检查反馈
+    private val _messages = MutableSharedFlow<CheckFeedback>(extraBufferCapacity = 1)
+    val messages: Flow<CheckFeedback> = _messages.asSharedFlow()
 
     /** 手动检查结果的提示类型 */
     enum class CheckFeedback { UP_TO_DATE, ERROR }
 
     // 检查更新：有新版本时弹出更新对话框，否则手动检查时给出"已是最新"或"失败"提示
     fun checkForUpdate(force: Boolean = false) {
-        // 手动强制检查时清空上次提示，避免旧结果误弹
-        _checkFeedback.value = null
         viewModelScope.launch {
             var checkFailed = false
             val result = UpdateManager.checkForUpdate(
@@ -51,11 +52,11 @@ class UpdateViewModel(
             if (result != null) {
                 _updateInfo.value = result
                 _showUpdateDialog.value = true
-            } else if (checkFailed) {
-                _checkFeedback.value = CheckFeedback.ERROR
-            } else {
-                _checkFeedback.value = CheckFeedback.UP_TO_DATE
+                return@launch
             }
+            // 自动检查静默：仅手动检查反馈一次性提示
+            if (!force) return@launch
+            _messages.emit(if (checkFailed) CheckFeedback.ERROR else CheckFeedback.UP_TO_DATE)
         }
     }
 
@@ -90,11 +91,6 @@ class UpdateViewModel(
         _showUpdateDialog.value = false
         _downloadState.value = DownloadState.Idle
         viewModelScope.launch { UpdateManager.clearPendingUpdate(context) }
-    }
-
-    // 清除手动检查结果提示
-    fun clearCheckFeedback() {
-        _checkFeedback.value = null
     }
 }
 
