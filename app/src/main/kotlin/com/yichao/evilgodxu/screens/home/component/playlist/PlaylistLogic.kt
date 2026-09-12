@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.screens.home.component.playlist
 
 import com.yichao.evilgodxu.data.music.model.MusicTrack
+import com.yichao.evilgodxu.data.music.playback.parseTrackArtists
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
 
 // 按 id 集合从全量曲目中解析曲目，保持集合顺序。
@@ -26,7 +27,8 @@ internal fun smartTrackCount(all: List<MusicTrack>, ids: Collection<Long>): Int 
 
 internal fun distinctAlbumCount(all: List<MusicTrack>): Int = all.map { it.albumId }.distinct().size
 
-internal fun distinctArtistCount(all: List<MusicTrack>): Int = all.map { it.artist }.distinct().size
+internal fun distinctArtistCount(all: List<MusicTrack>): Int =
+    all.flatMap { parseTrackArtists(it.artist) }.distinct().size
 
 // 按专辑分组，组名回退为未知专辑文案
 internal fun albumGroups(all: List<MusicTrack>, unknownAlbum: String): List<PlaylistGroup> =
@@ -40,14 +42,23 @@ internal fun albumGroups(all: List<MusicTrack>, unknownAlbum: String): List<Play
         }
         .sortedBy { it.name }
 
-// 按艺术家分组，组名回退为未知艺术家文案
+// 按艺术家分组，组名回退为未知艺术家文案。
+// 多歌手曲目（如 "A / B"）解析后同时归属到每位歌手名下，
+// 避免把多个歌手视作单一歌手（原按整串 it.artist 分组会把 "A / B" 当作一个歌手）
 internal fun artistGroups(all: List<MusicTrack>, unknownArtist: String): List<PlaylistGroup> =
-    all.groupBy { it.artist }
-        .map { (artist, list) ->
+    buildMap<String, MutableList<Long>> {
+        all.forEach { track ->
+            parseTrackArtists(track.artist).forEach { artist ->
+                getOrPut("artist:$artist") { mutableListOf() }.add(track.id)
+            }
+        }
+    }
+        .map { (key, trackIds) ->
+            val artist = key.removePrefix("artist:")
             PlaylistGroup(
-                key = "artist:$artist",
+                key = key,
                 name = artist.ifBlank { unknownArtist },
-                trackIds = list.map { it.id },
+                trackIds = trackIds,
             )
         }
         .sortedBy { it.name }

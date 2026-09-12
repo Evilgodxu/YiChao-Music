@@ -89,7 +89,7 @@ private val CHINESE_NUMERALS: Map<Char, Long> = mapOf(
 private val ARTIST_SEPARATOR = Regex("""[、,，;；/\\&]""")
 
 // 解析曲目的全部歌手名：按多歌手分隔符拆分、去空白、去空；无分隔符时视为单一歌手
-private fun parseTrackArtists(artist: String): List<String> =
+internal fun parseTrackArtists(artist: String): List<String> =
     artist.split(ARTIST_SEPARATOR)
         .map { it.trim() }
         .filter { it.isNotBlank() }
