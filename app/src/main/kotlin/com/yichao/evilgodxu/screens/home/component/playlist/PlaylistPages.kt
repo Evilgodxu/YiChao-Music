@@ -259,7 +259,9 @@ internal fun PlaylistGroupTracksPage(
             val albumId = group.key.removePrefix("album:").toLongOrNull()
             playbackState.libraryTracks.filter { it.albumId == albumId }
         } else {
-            playbackState.libraryTracks.filter { it.artist == group.name }
+            // 与分组列表一致：按分组保存的 trackIds 解析，避免多歌手曲目（如 "A / B"）
+            // 因 artist 整串不等于歌手名而被过滤，导致详情曲目少于列表展示数
+            resolveTracks(playbackState.libraryTracks, group.trackIds)
         }
     }
     // 专辑视图长按歌曲：编辑该歌曲的专辑元数据
