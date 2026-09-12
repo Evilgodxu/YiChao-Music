@@ -85,14 +85,70 @@ private val CHINESE_NUMERALS: Map<Char, Long> = mapOf(
     '十' to 10L, '百' to 100L, '千' to 1000L, '万' to 10000L, '亿' to 100000000L,
 )
 
-// 按默认规则排序：分趟聚拢而非一次性比较，避免「标题优先」与「歌手/专辑相邻」互相抵触。
-// 第 1 趟：标题自然序（数字优先）升序做主排；
-// 第 2 趟：按歌手把曲目聚拢为连续块，块先后沿用第 1 趟的首现顺序，块内保持标题序；
-// 第 3 趟：在每个歌手块内按专辑再聚拢，块内仍保持标题序，且不打破已建立的歌手相邻。
-private fun List<MusicTrack>.sortedByDefaultOrder(): List<MusicTrack> =
-    sortedWith(naturalStringComparator<MusicTrack> { it.title })
-        .stableGroups { it.artist }
-        .flatMap { artistTracks -> artistTracks.stableGroups { albumGroupKey(it) }.flatten() }
+// 多歌手分隔符：兼容常见分隔形式（顿号/逗号/分号/斜杠/反斜杠/连接符&）
+private val ARTIST_SEPARATOR = Regex("""[、,，;；/\\&]""")
+
+// 解析曲目的全部歌手名：按多歌手分隔符拆分、去空白、去空；无分隔符时视为单一歌手
+private fun parseTrackArtists(artist: String): List<String> =
+    artist.split(ARTIST_SEPARATOR)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .ifEmpty { listOf(artist.trim()) }
+
+// 按默认规则排序：固定标题自然序首位歌曲为锚点，其下分两趟聚拢而非一次性比较，
+// 避免「标题优先」与「歌手/专辑相邻」互相抵触。
+// 锚点：标题自然序（数字优先）升序的首位歌曲，位置固定不随后续排序改变；
+// 归属：多歌手曲目归属到曲库中曲目数最多的歌手（数量相同取解析顺序靠前者），避免把多个歌手块并入一块；
+// 第 2 趟（二级）：在锚点之下按归属歌手聚拢同歌手曲目，归属歌手在锚点下 ≥2 首才真正成块；
+// 第 3 趟（三级）：在锚点之下对未被歌手聚拢的曲目（归属歌手仅 1 首）按专辑聚拢，
+//                 同专辑可跨歌手相邻；已由二级（同歌手）占用的曲目不再参与。
+private fun List<MusicTrack>.sortedByDefaultOrder(): List<MusicTrack> {
+    val titleSorted = sortedWith(naturalStringComparator<MusicTrack> { it.title })
+    if (titleSorted.isEmpty()) return titleSorted
+    val anchor = titleSorted.first()
+    val rest = titleSorted.drop(1)
+
+    // 统计曲库（整个待排序列表）中每位歌手的曲目数，用于多歌手曲目的归属判定
+    val artistSongCounts = HashMap<String, Int>()
+    forEach { track ->
+        parseTrackArtists(track.artist).forEach { artist ->
+            artistSongCounts[artist] = (artistSongCounts[artist] ?: 0) + 1
+        }
+    }
+
+    // 归属歌手：多歌手时取曲库曲目数最多者；数量相同取解析顺序靠前者
+    fun ownerOf(track: MusicTrack): String {
+        val artists = parseTrackArtists(track.artist)
+        var owner = artists.first()
+        var ownerCount = artistSongCounts[owner] ?: 0
+        for (candidate in artists.drop(1)) {
+            val candidateCount = artistSongCounts[candidate] ?: 0
+            if (candidateCount > ownerCount) {
+                owner = candidate
+                ownerCount = candidateCount
+            }
+        }
+        return owner
+    }
+
+    // 统计锚点之下各归属歌手的曲目数，据此决定每首曲目归入「歌手块」还是「专辑块」
+    val ownerCountBelowAnchor = HashMap<String, Int>()
+    rest.forEach { track ->
+        val owner = ownerOf(track)
+        ownerCountBelowAnchor[owner] = (ownerCountBelowAnchor[owner] ?: 0) + 1
+    }
+
+    val blockKeyByTrackId = HashMap<Long, String>()
+    rest.forEach { track ->
+        val owner = ownerOf(track)
+        blockKeyByTrackId[track.id] = if ((ownerCountBelowAnchor[owner] ?: 0) >= 2) {
+            "A\u0000$owner"
+        } else {
+            "L\u0000${albumGroupKey(track)}"
+        }
+    }
+    return listOf(anchor) + rest.stableGroups { track -> blockKeyByTrackId.getValue(track.id) }.flatten()
+}
 
 // 专辑聚拢键：专辑名 + 专辑 id，避免同名不同专辑被并入同一块
 private fun albumGroupKey(track: MusicTrack): String = "${track.albumName}\u0000${track.albumId}"
