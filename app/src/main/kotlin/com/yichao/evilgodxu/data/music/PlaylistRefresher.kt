@@ -75,7 +75,9 @@ class PlaylistRefresher(private val playlistStore: PlaylistStore) {
                                 lyricFailed = cached.lyricFailed,
                             )
                         }
-                    state.sortPlaylistForDefaultOrder(mergedTracks)
+                    val defaultOrdered = state.sortPlaylistForDefaultOrder(mergedTracks)
+                    // 默认全量播放列表套用用户排序规则；歌单来源保持其自身顺序
+                    if (state.playlistSource == null) state.sortByActiveRule(defaultOrdered) else defaultOrdered
                 }
                 withContext(Dispatchers.Main) {
                     // 扫描前快照当前歌单选择，扫描后按新库重建并保持选中而非回到默认

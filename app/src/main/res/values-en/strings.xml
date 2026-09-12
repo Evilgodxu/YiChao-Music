@@ -115,6 +115,16 @@
     <string name="music_panel_favorite">Favorite</string>
     <string name="music_panel_play_next">Play next</string>
     <string name="music_panel_cancel_play_next">Cancel play next</string>
+    <string name="music_panel_sort">Sort</string>
+    <string name="music_panel_sort_title">Sort by</string>
+    <string name="music_panel_sort_descending">Descending</string>
+    <string name="music_panel_sort_ascending">Ascending</string>
+    <string name="music_panel_sort_default">Default order</string>
+    <string name="music_panel_sort_modified">Newest</string>
+    <string name="music_panel_sort_by_title">Title</string>
+    <string name="music_panel_sort_by_artist">Artist</string>
+    <string name="music_panel_sort_by_album">Album</string>
+    <string name="music_panel_sort_by_duration">Duration</string>
 
     <!-- Music scanner -->
     <string name="music_scanner_external_music">External music</string>

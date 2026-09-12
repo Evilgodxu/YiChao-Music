@@ -84,6 +84,9 @@ class MusicPlaybackState(
     private val playlistSourceKeyPref = "music_playlist_source_key"
     private val playlistSourceNamePref = "music_playlist_source_name"
     private val defaultPlaylistCacheKeyPref = "music_default_playlist_cache"
+    // 排序规则持久化键
+    private val playlistSortFieldPref = "music_playlist_sort_field"
+    private val playlistSortDescPref = "music_playlist_sort_descending"
     private val searchHistoryKey = "music_search_history"
     private val searchHistoryPreferences = "music_search_history_preferences"
     // 待落盘的播放状态快照：每次调用覆盖为最新值，写入任务按需消费，合并连续写入
@@ -554,6 +557,9 @@ class MusicPlaybackState(
 
     // 当前播放列表来源歌单（null = 默认全量播放列表）
     var playlistSource by mutableStateOf<PlaylistSource?>(null)
+    // 播放列表排序规则（仅对默认全量播放列表生效），随列表一并持久化
+    var playlistSortField by mutableStateOf(PlaylistSortField.DEFAULT)
+    var playlistSortDescending by mutableStateOf(false)
     // 默认全量播放列表备份：首次切到歌单时快照，供快捷切回默认
     var defaultPlaylistBackup by mutableStateOf<List<MusicTrack>?>(null)
     // 全量库：优先备份，否则为当前播放列表
@@ -682,11 +688,23 @@ class MusicPlaybackState(
             // 历史缓存可能残留同文件不同 URI 形态的重复条目，按真实文件路径去重，避免冷启动直接展示重名歌曲
             loadCachedPlaylist(context, playlistCacheKey).distinctBy { trackIdentityKey(context, it) }
         }
-        // 恢复上次选中的歌单来源与默认库备份，扫描刷新后保持选中
-        val savedSource = withContext(Dispatchers.IO) {
+        // 恢复上次选中的歌单来源、排序规则与默认库备份，扫描刷新后保持选中与排序
+        val (savedSource, savedSortField, savedSortDescending) = withContext(Dispatchers.IO) {
             val prefs = context.getSharedPreferences(playlistCachePreferences, Context.MODE_PRIVATE)
-            prefs.getString(playlistSourceKeyPref, null)?.let { key ->
+            val source = prefs.getString(playlistSourceKeyPref, null)?.let { key ->
                 PlaylistSource(key, prefs.getString(playlistSourceNamePref, "") ?: "")
+            }
+            val field = prefs.getString(playlistSortFieldPref, null)
+                ?.let { name -> runCatching { PlaylistSortField.valueOf(name) }.getOrNull() }
+                ?: PlaylistSortField.DEFAULT
+            Triple(source, field, prefs.getBoolean(playlistSortDescPref, false))
+        }
+        // 默认全量播放列表套用保存的排序规则；大库排序开销明显，放 IO 执行
+        val orderedCachedPlaylist = withContext(Dispatchers.IO) {
+            if (savedSource == null) {
+                sortTracks(cachedPlaylist, savedSortField, savedSortDescending)
+            } else {
+                cachedPlaylist
             }
         }
         val cachedBackup = withContext(Dispatchers.IO) {
@@ -699,6 +717,8 @@ class MusicPlaybackState(
         withContext(Dispatchers.Main) {
             // 无保存来源时处于全量播放列表
             playlistSource = savedSource
+            playlistSortField = savedSortField
+            playlistSortDescending = savedSortDescending
             defaultPlaylistBackup = cachedBackup.takeIf { it.isNotEmpty() }
             // 收藏合并自当前歌单与默认库备份，避免切歌单后库内收藏丢失
             likedIds = (cachedPlaylist + cachedBackup)
@@ -706,7 +726,7 @@ class MusicPlaybackState(
                 .map { it.id }
                 .toSet()
             if (playlist.isEmpty() && cachedPlaylist.isNotEmpty()) {
-                playlist = cachedPlaylist.map { it.copy(isFavorite = likedIds.contains(it.id)) }
+                playlist = orderedCachedPlaylist.map { it.copy(isFavorite = likedIds.contains(it.id)) }
             }
             pendingSavedUri = savedUri
             pendingResumePosition = savedPosition
@@ -779,6 +799,8 @@ class MusicPlaybackState(
                 editor.putString(playlistCacheKey, encodePlaylist(playlist))
                 editor.putString(playlistSourceKeyPref, source?.key)
                 editor.putString(playlistSourceNamePref, source?.name)
+                editor.putString(playlistSortFieldPref, playlistSortField.name)
+                editor.putBoolean(playlistSortDescPref, playlistSortDescending)
                 if (backup != null) {
                     editor.putString(defaultPlaylistCacheKeyPref, encodePlaylist(backup))
                 } else {
@@ -849,6 +871,7 @@ class MusicPlaybackState(
                     lyricOffsetMs = lyricOffset,
                     coverFailed = item.optBoolean("coverFailed", false),
                     lyricFailed = item.optBoolean("lyricFailed", false),
+                    fileModifiedMs = item.optLong("fileModifiedMs", 0L),
                 )
             }
         } catch (e: Exception) {
@@ -879,6 +902,7 @@ class MusicPlaybackState(
                 put("lyricOffsetMs", track.lyricOffsetMs)
                 put("coverFailed", track.coverFailed)
                 put("lyricFailed", track.lyricFailed)
+                put("fileModifiedMs", track.fileModifiedMs)
             })
         }
         return array.toString()
@@ -1002,18 +1026,43 @@ class MusicPlaybackState(
         timerRemaining = 0
     }
 
-    // 排序规则的纯计算部分（收藏回填 + 歌手/专辑/标题排序）：不触碰状态，
+    // 排序规则的纯计算部分（收藏回填 + 默认顺序）：不触碰状态，
     // 供调用方在 IO 线程算好后回主线程赋值，避免大库排序占用主线程
     fun sortPlaylistForDefaultOrder(tracks: List<MusicTrack>): List<MusicTrack> =
-        tracks
-            .map { it.copy(isFavorite = it.id in likedIds) }
-            .sortedByDefaultOrder()
+        sortTracks(
+            tracks.map { it.copy(isFavorite = it.id in likedIds) },
+            PlaylistSortField.DEFAULT,
+            descending = false,
+        )
+
+    // 按当前排序规则重排给定列表；规则为默认正序时原样返回，避免重复排序
+    fun sortByActiveRule(tracks: List<MusicTrack>): List<MusicTrack> {
+        if (playlistSortField == PlaylistSortField.DEFAULT && !playlistSortDescending) return tracks
+        return sortTracks(tracks, playlistSortField, playlistSortDescending)
+    }
 
     // 应用已排好序的播放列表，并保留当前曲目索引
     fun applySortedPlaylist(sorted: List<MusicTrack>) {
         val currentId = currentTrack?.id
         playlist = sorted
         currentIndex = sorted.indexOfFirst { it.id == currentId }.coerceAtLeast(-1)
+    }
+
+    // 设置排序规则：仅默认全量播放列表套用重排（自定义/智能歌单保持自身顺序）；
+    // 重排放后台线程执行，避免大库拼音排序占用主线程
+    fun setPlaylistSort(field: PlaylistSortField, descending: Boolean) {
+        playlistSortField = field
+        playlistSortDescending = descending
+        if (playlistSource == null) {
+            val snapshot = playlist
+            playbackScope.launch {
+                val ordered = withContext(Dispatchers.Default) { sortTracks(snapshot, field, descending) }
+                applySortedPlaylist(ordered)
+                persistPlaylist()
+            }
+        } else {
+            persistPlaylist()
+        }
     }
 
     // 切换指定曲目的收藏状态：仅就地更新收藏标记，不改变列表顺序
@@ -1253,48 +1302,3 @@ private data class SavedPlaybackState(
     val position: Long,
     val mode: Int,
 )
-
-// 歌手分隔符：顿号、中英文逗号/分号、斜杠、反斜杠、与号
-private val ARTIST_SEPARATOR = Regex("""[、,，;；/\\&]""")
-
-// 解析歌曲关联的全部歌手：按分隔符拆分并清理空白，无有效项时退回整串
-private fun parseTrackArtists(artist: String): List<String> =
-    artist.split(ARTIST_SEPARATOR)
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-        .ifEmpty { listOf(artist.trim()) }
-
-// 按默认规则排序：优先按歌手聚合、其次按专辑聚合、专辑内再按标题排序；
-// 多歌手歌曲归属到当前列表中歌曲数量最多的歌手，数量相同时取解析顺序靠前的歌手
-private fun List<MusicTrack>.sortedByDefaultOrder(): List<MusicTrack> {
-    // 统计各歌手参与当前列表的歌曲数量（多歌手歌曲计入每个关联歌手）
-    val artistSongCounts = hashMapOf<String, Int>()
-    forEach { track ->
-        parseTrackArtists(track.artist).forEach { artist ->
-            artistSongCounts[artist] = (artistSongCounts[artist] ?: 0) + 1
-        }
-    }
-    // 确定每首歌的归属歌手，用于聚合分组
-    val ownerByTrackId = hashMapOf<Long, String>()
-    forEach { track ->
-        val artists = parseTrackArtists(track.artist)
-        var owner = artists.firstOrNull().orEmpty()
-        if (artists.size > 1) {
-            var ownerCount = artistSongCounts[owner] ?: 0
-            for (candidate in artists.drop(1)) {
-                val candidateCount = artistSongCounts[candidate] ?: 0
-                if (candidateCount > ownerCount) {
-                    owner = candidate
-                    ownerCount = candidateCount
-                }
-            }
-        }
-        ownerByTrackId[track.id] = owner
-    }
-    return sortedWith(
-        compareBy<MusicTrack> { ownerByTrackId[it.id] ?: "" }
-            .thenBy { it.albumName }
-            .thenBy { it.albumId }
-            .thenBy { it.title }
-    )
-}

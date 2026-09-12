@@ -71,7 +71,7 @@ internal fun switchToPlaylistQueue(
     if (state.playlistSource == null && state.defaultPlaylistBackup == null) {
         state.defaultPlaylistBackup = state.playlist
     }
-    state.playlist = tracks
+    state.playlist = if (source == null) state.sortByActiveRule(tracks) else tracks
     state.playlistSource = source
     state.currentIndex = 0
     // 仅加载新队列并暂停，不自动播放；在播放器全局作用域执行，避免弹层关闭取消协程导致队列未加载

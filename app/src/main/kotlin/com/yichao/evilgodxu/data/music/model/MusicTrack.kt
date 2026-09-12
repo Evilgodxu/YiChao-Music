@@ -24,6 +24,8 @@ data class MusicTrack(
     val lyricFailed: Boolean = false,
     // 是否由在线播放产生（含已缓存为本地文件）；仅当前播放时保留，切歌后自动清理
     val isOnlinePlay: Boolean = false,
+    // 本地音频文件修改时间（毫秒）：扫描时取自 MediaStore，供「文件修改时间」排序；在线/外部曲目为 0
+    val fileModifiedMs: Long = 0L,
 ) {
     // 是否为可读取本地音频源：本地文件路径或 MediaStore 本地文件 URI
     // 本地源的内嵌封面由后台提取，提取完成前不直接回退在线封面

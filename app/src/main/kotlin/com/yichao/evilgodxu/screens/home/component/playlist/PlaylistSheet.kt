@@ -13,6 +13,8 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -35,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +57,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -66,6 +70,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +80,7 @@ import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.LocalMetadataEnricher
 import com.yichao.evilgodxu.LocalPlaylistRefresher
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
+import com.yichao.evilgodxu.data.music.playback.PlaylistSortField
 import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
@@ -100,6 +106,8 @@ internal fun PlaylistSheet(
     val metadataEnricher = LocalMetadataEnricher.current
     // 歌单副标题点击后的快捷切换弹层
     var showSwitcher by remember { mutableStateOf(false) }
+    // 排序对话框显隐
+    var showSortDialog by remember { mutableStateOf(false) }
     // 长按删除目标：非空时显示确认弹窗
     var deleteTrack by remember { mutableStateOf<MusicTrack?>(null) }
     // 后台预取整个播放列表缩略图：曲目集合变化即触发，不等面板展开逐行懒加载，
@@ -207,6 +215,13 @@ internal fun PlaylistSheet(
                             },
                             modifier = Modifier.size(28.dp),
                             enabled = !playbackState.isScanning,
+                        )
+                        HeaderIconButton(
+                            icon = AppIcons.Sort,
+                            contentDescription = stringResource(R.string.music_panel_sort),
+                            onClick = { showSortDialog = true },
+                            modifier = Modifier.size(28.dp),
+                            enabled = playbackState.playlistSource == null && !playbackState.isScanning,
                         )
                         IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                             Icon(
@@ -391,6 +406,13 @@ internal fun PlaylistSheet(
             playbackState = playbackState,
             onDismiss = { showSwitcher = false },
         )
+        PlaylistSortDialog(
+            visible = showSortDialog,
+            currentField = playbackState.playlistSortField,
+            descending = playbackState.playlistSortDescending,
+            onApply = { field, descending -> playbackState.setPlaylistSort(field, descending) },
+            onDismiss = { showSortDialog = false },
+        )
         RemoveTrackDialog(
             track = deleteTrack,
             titleRes = R.string.music_panel_delete_title,
@@ -519,4 +541,97 @@ private fun PlaylistSearchBar(
             }
         }
     }
+}
+
+// 排序对话框：标题右侧小字「逆序/正序」切换方向 + 排序字段列表，选中项高亮
+@Composable
+private fun PlaylistSortDialog(
+    visible: Boolean,
+    currentField: PlaylistSortField,
+    descending: Boolean,
+    onApply: (PlaylistSortField, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (!visible) return
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    // 方向本地态：点击标题右侧文案即时切换生效但不关闭对话框，便于连续调整字段与方向
+    var reverse by remember(visible) { mutableStateOf(descending) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.music_panel_sort_title),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+                // 标题右侧小字：文案为可切换到的目标方向（当前正序显示「逆序」）
+                Text(
+                    text = stringResource(
+                        if (reverse) R.string.music_panel_sort_ascending
+                        else R.string.music_panel_sort_descending
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            reverse = !reverse
+                            onApply(currentField, reverse)
+                        }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                PlaylistSortField.entries.forEach { field ->
+                    val isSelected = currentField == field
+                    Text(
+                        text = stringResource(sortFieldLabelRes(field)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                when {
+                                    isSelected && isDarkTheme -> MaterialTheme.colorScheme.primaryContainer
+                                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else -> MaterialTheme.colorScheme.surface
+                                }
+                            )
+                            .clickable {
+                                onApply(field, reverse)
+                                onDismiss()
+                            }
+                            .padding(vertical = 14.dp),
+                        textAlign = TextAlign.Center,
+                        color = when {
+                            isSelected && isDarkTheme -> MaterialTheme.colorScheme.onPrimaryContainer
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+    )
+}
+
+// 排序字段对应的文案资源
+private fun sortFieldLabelRes(field: PlaylistSortField): Int = when (field) {
+    PlaylistSortField.DEFAULT -> R.string.music_panel_sort_default
+    PlaylistSortField.MODIFIED_TIME -> R.string.music_panel_sort_modified
+    PlaylistSortField.TITLE -> R.string.music_panel_sort_by_title
+    PlaylistSortField.ARTIST -> R.string.music_panel_sort_by_artist
+    PlaylistSortField.ALBUM -> R.string.music_panel_sort_by_album
+    PlaylistSortField.DURATION -> R.string.music_panel_sort_by_duration
 }

@@ -98,6 +98,7 @@ object MusicScanner {
                 MediaStore.Audio.Media.DURATION,
                 MediaStore.Audio.Media.ALBUM_ID,
                 MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.DATE_MODIFIED,
                 MediaStore.Audio.Media.IS_MUSIC,
             )
             val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND " +
@@ -116,6 +117,7 @@ object MusicScanner {
                 val durationIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DURATION)
                 val albumIdIdx = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
                 val albumNameIdx = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)
+                val modifiedIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED)
                 if (idIdx < 0 || titleIdx < 0) return@withContext tracks
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idIdx)
@@ -134,6 +136,8 @@ object MusicScanner {
                     val duration = if (durationIdx >= 0) cursor.getLong(durationIdx) else 0L
                     val albumId = if (albumIdIdx >= 0) cursor.getLong(albumIdIdx) else 0L
                     val albumName = if (albumNameIdx >= 0) cursor.getString(albumNameIdx).orEmpty() else ""
+                    // DATE_MODIFIED 以秒为单位，统一转为毫秒供排序使用
+                    val modifiedMs = if (modifiedIdx >= 0) cursor.getLong(modifiedIdx) * 1000L else 0L
                     tracks.add(
                         MusicTrack(
                             id = id,
@@ -144,6 +148,7 @@ object MusicScanner {
                             duration = duration,
                             albumId = albumId,
                             albumName = albumName,
+                            fileModifiedMs = modifiedMs,
                         )
                     )
                 }
