@@ -28,7 +28,7 @@ import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.dialog.SpeedDialog
+import com.yichao.evilgodxu.ui.component.dialog.SpeedDialog
 import kotlinx.coroutines.launch
 
 // 底部控制栏：与迷你播放器控件布局一致（播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表）

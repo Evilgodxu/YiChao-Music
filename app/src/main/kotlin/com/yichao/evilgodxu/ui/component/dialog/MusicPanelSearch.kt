@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.ui.dialog
+package com.yichao.evilgodxu.ui.component.dialog
 
 import android.content.Context
 import androidx.compose.animation.AnimatedContent

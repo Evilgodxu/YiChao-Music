@@ -92,7 +92,7 @@ import com.yichao.evilgodxu.ui.component.loadRecentCovers
 import com.yichao.evilgodxu.ui.component.LocalCoverDialog
 import com.yichao.evilgodxu.ui.component.menuEdgePositionProvider
 import com.yichao.evilgodxu.ui.component.MiniContextMenu
-import com.yichao.evilgodxu.ui.dialog.RenameDialog
+import com.yichao.evilgodxu.ui.component.dialog.RenameDialog
 import com.yichao.evilgodxu.ui.component.LyricsEditDialog
 import com.yichao.evilgodxu.ui.component.LyricsPanel
 import com.yichao.evilgodxu.ui.component.LyricsRefreshDialog
