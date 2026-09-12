@@ -34,6 +34,11 @@ fun AppInfo(
     onVersionClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    val brand = stringResource(R.string.app_info_brand)
+    val logLabel = stringResource(R.string.app_info_log_label)
+    val qqGroupLabel = stringResource(R.string.app_info_qq_group)
+    val shareLogSubject = stringResource(R.string.app_info_share_log_subject)
+    val shareLogTitle = stringResource(R.string.app_info_share_log_title)
 
     // 以系统浏览器打开链接；LocalContext 非 Activity 时需加 NEW_TASK
     fun openUrl(url: String) {
@@ -57,10 +62,10 @@ fun AppInfo(
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "今日日志")
+            putExtra(Intent.EXTRA_SUBJECT, shareLogSubject)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        val chooser = Intent.createChooser(sendIntent, "分享今日日志")
+        val chooser = Intent.createChooser(sendIntent, shareLogTitle)
         // LocalContext 为本地化包装 context，非 Activity 时需加 NEW_TASK
         if (context !is Activity) chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
@@ -72,7 +77,7 @@ fun AppInfo(
             .padding(top = 20.dp),
     ) {
         Text(
-            text = "Evilgodxu",
+            text = brand,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             fontSize = 14.sp,
@@ -90,7 +95,7 @@ fun AppInfo(
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
         Text(
-            text = "[日志]",
+            text = logLabel,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp)
@@ -100,7 +105,7 @@ fun AppInfo(
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
         Text(
-            text = "QQ群:923555630",
+            text = qqGroupLabel,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp)
