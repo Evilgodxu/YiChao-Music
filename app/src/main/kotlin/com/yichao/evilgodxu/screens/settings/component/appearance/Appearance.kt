@@ -7,7 +7,7 @@ import com.yichao.evilgodxu.data.settings.ThemeMode
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.section.GroupCard
+import com.yichao.evilgodxu.ui.component.section.GroupCard
 
 // 外观设置
 @Composable

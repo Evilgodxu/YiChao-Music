@@ -27,7 +27,7 @@ import com.yichao.evilgodxu.data.settings.LyricLayoutDefaults
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.typography.TypographyUiState
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.section.GroupCard
+import com.yichao.evilgodxu.ui.component.section.GroupCard
 import kotlin.math.roundToInt
 
 // 排版分组：音乐面板、首页竖屏、首页横屏三场景独立调节字号与行数，横屏额外调节 3D 强度

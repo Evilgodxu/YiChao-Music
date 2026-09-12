@@ -19,7 +19,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.section.GroupCard
+import com.yichao.evilgodxu.ui.component.section.GroupCard
 
 // 播放设置：悬浮播放与逐字渲染开关、排版入口
 @Composable

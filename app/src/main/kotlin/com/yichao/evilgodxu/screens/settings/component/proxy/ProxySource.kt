@@ -33,7 +33,7 @@ import com.yichao.evilgodxu.screens.settings.component.dialog.ProxySourceInputDi
 import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.theme.AppSwitch
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.section.GroupCard
+import com.yichao.evilgodxu.ui.component.section.GroupCard
 import kotlinx.coroutines.delay
 
 // 代理音源设置：导入、管理第三方音源并展示导入结果

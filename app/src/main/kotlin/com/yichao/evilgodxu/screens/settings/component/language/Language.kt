@@ -6,7 +6,7 @@ import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.settings.component.entry.SettingsEntry
 import com.yichao.evilgodxu.ui.icons.AppIcons
-import com.yichao.evilgodxu.ui.section.GroupCard
+import com.yichao.evilgodxu.ui.component.section.GroupCard
 
 // 语言设置
 @Composable
