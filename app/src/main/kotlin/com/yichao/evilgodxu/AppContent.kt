@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.ui
+package com.yichao.evilgodxu
 
 import android.content.Intent
 import android.net.Uri
