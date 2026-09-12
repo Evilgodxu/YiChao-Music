@@ -85,12 +85,21 @@ private val CHINESE_NUMERALS: Map<Char, Long> = mapOf(
     '十' to 10L, '百' to 100L, '千' to 1000L, '万' to 10000L, '亿' to 100000000L,
 )
 
-// 按默认规则排序：标题（首字母自然序，数字优先）→ 歌手 → 专辑；
-// 标题为主键，歌手/专辑作为同级标题下的归并键，使同歌手、同专辑曲目尽量相邻
+// 按默认规则排序：分趟聚拢而非一次性比较，避免「标题优先」与「歌手/专辑相邻」互相抵触。
+// 第 1 趟：标题自然序（数字优先）升序做主排；
+// 第 2 趟：按歌手把曲目聚拢为连续块，块先后沿用第 1 趟的首现顺序，块内保持标题序；
+// 第 3 趟：在每个歌手块内按专辑再聚拢，块内仍保持标题序，且不打破已建立的歌手相邻。
 private fun List<MusicTrack>.sortedByDefaultOrder(): List<MusicTrack> =
-    sortedWith(
-        naturalStringComparator<MusicTrack> { it.title }
-            .then(naturalStringComparator<MusicTrack> { it.artist })
-            .then(naturalStringComparator<MusicTrack> { it.albumName })
-            .thenBy { it.albumId }
-    )
+    sortedWith(naturalStringComparator<MusicTrack> { it.title })
+        .stableGroups { it.artist }
+        .flatMap { artistTracks -> artistTracks.stableGroups { albumGroupKey(it) }.flatten() }
+
+// 专辑聚拢键：专辑名 + 专辑 id，避免同名不同专辑被并入同一块
+private fun albumGroupKey(track: MusicTrack): String = "${track.albumName}\u0000${track.albumId}"
+
+// 稳定分组：相同键归为连续一组，组的先后由首次出现顺序决定，组内保持原顺序
+private fun <T> List<T>.stableGroups(key: (T) -> String): List<List<T>> {
+    val groups = LinkedHashMap<String, MutableList<T>>()
+    forEach { item -> groups.getOrPut(key(item)) { mutableListOf() }.add(item) }
+    return groups.values.toList()
+}
