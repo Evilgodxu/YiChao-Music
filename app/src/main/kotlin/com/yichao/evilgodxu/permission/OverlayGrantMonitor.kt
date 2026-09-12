@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.data.permission
+package com.yichao.evilgodxu.permission
 
 import android.content.Context
 import android.provider.Settings

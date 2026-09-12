@@ -29,9 +29,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.yichao.evilgodxu.data.permission.mediaAudioPermission
-import com.yichao.evilgodxu.data.permission.mediaImagePermission
-import com.yichao.evilgodxu.data.permission.PermissionType
+import com.yichao.evilgodxu.permission.mediaAudioPermission
+import com.yichao.evilgodxu.permission.mediaImagePermission
+import com.yichao.evilgodxu.permission.PermissionType
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.screens.home.HomeUiState
 import com.yichao.evilgodxu.ui.icons.AppIcons

@@ -7,8 +7,8 @@ import android.os.Environment
 import android.os.Process
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
-import com.yichao.evilgodxu.data.permission.mediaAudioPermission
-import com.yichao.evilgodxu.data.permission.mediaImagePermission
+import com.yichao.evilgodxu.permission.mediaAudioPermission
+import com.yichao.evilgodxu.permission.mediaImagePermission
 import com.yichao.evilgodxu.data.settings.miniPlayerEnabledFlow
 import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher

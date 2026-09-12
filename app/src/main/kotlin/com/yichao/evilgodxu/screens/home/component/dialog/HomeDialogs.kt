@@ -2,7 +2,7 @@ package com.yichao.evilgodxu.screens.home.component.dialog
 
 import android.app.Activity
 import androidx.compose.runtime.Composable
-import com.yichao.evilgodxu.data.permission.PermissionType
+import com.yichao.evilgodxu.permission.PermissionType
 import com.yichao.evilgodxu.screens.home.component.panel.HomePanelState
 import com.yichao.evilgodxu.screens.home.component.permission.PermissionDialog
 import com.yichao.evilgodxu.screens.home.HomeUiState

@@ -10,7 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.yichao.evilgodxu.data.music.api.MusicHttpClient
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
-import com.yichao.evilgodxu.data.permission.OverlayGrantMonitor
+import com.yichao.evilgodxu.permission.OverlayGrantMonitor
 import com.yichao.evilgodxu.data.repository.SettingsRepository
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.miniPlayerEnabledFlow
