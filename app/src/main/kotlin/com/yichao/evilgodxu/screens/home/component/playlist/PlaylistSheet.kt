@@ -87,6 +87,7 @@ import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.HeaderIconButton
 import com.yichao.evilgodxu.ui.component.PlaylistRow
+import com.yichao.evilgodxu.windowsize.rememberWindowLandscape
 import com.yichao.evilgodxu.ui.component.scrollPlaylistTo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -104,6 +105,9 @@ internal fun PlaylistSheet(
     val scope = rememberCoroutineScope()
     val playlistRefresher = LocalPlaylistRefresher.current
     val metadataEnricher = LocalMetadataEnricher.current
+    // 竖屏播放列表高度减半，横屏全高显示
+    val isPortrait = !rememberWindowLandscape()
+    val sheetHeightFraction = if (isPortrait) 0.5f else 1f
     // 歌单副标题点击后的快捷切换弹层
     var showSwitcher by remember { mutableStateOf(false) }
     // 排序对话框显隐
@@ -147,7 +151,7 @@ internal fun PlaylistSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.7f)
+                    .fillMaxHeight(sheetHeightFraction)
                     .background(
                         color = MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
