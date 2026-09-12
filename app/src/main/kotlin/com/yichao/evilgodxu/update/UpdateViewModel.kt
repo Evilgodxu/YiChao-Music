@@ -1,6 +1,7 @@
 package com.yichao.evilgodxu.update
 
 import android.app.Application
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yichao.evilgodxu.data.repository.SettingsRepository
@@ -95,4 +96,9 @@ class UpdateViewModel(
     fun clearCheckFeedback() {
         _checkFeedback.value = null
     }
+}
+
+// 供界面树消费的组合局部，由宿主 Activity 提供
+val LocalUpdateViewModel = staticCompositionLocalOf<UpdateViewModel> {
+    error("UpdateViewModel is not provided")
 }

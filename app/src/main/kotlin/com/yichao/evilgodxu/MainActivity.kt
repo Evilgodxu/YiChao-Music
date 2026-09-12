@@ -26,6 +26,7 @@ import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
 import com.yichao.evilgodxu.data.settings.AppLanguage
 import com.yichao.evilgodxu.data.settings.readBootLanguage
 import com.yichao.evilgodxu.theme.SystemBarAppearance
+import com.yichao.evilgodxu.update.LocalUpdateViewModel
 import com.yichao.evilgodxu.windowsize.ProvideWindowSizeClass
 import com.yichao.evilgodxu.floatingwindow.LocalMusicPanelController
 import com.yichao.evilgodxu.floatingwindow.MusicPanelController
@@ -94,7 +95,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CompositionLocalProvider(LocalAppContainer provides appContainer) {
-                CompositionLocalProvider(LocalMainViewModel provides activityViewModel) {
+                CompositionLocalProvider(
+                    LocalMainViewModel provides activityViewModel,
+                    LocalUpdateViewModel provides appContainer.updateViewModel,
+                ) {
                     ProvideLocalizedContext(localizationManager) {
                         CompositionLocalProvider(LocalMusicPanelController provides musicPanelController) {
                             ProvideWindowSizeClass {

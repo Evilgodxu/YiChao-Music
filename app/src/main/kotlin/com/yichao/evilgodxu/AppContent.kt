@@ -19,9 +19,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yichao.evilgodxu.R
-import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.navigation.AppNavHost
 import com.yichao.evilgodxu.theme.MyApplicationTheme
+import com.yichao.evilgodxu.update.LocalUpdateViewModel
 import com.yichao.evilgodxu.update.UpdateDialog
 import com.yichao.evilgodxu.update.UpdateManager
 import com.yichao.evilgodxu.update.UpdateViewModel
@@ -30,7 +30,7 @@ import com.yichao.evilgodxu.update.UpdateViewModel
 // 由 Activity 作为入口调用，Activity 本身不持有界面内容
 @Composable
 fun AppContent() {
-    val updateViewModel = LocalAppContainer.current.updateViewModel
+    val updateViewModel = LocalUpdateViewModel.current
     val context = LocalContext.current
     val activity = LocalActivity.current
     val lifecycleOwner = LocalLifecycleOwner.current
