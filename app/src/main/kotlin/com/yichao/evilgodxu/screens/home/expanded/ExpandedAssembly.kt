@@ -54,6 +54,10 @@ internal fun ExpandedAssembly(
             chromeVisible = false
         }
     }
+    // 播放列表面板展开时自动隐藏标题栏与控制栏，避免遮挡面板内容
+    LaunchedEffect(panelState.playlistVisible) {
+        if (panelState.playlistVisible) chromeVisible = false
+    }
 
     HomeShell(
         panelState = panelState,

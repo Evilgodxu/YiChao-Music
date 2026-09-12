@@ -85,6 +85,8 @@ fun LandscapePlayer(
 
     // 覆盖层开启时，系统返回键收起 3D 封面轮播
     BackHandler(enabled = coverCarouselVisible) { coverCarouselVisible = false }
+    // 播放列表面板开启时，系统返回键优先收起面板，避免直接落到首页退出逻辑
+    BackHandler(enabled = playlistVisible) { onPlaylistVisibilityChange(false) }
 
     // 播放进度由 MusicPlaybackState 全局 ticker 驱动，此处不再独立轮询
 

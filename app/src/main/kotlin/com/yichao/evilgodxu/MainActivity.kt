@@ -214,13 +214,19 @@ class MainActivity : ComponentActivity() {
     }
 
     // 横屏隐藏全部系统栏；首页竖屏沉浸式仅隐藏状态栏；其余情况显示
+    // 通过 post 延后到当前窗口过渡/布局结束后执行：对话框、弹出窗口等独立窗口切换期间系统会强制
+    // 显示系统栏，焦点回归时立即 hide 可能被窗口切换过程覆盖，延后执行可稳定落回预期显隐
     private fun updateSystemBarsVisibility(orientation: Int = resources.configuration.orientation) {
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            windowInsetsController.hide(WindowInsets.Type.systemBars())
-        } else {
-            windowInsetsController.show(WindowInsets.Type.systemBars())
-            if (SystemBarAppearance.isHomePortraitImmersive) {
-                windowInsetsController.hide(WindowInsets.Type.statusBars())
+        val hideAll = orientation == Configuration.ORIENTATION_LANDSCAPE
+        val hideStatusOnly = !hideAll && SystemBarAppearance.isHomePortraitImmersive
+        window.decorView.post {
+            when {
+                hideAll -> windowInsetsController.hide(WindowInsets.Type.systemBars())
+                hideStatusOnly -> {
+                    windowInsetsController.show(WindowInsets.Type.systemBars())
+                    windowInsetsController.hide(WindowInsets.Type.statusBars())
+                }
+                else -> windowInsetsController.show(WindowInsets.Type.systemBars())
             }
         }
     }
