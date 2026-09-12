@@ -11,7 +11,7 @@ import com.yichao.evilgodxu.LocalAppContainer
 import com.yichao.evilgodxu.screens.typography.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.typography.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
-import com.yichao.evilgodxu.windowSize.rememberExpandedForm
+import com.yichao.evilgodxu.windowsize.rememberExpandedForm
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable

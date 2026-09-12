@@ -20,7 +20,7 @@ import com.yichao.evilgodxu.screens.settings.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.settings.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.LocalThemeTransitionController
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
-import com.yichao.evilgodxu.windowSize.rememberExpandedForm
+import com.yichao.evilgodxu.windowsize.rememberExpandedForm
 import com.yichao.evilgodxu.update.UpdateViewModel
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局

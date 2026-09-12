@@ -20,8 +20,8 @@ import com.yichao.evilgodxu.screens.home.compact.CompactAssembly
 import com.yichao.evilgodxu.screens.home.component.panel.rememberHomePanelState
 import com.yichao.evilgodxu.screens.home.expanded.ExpandedAssembly
 import com.yichao.evilgodxu.theme.SystemBarAppearance
-import com.yichao.evilgodxu.windowSize.rememberExpandedForm
-import com.yichao.evilgodxu.windowSize.rememberWindowLandscape
+import com.yichao.evilgodxu.windowsize.rememberExpandedForm
+import com.yichao.evilgodxu.windowsize.rememberWindowLandscape
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable

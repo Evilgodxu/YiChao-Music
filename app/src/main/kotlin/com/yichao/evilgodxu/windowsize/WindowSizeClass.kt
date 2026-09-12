@@ -1,4 +1,4 @@
-package com.yichao.evilgodxu.windowSize
+package com.yichao.evilgodxu.windowsize
 
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
