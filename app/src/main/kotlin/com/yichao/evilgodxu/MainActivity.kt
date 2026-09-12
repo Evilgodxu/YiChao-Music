@@ -24,7 +24,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yichao.evilgodxu.data.music.proxy.ProxyParseResult
 import com.yichao.evilgodxu.data.music.proxy.ProxySourceStore
 import com.yichao.evilgodxu.data.settings.AppLanguage
-import com.yichao.evilgodxu.data.settings.bootstrapAppLanguage
 import com.yichao.evilgodxu.data.settings.readBootLanguage
 import com.yichao.evilgodxu.theme.SystemBarAppearance
 import com.yichao.evilgodxu.windowsize.ProvideWindowSizeClass
@@ -35,7 +34,6 @@ import com.yichao.evilgodxu.localization.ProvideLocalizedContext
 import com.yichao.evilgodxu.localization.toLocale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -67,10 +65,11 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(newBase.createConfigurationContext(config))
     }
 
-    // 启动语言优先同步命中轻量镜像（单键读取），避开 DataStore 首次读取的实例化与整份反序列化；
-    // 镜像缺失（首次安装 / 从旧版本升级）时才回退读 DataStore，由 Application 的预热任务补齐镜像
+    // 启动语言优先同步命中轻量镜像（单键读取），避免在 attachBaseContext 主线程阻塞读 DataStore；
+    // 镜像缺失（首次安装 / 从旧版本升级）时本次回退为跟随系统——界面层语言流会即时纠正 Compose 侧文案，
+    // 同时 Application 预热任务补写镜像，使下次冷启动同步命中
     private fun resolveBootLanguage(context: Context): AppLanguage =
-        readBootLanguage(context) ?: runBlocking { context.bootstrapAppLanguage() }
+        readBootLanguage(context) ?: AppLanguage.SYSTEM
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
