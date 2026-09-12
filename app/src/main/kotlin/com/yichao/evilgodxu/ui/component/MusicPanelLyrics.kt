@@ -654,15 +654,17 @@ private const val LYRIC_SCRUB_MARKER_FADE_MS = 160
 private val LYRIC_SCRUB_DASH_WIDTH = 22.dp
 private val LYRIC_SCRUB_DASH_HEIGHT = 2.dp
 
-// 上下边缘渐变覆盖的总行数（上下各半）：随可见行数换算比例，行数增减时淡出区间保持一致
-private const val FADE_TOTAL_LINES = 1.25f
+// 上下边缘渐变覆盖的总行数（上下各半）：随可见行数换算比例，行数增减时淡出区间保持一致。
+// 取 ≥1.5 行：当容器高度不足以容纳设定行数时，顶部溢出行被裁成一薄片，仅靠窄渐变/单点透明
+// 仍会残留纯色细线，需让渐变区覆盖一整个溢出行，使薄片深陷透明区
+private const val FADE_TOTAL_LINES = 1.6f
 
 // 上下边缘淡出：按纵向透明度梯度对内容做 DstIn 蒙层，使上下行渐变消失。
 // 边缘两端各保留一段完全透明区间，杜绝子像素级残影——行带 graphicsLayer 缩放、以小数 y 放置时，
 // 字形/光晕可能仅以 ≤1dp 的细线越过边缘，单点透明 stop 只掩到精确边界，仍会残留原色细线
 internal fun Modifier.verticalFadeMask(fadeFraction: Float = 0.25f): Modifier = drawWithCache {
     // 完全透明保护带：fadeFraction 随可见行数缩放，覆盖边缘残影的像素宽度
-    val edgeGuard = fadeFraction * 0.08f
+    val edgeGuard = fadeFraction * 0.12f
     val brush = Brush.verticalGradient(
         colorStops = arrayOf(
             0.0f to Color.Transparent,
