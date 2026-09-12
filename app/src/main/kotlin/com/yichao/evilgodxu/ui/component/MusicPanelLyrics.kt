@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
@@ -152,21 +153,24 @@ internal fun LyricsPanel(
     // 视口固定为 N 行标准高，超出部分交由边缘渐隐与裁剪处理
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    // 标准单行高度（含行内上下内边距）：视口上限与窗口内占位行共用，使滚动基准线不随占位行变化
-    val lyricLineHeightPx = remember(fontSize, density) {
+    // 标准单行高度（含行内上下内边距）：视口上限与窗口内占位行共用，使滚动基准线不随占位行变化。
+    // 必须与 LyricChar/Text 的实际渲染同口径——沿用 LocalTextStyle（bodyLarge 自带 24.sp 行高）合并，
+    // 否则裸 TextStyle 测出的高度偏小，视口按偏小行距排布会被实际更高的行撑出裁剪，可见行数少于设定值
+    val lyricTextStyle = LocalTextStyle.current
+    val lyricLineHeightPx = remember(fontSize, density, lyricTextStyle) {
         textMeasurer.measure(
             AnnotatedString("歌词"),
-            TextStyle(fontSize = fontSize, fontWeight = FontWeight.Normal),
+            lyricTextStyle.merge(TextStyle(fontSize = fontSize, fontWeight = FontWeight.Normal)),
         ).size.height
     }
     val maxViewportHeight = remember(visibleLines, lyricLineHeightPx, density) {
         val slotPx = lyricLineHeightPx + with(density) { 4.dp.roundToPx() }
-        val spacingPx = with(density) { 2.dp.roundToPx() }
+        val spacingPx = with(density) { LYRIC_LINE_SPACING.roundToPx() }
         slotPx * visibleLines + spacingPx * (visibleLines - 1)
     }
     val standardSlotHeight = with(density) { (lyricLineHeightPx + 4.dp.roundToPx()).toDp() }
     // 拖拽换算的兜底行距：仅在窗口尚无实测行高时使用，正常路径均由实测行高换算
-    val fallbackSlotPx = with(density) { standardSlotHeight.toPx() + 2.dp.toPx() }
+    val fallbackSlotPx = with(density) { standardSlotHeight.toPx() + LYRIC_LINE_SPACING.toPx() }
 
     // 显示位置（浮点行号）：正常播放由跟随动画推进，拖拽与回弹期间由手势/回弹动画驱动。
     // 用普通状态直接承载动画输出，释放瞬间即可同步写入，避免显示回退到过期的动画值
@@ -460,7 +464,7 @@ private fun LyricColumnLayout(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val spacingPx = with(LocalDensity.current) { 2.dp.roundToPx() }
+    val spacingPx = with(LocalDensity.current) { LYRIC_LINE_SPACING.roundToPx() }
     Layout(
         modifier = modifier,
         content = content,
@@ -619,6 +623,10 @@ private const val LYRIC_SEEK_TOLERANCE_MS = 1500L
 
 // 歌词面板默认可见行数：保持奇数使当前行垂直居中（上下各 (n-1)/2 行）
 private const val DEFAULT_VISIBLE_LINES = 5
+
+// 歌词行间距：相邻歌词行之间的纵向间距，独立于行内上下内边距（4.dp）单独可调，
+// 避免行间距偏大导致歌词过于松散；用于视口高度、兜底行距与纵向布局三处一致换算
+private val LYRIC_LINE_SPACING = 1.dp
 
 // 窗口上下各多渲染的行数：滚动时新行已在窗口内、被移除的行已完全移出视口，
 // 两者在同一坐标系整体平移，因此只会连续上移，不会出现边缘闪现或整块替换
