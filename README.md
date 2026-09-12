@@ -29,7 +29,7 @@
 - **Multi-platform online search** — aggregated search across Netease (网易云), QQ Music, Kugou (酷狗), Kuwo (酷我) and Migu (咪咕), with search history, quality selection (lossless / high / standard) and online caching (downloaded to the system Downloads directory, then auto-switched to local playback once cached)
 - **Proxy source (代理音源)** — import third-party aggregated music sources (via local file / link / text) to customize search, playback URL, lyric and cover resolution per platform, with enable / disable / remove and automatic fallback to the built-in parser on failure; see the [忆潮代理音源规范](docs/忆潮代理音源规范.md) for the JSON spec
 - **Playlist system** — smart playlists (Recently Played / Favorites / Albums / Artists) and custom playlists (create / rename / delete / batch add tracks / drag to reorder / quick switch), persisted as JSON
-- **Synced lyrics** — scrolling lyrics with word-level timing (toggleable), online lyric matching/refresh, local lyric file import and embedded lyrics, plus fine-grained lyric offset tuning
+- **Synced lyrics** — scrolling lyrics with word-level timing (toggleable), online lyric matching/refresh, local lyric file import and embedded lyrics, plus fine-grained lyric offset tuning; drag the lyrics area vertically to scrub playback in real time (release aligned with a line to play from it, otherwise it springs back)
 - **Lyric typography** — per-scene font size and visible-line count for the music panel, home portrait and home landscape (with 3D intensity), adjustable in Typography settings
 - **Cover management** — embedded art, local image candidates and online cover search; the new cover can be written back into the audio file
 - **Metadata editing** — rename song title / artist, written back to the file tags, with one-tap copy
@@ -47,7 +47,7 @@
 
 | Screen | Contents |
 | --- | --- |
-| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics (font size & line count adjustable), refreshable playlist, favorites, sleep timer, landscape mode, online search (5 platforms with quality selection) via right swipe and playlist panel via left swipe, vertical swipe to switch tracks (long-press the cover / title for cover & lyrics refresh and rename) |
+| Home | Permission onboarding dialog (auto-hides once all are granted), immersive player with a rotating disc cover on a cover-colored gradient background, 5-line synced lyrics (font size & line count adjustable, drag vertically to scrub playback), refreshable playlist, favorites, sleep timer, landscape mode, online search (5 platforms with quality selection) via right swipe and playlist panel via left swipe, vertical swipe to switch tracks (long-press the cover / title for cover & lyrics refresh and rename) |
 | Settings | Appearance (theme), Language, Playback (mini player / word-by-word rendering / swipe to change track), Typography (lyric font size & lines), Proxy Source (import / enable / remove third-party sources), About (version, update check, GitHub link) |
 
 ## Tech Stack
