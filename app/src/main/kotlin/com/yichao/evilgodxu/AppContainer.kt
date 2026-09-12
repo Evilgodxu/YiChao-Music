@@ -33,7 +33,9 @@ class AppContainer(context: Context) {
         MusicPanelController(appContext, stateHolder, playlistRefresher, metadataEnricher)
     }
     // 更新检查以单例共享，主页自动检查与设置页手动检查读写同一状态
-    val updateViewModel: UpdateViewModel by lazy { UpdateViewModel(application) }
+    val updateViewModel: UpdateViewModel by lazy {
+        UpdateViewModel(application, settingsRepository, localizationManager)
+    }
     // 应用版本号：冷启动读取一次
     val appVersion: String = readAppVersion()
 

@@ -3,6 +3,8 @@ package com.yichao.evilgodxu.update
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.yichao.evilgodxu.data.repository.SettingsRepository
+import com.yichao.evilgodxu.localization.LocalizationManager
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +12,11 @@ import kotlinx.coroutines.launch
 
 // 更新检查与下载状态的统一管理，供主页与设置页共用，
 // 以单例形式注册，保证两处读写同一状态，对话框由 Activity 全局弹出
-class UpdateViewModel(application: Application) : AndroidViewModel(application) {
+class UpdateViewModel(
+    application: Application,
+    private val settingsRepository: SettingsRepository,
+    private val localizationManager: LocalizationManager,
+) : AndroidViewModel(application) {
 
     private val context get() = getApplication<Application>().applicationContext
 
@@ -57,7 +63,12 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         val info = _updateInfo.value ?: return
         _downloadState.value = DownloadState.Downloading(0f)
         viewModelScope.launch {
-            val success = UpdateManager.downloadAndInstall(context, info) { progress ->
+            // 下载通知文案面向用户：按当前应用语言构造本地化 Context 取资源，不使用系统 Context
+            val language = settingsRepository.getAppLanguage()
+            val localizedContext = localizationManager.createLocalizedContext(
+                localizationManager.resolveLanguage(language),
+            )
+            val success = UpdateManager.downloadAndInstall(localizedContext, info) { progress ->
                 _downloadState.value = if (progress < 0f) {
                     DownloadState.Failed("download_failed")
                 } else {

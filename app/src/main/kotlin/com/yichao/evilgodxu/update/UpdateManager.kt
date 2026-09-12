@@ -7,6 +7,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Environment
+import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.data.music.api.MusicHttpClient
 import com.yichao.evilgodxu.log.CrashLogManager
 import java.util.concurrent.ConcurrentHashMap
@@ -214,8 +215,8 @@ object UpdateManager {
 
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val req = DownloadManager.Request(Uri.parse(requireHttps(updateInfo.downloadUrl)))
-                .setTitle("忆潮音乐更新")
-                .setDescription("正在下载 ${updateInfo.latestVersion}")
+                .setTitle(context.getString(R.string.update_notification_title))
+                .setDescription(context.getString(R.string.update_notification_downloading, updateInfo.latestVersion))
                 .setDestinationUri(Uri.fromFile(outFile))
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setAllowedOverMetered(true)
