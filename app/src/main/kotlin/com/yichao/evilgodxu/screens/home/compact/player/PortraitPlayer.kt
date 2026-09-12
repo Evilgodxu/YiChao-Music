@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -135,14 +136,19 @@ internal fun PortraitPlayer(
             ),
         )
 
-    // 歌词区高度随可见行数与字号自适应：每行占行高与上下 2dp 内边距，行间 2dp 固定间距，
-    // 末尾补足歌词面板顶部 4dp 内边距，使外层高度与内部歌词窗口一致
+    // 歌词区高度随可见行数与字号自适应：每行占行高与上下 2dp 内边距，行间 1dp 固定间距，
+    // 末尾补足歌词面板顶部 4dp 内边距，使外层高度与内部歌词窗口一致。
+    // 行高必须与 LyricsPanel/LyricChar 同口径（沿用 LocalTextStyle 的 24sp 行高），否则外层偏矮裁剪歌词
     val textMeasurer = rememberTextMeasurer()
+    val lyricTextStyle = LocalTextStyle.current
     val lyricLineHeight = with(LocalDensity.current) {
-        textMeasurer.measure(AnnotatedString("歌词"), TextStyle(fontSize = homePortraitLayout.fontSizeSp.sp)).size.height.toDp()
+        textMeasurer.measure(
+            AnnotatedString("歌词"),
+            lyricTextStyle.merge(TextStyle(fontSize = homePortraitLayout.fontSizeSp.sp)),
+        ).size.height.toDp()
     }
     val lyricsAreaHeight = (lyricLineHeight + 4.dp) * homePortraitLayout.visibleLines +
-        2.dp * (homePortraitLayout.visibleLines - 1) + 4.dp
+        1.dp * (homePortraitLayout.visibleLines - 1) + 4.dp
 
     // 长按功能状态：复用音乐面板的封面/歌词刷新与标题/艺人重命名能力
     val scope = rememberCoroutineScope()
