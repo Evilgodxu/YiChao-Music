@@ -263,6 +263,9 @@
     <string name="library_analysis_check_progress">Analyzing audio %1$d/%2$d</string>
     <string name="library_analysis_refresh">Re-analyze</string>
 
+    <!-- Common -->
+    <string name="copy_success_toast">Copied: %1$s</string>
+
     <!-- Update -->
     <string name="update_dialog_title">New version %s</string>
     <string name="update_dialog_description_alt">Download and install the new version?</string>

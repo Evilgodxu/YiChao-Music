@@ -52,7 +52,7 @@ import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.DiscArt
-import com.yichao.evilgodxu.utils.copyToClipboard
+import com.yichao.evilgodxu.ui.copyToClipboard
 import com.yichao.evilgodxu.LocalAppContainer
 import java.io.File
 

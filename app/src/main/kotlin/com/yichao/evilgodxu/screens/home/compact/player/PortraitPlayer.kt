@@ -96,7 +96,7 @@ import com.yichao.evilgodxu.ui.component.dialog.RenameDialog
 import com.yichao.evilgodxu.ui.component.LyricsEditDialog
 import com.yichao.evilgodxu.ui.component.LyricsPanel
 import com.yichao.evilgodxu.ui.component.LyricsRefreshDialog
-import com.yichao.evilgodxu.utils.copyToClipboard
+import com.yichao.evilgodxu.ui.copyToClipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.yichao.evilgodxu.LocalAppContainer
