@@ -144,6 +144,20 @@ fun seekTo(state: MusicPlaybackState, positionMs: Long) {
 }
 
 /**
+ * 跳转到指定位置并开始播放。
+ * 暂停状态下用歌词拖拽定位后需要直接起播；seek 与 play 分开派发时会互相竞争
+ * （play 可能先于 seek 生效，出现从旧位置起播的瞬间），故合并到同一协程内顺序执行。
+ */
+fun seekToAndPlay(state: MusicPlaybackState, positionMs: Long) {
+    state.mediaController?.let { controller ->
+        state.playbackScope.launch {
+            controller.seekTo(positionMs)
+            controller.play()
+        }
+    }
+}
+
+/**
  * 封面等元数据后台补全后刷新系统媒体面板的当前 MediaItem。
  * 仅当 artworkUri 变化时才替换，替换不中断播放。
  * 替换沿用当前播放项的真实 URI：在线缓存完成后 track.audioUri 已指向本地文件，

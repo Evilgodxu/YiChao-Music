@@ -297,7 +297,7 @@ internal object MusicMetadataCache {
         val linePattern = Regex("""\[(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?](.*)""")
         val wordPattern = Regex("""<(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?>([^<]*)""")
         val transPattern = Regex("""\[tr](.*?)\[/tr]""")
-        return lrc.lineSequence().mapNotNull { rawLine ->
+        val lines = lrc.lineSequence().mapNotNull { rawLine ->
             val match = linePattern.find(rawLine) ?: return@mapNotNull null
             val timeMs = (match.groupValues[1].toLongOrNull() ?: 0L) * 3_600_000 +
                 match.groupValues[2].toLong() * 60_000 +
@@ -319,7 +319,30 @@ internal object MusicMetadataCache {
             val text = if (words.isNotEmpty()) words.joinToString("") { it.text } else cleanContent.trim()
             LyricLine(timeMs, text, words, translation).takeIf { it.text.isNotBlank() }
         }.sortedBy { it.timeMs }.toList()
+        return repairLegacyWordStarts(lines)
     }
+
+    // 兼容修复：早期 YRC 解析把字标签的绝对时间又叠加了一次行首时间，使字的起点落在本行区间之外
+    // （甚至晚于下一行起点）——这类值不可能成立，回退减去行首时间还原为绝对时间。
+    // 数据正常（字起点落在本行区间内）时不改动任何内容。
+    private fun repairLegacyWordStarts(lines: List<LyricLine>): List<LyricLine> =
+        lines.mapIndexed { index, line ->
+            val firstWordStart = line.words.firstOrNull()?.startMs
+            if (line.timeMs <= 0 || firstWordStart == null) {
+                line
+            } else {
+                val nextLineStart = lines.getOrNull(index + 1)?.timeMs
+                // 判据：字起点不得晚于下一行起点；无下一行（或下一行时间相同）时不得晚于行首的两倍
+                val inconsistent = nextLineStart
+                    ?.let { it > line.timeMs && firstWordStart >= it }
+                    ?: (firstWordStart >= line.timeMs * 2)
+                if (inconsistent) {
+                    line.copy(words = line.words.map { it.copy(startMs = (it.startMs - line.timeMs).coerceAtLeast(0)) })
+                } else {
+                    line
+                }
+            }
+        }
 
     // 旧版 JSON 缓存回退解析：命中 LRC 特征或强转失败时均返回空，不再抛异常
     private fun parseJsonLyrics(text: String): List<LyricLine> {

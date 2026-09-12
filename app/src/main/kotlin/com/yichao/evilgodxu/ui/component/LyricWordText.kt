@@ -19,8 +19,9 @@ import androidx.compose.ui.unit.TextUnit
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.music.model.LyricWord
 
-// 逐字歌词：按词时序卡拉OK式点亮——已唱的词连续高亮，仅当前正在演唱的词
-// 叠加弹簧跳动（放大带过冲 + 轻微上浮）；与单行歌词一致，跳动改为词内逐字
+// 逐字歌词：严格按每个词自身的起止时间做卡拉OK式点亮——已唱完的词整词高亮，
+// 正在演唱的词内逐字从左到右亮起并叠加弹簧跳动。词时序来自歌词源，起点与时长都不均匀
+// （词间可能存在空隙），故不做「整行时长按词数均分」的近似
 @Composable
 internal fun WordSplitLyricText(
     line: LyricLine,
@@ -34,30 +35,16 @@ internal fun WordSplitLyricText(
     widthPx: Int,
     modifier: Modifier = Modifier,
 ) {
-    // 词起点时间戳分布往往不均匀（词间空隙大），直接按时戳点亮会长时间停在首词上，
-    // 故按整行时长对词均分时间片，保证逐词连续高亮与跳动
-    val duration = (nextTimeMs - line.timeMs).coerceAtLeast(1L)
-    val wordCount = line.words.size.coerceAtLeast(1)
-    val perWordMs = duration / wordCount.toFloat()
-    // 当前演唱词下标：将行内已播放时长折算到词序号；未开唱时为 -1
-    val currentWordIdx = if (isCurrent && positionMs > line.timeMs) {
-        ((positionMs - line.timeMs).toFloat() / perWordMs).toInt().coerceIn(0, wordCount - 1)
-    } else {
-        -1
-    }
-    // 词内逐字下标：将当前词已演唱的字符折算到该词的字序号；整词已唱时为 -1
-    val wordCharCount = line.words.getOrNull(currentWordIdx)?.text?.length?.coerceAtLeast(1) ?: 1
-    val currentCharIdx = if (currentWordIdx >= 0) {
-        val elapsed = (positionMs - line.timeMs) - currentWordIdx * perWordMs
-        (elapsed / perWordMs * wordCharCount).toInt().coerceIn(0, wordCharCount - 1)
-    } else {
-        -1
-    }
-    // 当前词内已演唱的字符级进度：正在演唱的字按其与整数的差值从左到右逐渐亮起
-    val charProgressInWord = if (currentWordIdx >= 0) {
-        ((positionMs - line.timeMs) - currentWordIdx * perWordMs) / perWordMs * wordCharCount
-    } else {
-        -1f
+    // 词终点：优先取词自身的时长；增强 LRC 只提供起点（duration 为 0）时用下一个词的起点兜底，
+    // 末词用下一行起点兜底，保证每个词都有可用的起止区间
+    val wordEnds = remember(line.words, nextTimeMs) {
+        line.words.mapIndexed { index, word ->
+            if (word.durationMs > 0) {
+                word.startMs + word.durationMs
+            } else {
+                line.words.getOrNull(index + 1)?.startMs ?: nextTimeMs
+            }
+        }
     }
 
     // 词独立渲染无法借助 Text 软换行，按传入的可用宽度将整行词分成多行：英文词保持完整不截断
@@ -78,23 +65,36 @@ internal fun WordSplitLyricText(
             ) {
                 rowWords.forEach { word ->
                     val index = globalIdx++
-                    // 已唱的词整体高亮，未唱为待唱色；当前词内逐字从左到右亮起
-                    val isWordSung = isCurrent && index < currentWordIdx
-                    val isWordCurrent = isCurrent && index == currentWordIdx
+                    val wordStart = word.startMs
+                    // 至少留 1ms 区间：零时长词不能除零，也不能整词瞬间跳过
+                    val wordEnd = wordEnds[index].coerceAtLeast(wordStart + 1)
+                    val isWordSung = isCurrent && positionMs >= wordEnd
+                    val isWordCurrent = isCurrent && positionMs >= wordStart && positionMs < wordEnd
+                    val charCount = word.text.length.coerceAtLeast(1)
+                    // 当前词内已演唱的字符级进度：按词内已过时长占词时长比例折算到字数
+                    val wordCharProgress = if (isWordCurrent) {
+                        (positionMs - wordStart).toFloat() / (wordEnd - wordStart) * charCount
+                    } else {
+                        0f
+                    }
+                    val currentCharIdx = if (isWordCurrent) {
+                        wordCharProgress.toInt().coerceIn(0, charCount - 1)
+                    } else {
+                        -1
+                    }
                     // 词保持整体排版，词内逐字渲染以支持单字亮起与跳动；词间间距由词文本自带空格保留
                     Row(
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         word.text.forEachIndexed { charIdx, ch ->
                             // 仅当前演唱词中当前正在演唱的字触发跳动，其余字保持静态
-                            val isFilling = isCurrent && index == currentWordIdx && charIdx == currentCharIdx
+                            val isFilling = isWordCurrent && charIdx == currentCharIdx
                             LyricChar(
                                 text = ch.toString(),
                                 fillFraction = when {
-                                    !isCurrent -> 0f
                                     isWordSung -> 1f
-                                    !isWordCurrent -> 0f
-                                    else -> (charProgressInWord - charIdx).coerceIn(0f, 1f)
+                                    isWordCurrent -> (wordCharProgress - charIdx).coerceIn(0f, 1f)
+                                    else -> 0f
                                 },
                                 filling = isFilling,
                                 fontSize = fontSize,

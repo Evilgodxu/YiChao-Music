@@ -67,7 +67,7 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataCache
 import com.yichao.evilgodxu.data.music.model.LyricLine
 import com.yichao.evilgodxu.data.settings.wordByWordRenderingFlow
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
-import com.yichao.evilgodxu.data.music.playback.seekTo
+import com.yichao.evilgodxu.data.music.playback.seekToAndPlay
 import com.yichao.evilgodxu.R
 import kotlin.math.abs
 import kotlin.math.floor
@@ -241,12 +241,12 @@ internal fun LyricsPanel(
                     if (currentLines.isEmpty()) return
                     val candidate = scrollPosition.roundToInt().coerceIn(0, currentLines.lastIndex)
                     if (!cancelled && abs(scrollPosition - candidate) <= LYRIC_SCRUB_SNAP_ROWS) {
-                        // 对齐：吸附到该行并跳转。先把当前行切到目标行并开短时保护窗忽略控制器旧位置，
-                        // 避免跟随 Effect 在 seek 回报前把内容拉回拖拽前的行
+                        // 对齐：吸附到该行并从该行时间点起播。先把当前行切到目标行并开短时保护窗
+                        // 忽略控制器旧位置，避免跟随 Effect 在 seek 回报前把内容拉回拖拽前的行
                         val targetMs = currentLines[candidate].timeMs
                         lyricPosition = targetMs
                         seekGuardUntilMs = System.currentTimeMillis() + LYRIC_SCRUB_SEEK_GUARD_MS
-                        seekTo(playbackState, targetMs)
+                        seekToAndPlay(playbackState, targetMs)
                         settleTo(candidate.toFloat(), tween(LYRIC_SCRUB_SNAP_MS))
                     } else {
                         // 未对齐：不跳转进度，弹性回弹到拖拽前位置

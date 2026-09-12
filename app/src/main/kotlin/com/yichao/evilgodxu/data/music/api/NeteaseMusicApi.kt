@@ -368,8 +368,11 @@ internal object NeteaseMusicApi : OnlineMusicSource {
             val line = linePattern.find(rawLine) ?: return@mapNotNull null
             val start = line.groupValues[1].toLong()
             val words = wordPattern.findAll(line.groupValues[3]).map {
+                val rawStart = it.groupValues[1].toLong()
                 LyricWord(
-                    startMs = start + it.groupValues[1].toLong(),
+                    // YRC 字标签的起点是绝对时间（与行标签同一时间基准）；个别源给的是相对行首的偏移，
+                    // 小于行起点时按相对偏移补上行起点，统一归一为绝对时间
+                    startMs = if (rawStart >= start) rawStart else start + rawStart,
                     durationMs = it.groupValues[2].toLong(),
                     text = it.groupValues[3]
                 )
