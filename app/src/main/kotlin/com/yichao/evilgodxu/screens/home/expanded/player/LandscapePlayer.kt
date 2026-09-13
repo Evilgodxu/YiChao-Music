@@ -72,9 +72,11 @@ fun LandscapePlayer(
     // 播放列表面板显隐：由首页层持有，显示期间禁用上下滑动切歌
     playlistVisible: Boolean,
     onPlaylistVisibilityChange: (Boolean) -> Unit,
+    // 3D 封面轮播显隐：由首页层持有，进入沉浸覆盖层时同步隐藏标题栏与控制栏
+    coverCarouselVisible: Boolean,
+    onCoverCarouselVisibilityChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var coverCarouselVisible by remember { mutableStateOf(false) }
     // 无损升级确认对话框显隐
     var showLosslessUpgrade by remember { mutableStateOf(false) }
     // 封面与点击检测层在窗口坐标系下的位置，用于判定点击是否命中封面
@@ -84,7 +86,7 @@ fun LandscapePlayer(
     val scope = rememberCoroutineScope()
 
     // 覆盖层开启时，系统返回键收起 3D 封面轮播
-    BackHandler(enabled = coverCarouselVisible) { coverCarouselVisible = false }
+    BackHandler(enabled = coverCarouselVisible) { onCoverCarouselVisibilityChange(false) }
     // 播放列表面板开启时，系统返回键优先收起面板，避免直接落到首页退出逻辑
     BackHandler(enabled = playlistVisible) { onPlaylistVisibilityChange(false) }
 
@@ -130,7 +132,7 @@ fun LandscapePlayer(
                         val cover = coverBounds ?: return@detectTapGestures
                         val windowPoint = Offset(tap.left + offset.x, tap.top + offset.y)
                         if (cover.contains(windowPoint)) {
-                            coverCarouselVisible = true
+                            onCoverCarouselVisibilityChange(true)
                         } else {
                             onToggleChrome()
                         }
@@ -216,9 +218,9 @@ fun LandscapePlayer(
                 currentIndex = playbackState.currentIndex.coerceAtLeast(0),
                 onTrackSelected = { index ->
                     scope.launch { playTrackAt(context, playbackState, index) }
-                    coverCarouselVisible = false
+                    onCoverCarouselVisibilityChange(false)
                 },
-                onDismiss = { coverCarouselVisible = false },
+                onDismiss = { onCoverCarouselVisibilityChange(false) },
             )
         }
     }

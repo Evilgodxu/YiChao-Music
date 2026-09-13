@@ -46,6 +46,8 @@ internal fun ExpandedAssembly(
     val isLiked = currentTrackId?.let { playbackState.likedIds.contains(it) } ?: false
     // 横屏下标题栏与控制栏的统一显隐状态
     var chromeVisible by remember { mutableStateOf(false) }
+    // 3D 封面轮播显隐：与 chrome 同层持有，进入沉浸覆盖层时联动隐藏标题栏与控制栏
+    var coverCarouselVisible by remember { mutableStateOf(false) }
 
     // 横屏下标题栏与控制栏显示 3 秒后自动隐藏
     LaunchedEffect(chromeVisible) {
@@ -57,6 +59,10 @@ internal fun ExpandedAssembly(
     // 播放列表面板展开时自动隐藏标题栏与控制栏，避免遮挡面板内容
     LaunchedEffect(panelState.playlistVisible) {
         if (panelState.playlistVisible) chromeVisible = false
+    }
+    // 进入 3D 封面轮播时同样收起标题栏与控制栏，沉浸层独占全屏
+    LaunchedEffect(coverCarouselVisible) {
+        if (coverCarouselVisible) chromeVisible = false
     }
 
     HomeShell(
@@ -79,6 +85,8 @@ internal fun ExpandedAssembly(
                 onToggleChrome = { chromeVisible = !chromeVisible },
                 playlistVisible = panelState.playlistVisible,
                 onPlaylistVisibilityChange = { panelState.playlistVisible = it },
+                coverCarouselVisible = coverCarouselVisible,
+                onCoverCarouselVisibilityChange = { coverCarouselVisible = it },
                 modifier = Modifier.fillMaxSize(),
             )
         }
