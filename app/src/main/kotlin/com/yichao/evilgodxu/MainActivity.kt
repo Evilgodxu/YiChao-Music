@@ -39,8 +39,24 @@ class MainActivity : ComponentActivity() {
     // 系统栏显隐目标：横屏全部隐藏 / 首页竖屏仅隐藏状态栏 / 其余全部显示
     private enum class SystemBarTarget { HIDE_ALL, HIDE_STATUS, VISIBLE }
 
+    private companion object {
+        // 系统栏被外部显示后，由本应用主动压回隐藏的最大延迟
+        const val SYSTEM_BARS_AUTO_HIDE_DELAY_MS = 2000L
+    }
+
     // 同一帧内的多次系统栏请求合并为一次下发
     private var systemBarsScheduled = false
+
+    // 沉浸态守护：系统栏被外部途径显示后最多 2 秒压回隐藏。不依赖 insets 上报与焦点回调——
+    // 部分 ROM / 独立窗口显示系统栏时本窗口 insets 不同步、焦点也不在本窗口，事件收不到
+    private val autoHideSystemBars = object : Runnable {
+        override fun run() {
+            val controller = window.insetsController ?: return
+            if (systemBarTarget() == SystemBarTarget.VISIBLE) return
+            applySystemBarsVisibility(controller)
+            window.decorView.postDelayed(this, SYSTEM_BARS_AUTO_HIDE_DELAY_MS)
+        }
+    }
 
     // 手动 DI：经 Application 容器取依赖，ViewModel 以工厂注入构造参数
     private val appContainer: AppContainer
@@ -110,6 +126,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         // 解除语言管理器与系统栏回调对 Activity 的持有，避免单例持有已销毁实例
+        stopSystemBarsAutoHide()
         SystemBarAppearance.onChanged = null
         localizationManager.unbindActivity(this)
         super.onDestroy()
@@ -124,6 +141,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         scheduleSystemBars()
+        startSystemBarsAutoHide()
+    }
+
+    override fun onPause() {
+        // 后台或被其他页面遮挡时停掉守护，避免无意义下发
+        stopSystemBarsAutoHide()
+        super.onPause()
     }
 
     override fun onStop() {
@@ -191,25 +215,33 @@ class MainActivity : ComponentActivity() {
     private fun setupSystemBars() {
         // 界面侧只声明请求，窗口操作统一收敛到 applySystemBars
         SystemBarAppearance.onChanged = { scheduleSystemBars() }
-        installSystemBarsEnforcement()
+        installSystemBarsDiscovery()
         scheduleSystemBars()
     }
 
-    // 兜底防重置：期望隐藏时被外部途径置为可见（系统手势临时唤出、ROM 重置、窗口切换残留），
-    // 在下一次 insets 分发即压回隐藏。键盘弹起期间不干预，避免与输入法布局竞争
-    private fun installSystemBarsEnforcement() {
+    // 发现通道：期望隐藏而 insets 报系统栏可见时重置自动隐藏计时。不在此立即下发——
+    // 系统栏显示过程本身会触发分发，立即下发会与之反复竞争形成帧级循环
+    private fun installSystemBarsDiscovery() {
         window.decorView.setOnApplyWindowInsetsListener { view, insets ->
             val barsVisible = insets.isVisible(WindowInsets.Type.statusBars()) ||
                     insets.isVisible(WindowInsets.Type.navigationBars())
-            if (barsVisible &&
-                !insets.isVisible(WindowInsets.Type.ime()) &&
-                view.hasWindowFocus() &&
-                systemBarTarget() != SystemBarTarget.VISIBLE
-            ) {
-                scheduleSystemBars()
+            if (barsVisible && systemBarTarget() != SystemBarTarget.VISIBLE) {
+                startSystemBarsAutoHide()
             }
             view.onApplyWindowInsets(insets)
         }
+    }
+
+    // 启动/重置守护计时：自最近一次「发现系统栏可见」起算，最多 2 秒后主动压回隐藏
+    private fun startSystemBarsAutoHide() {
+        val decorView = window.decorView
+        decorView.removeCallbacks(autoHideSystemBars)
+        if (systemBarTarget() == SystemBarTarget.VISIBLE) return
+        decorView.postDelayed(autoHideSystemBars, SYSTEM_BARS_AUTO_HIDE_DELAY_MS)
+    }
+
+    private fun stopSystemBarsAutoHide() {
+        window.decorView.removeCallbacks(autoHideSystemBars)
     }
 
     // 合并同一帧内的多次请求，并延后到当前窗口过渡/布局结束后执行：对话框、弹出窗口等独立窗口
@@ -220,6 +252,7 @@ class MainActivity : ComponentActivity() {
         window.decorView.post {
             systemBarsScheduled = false
             applySystemBars()
+            startSystemBarsAutoHide()
         }
     }
 
@@ -238,7 +271,7 @@ class MainActivity : ComponentActivity() {
         else -> SystemBarTarget.VISIBLE
     }
 
-    // 系统栏唯一下发点：图标外观与显隐一并处理，并按当前实际状态判定是否需要下发，避免无谓调用
+    // 系统栏唯一下发点：图标外观与显隐一并处理
     private fun applySystemBars() {
         val controller = window.insetsController ?: return
         controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -258,24 +291,20 @@ class MainActivity : ComponentActivity() {
             },
             WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
         )
+        applySystemBarsVisibility(controller)
+    }
 
-        val insets = window.decorView.rootWindowInsets
-        val statusVisible = insets?.isVisible(WindowInsets.Type.statusBars()) ?: true
-        val navigationVisible = insets?.isVisible(WindowInsets.Type.navigationBars()) ?: true
+    // 按目标无条件下发显隐：不做「状态已符合则跳过」的短路——系统从外部显示系统栏时本窗口
+    // insets 未必同步上报为可见，短路会导致「显示了也压不回」；hide/show 重复下发是幂等的
+    private fun applySystemBarsVisibility(controller: WindowInsetsController) {
         when (systemBarTarget()) {
-            SystemBarTarget.HIDE_ALL ->
-                if (statusVisible || navigationVisible) {
-                    controller.hide(WindowInsets.Type.systemBars())
-                }
+            SystemBarTarget.HIDE_ALL -> controller.hide(WindowInsets.Type.systemBars())
             // 仅隐藏状态栏：只把导航栏摆正，不做「先 show 全部再 hide 状态栏」，避免中间可见帧
             SystemBarTarget.HIDE_STATUS -> {
-                if (!navigationVisible) controller.show(WindowInsets.Type.navigationBars())
-                if (statusVisible) controller.hide(WindowInsets.Type.statusBars())
+                controller.show(WindowInsets.Type.navigationBars())
+                controller.hide(WindowInsets.Type.statusBars())
             }
-            SystemBarTarget.VISIBLE ->
-                if (!statusVisible || !navigationVisible) {
-                    controller.show(WindowInsets.Type.systemBars())
-                }
+            SystemBarTarget.VISIBLE -> controller.show(WindowInsets.Type.systemBars())
         }
     }
 }
