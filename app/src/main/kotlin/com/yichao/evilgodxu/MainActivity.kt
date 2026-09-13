@@ -36,7 +36,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
-    private lateinit var windowInsetsController: WindowInsetsController
+    // 系统栏显隐目标：横屏全部隐藏 / 首页竖屏仅隐藏状态栏 / 其余全部显示
+    private enum class SystemBarTarget { HIDE_ALL, HIDE_STATUS, VISIBLE }
+
+    // 同一帧内的多次系统栏请求合并为一次下发
+    private var systemBarsScheduled = false
 
     // 手动 DI：经 Application 容器取依赖，ViewModel 以工厂注入构造参数
     private val appContainer: AppContainer
@@ -105,21 +109,21 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        // 解除语言管理器对 Activity 的绑定，避免单例持有已销毁实例
+        // 解除语言管理器与系统栏回调对 Activity 的持有，避免单例持有已销毁实例
+        SystemBarAppearance.onChanged = null
         localizationManager.unbindActivity(this)
         super.onDestroy()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        updateSystemBarsVisibility(newConfig.orientation)
-        // 系统 uiMode 变化时系统可能重置系统栏图标，复读 Compose 应用的外观
-        applySystemBarAppearance()
+        // 系统 uiMode 变化时系统可能重置系统栏图标与显隐，按当前朝向复读界面声明的状态
+        scheduleSystemBars()
     }
 
     override fun onResume() {
         super.onResume()
-        applySystemBarAppearance()
+        scheduleSystemBars()
     }
 
     override fun onStop() {
@@ -128,32 +132,10 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    // 窗口重新获得焦点时系统可能重置系统栏外观与显隐（如对话框关闭后），复读 Compose 应用的状态
+    // 窗口重新获得焦点时系统可能重置系统栏（如对话框、弹窗、下拉通知栏关闭后），复读界面声明的状态
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            applySystemBarAppearance()
-            updateSystemBarsVisibility()
-        }
-    }
-
-    private fun applySystemBarAppearance() {
-        windowInsetsController.setSystemBarsAppearance(
-            if (SystemBarAppearance.isLightStatusBars) {
-                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-            } else {
-                0
-            },
-            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-        )
-        windowInsetsController.setSystemBarsAppearance(
-            if (SystemBarAppearance.isLightNavigationBars) {
-                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-            } else {
-                0
-            },
-            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
-        )
+        if (hasFocus) scheduleSystemBars()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -207,27 +189,93 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupSystemBars() {
-        windowInsetsController = window.insetsController ?: return
-        windowInsetsController.systemBarsBehavior =
-            WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        updateSystemBarsVisibility()
+        // 界面侧只声明请求，窗口操作统一收敛到 applySystemBars
+        SystemBarAppearance.onChanged = { scheduleSystemBars() }
+        installSystemBarsEnforcement()
+        scheduleSystemBars()
     }
 
-    // 横屏隐藏全部系统栏；首页竖屏沉浸式仅隐藏状态栏；其余情况显示
-    // 通过 post 延后到当前窗口过渡/布局结束后执行：对话框、弹出窗口等独立窗口切换期间系统会强制
-    // 显示系统栏，焦点回归时立即 hide 可能被窗口切换过程覆盖，延后执行可稳定落回预期显隐
-    private fun updateSystemBarsVisibility(orientation: Int = resources.configuration.orientation) {
-        val hideAll = orientation == Configuration.ORIENTATION_LANDSCAPE
-        val hideStatusOnly = !hideAll && SystemBarAppearance.isHomePortraitImmersive
-        window.decorView.post {
-            when {
-                hideAll -> windowInsetsController.hide(WindowInsets.Type.systemBars())
-                hideStatusOnly -> {
-                    windowInsetsController.show(WindowInsets.Type.systemBars())
-                    windowInsetsController.hide(WindowInsets.Type.statusBars())
-                }
-                else -> windowInsetsController.show(WindowInsets.Type.systemBars())
+    // 兜底防重置：期望隐藏时被外部途径置为可见（系统手势临时唤出、ROM 重置、窗口切换残留），
+    // 在下一次 insets 分发即压回隐藏。键盘弹起期间不干预，避免与输入法布局竞争
+    private fun installSystemBarsEnforcement() {
+        window.decorView.setOnApplyWindowInsetsListener { view, insets ->
+            val barsVisible = insets.isVisible(WindowInsets.Type.statusBars()) ||
+                    insets.isVisible(WindowInsets.Type.navigationBars())
+            if (barsVisible &&
+                !insets.isVisible(WindowInsets.Type.ime()) &&
+                view.hasWindowFocus() &&
+                systemBarTarget() != SystemBarTarget.VISIBLE
+            ) {
+                scheduleSystemBars()
             }
+            view.onApplyWindowInsets(insets)
+        }
+    }
+
+    // 合并同一帧内的多次请求，并延后到当前窗口过渡/布局结束后执行：对话框、弹出窗口等独立窗口
+    // 切换期间系统会强制显示系统栏，焦点回归时立即 hide 可能被窗口切换过程覆盖，延后执行可稳定落回预期显隐
+    private fun scheduleSystemBars() {
+        if (systemBarsScheduled) return
+        systemBarsScheduled = true
+        window.decorView.post {
+            systemBarsScheduled = false
+            applySystemBars()
+        }
+    }
+
+    // 朝向判据与界面层 rememberWindowLandscape 同源（窗口实测宽高）：配置读取可能滞后于实际窗口，
+    // 若此处仍按竖屏下发，会把系统栏 show 出来并常驻遮挡顶部按钮
+    private fun isWindowLandscape(): Boolean {
+        val decor = window.decorView
+        if (decor.width > 0 && decor.height > 0) return decor.width > decor.height
+        val bounds = windowManager.currentWindowMetrics.bounds
+        return bounds.width() > bounds.height()
+    }
+
+    private fun systemBarTarget(): SystemBarTarget = when {
+        isWindowLandscape() -> SystemBarTarget.HIDE_ALL
+        SystemBarAppearance.isHomePortraitImmersive -> SystemBarTarget.HIDE_STATUS
+        else -> SystemBarTarget.VISIBLE
+    }
+
+    // 系统栏唯一下发点：图标外观与显隐一并处理，并按当前实际状态判定是否需要下发，避免无谓调用
+    private fun applySystemBars() {
+        val controller = window.insetsController ?: return
+        controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.setSystemBarsAppearance(
+            if (SystemBarAppearance.isLightStatusBars) {
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+            } else {
+                0
+            },
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+        )
+        controller.setSystemBarsAppearance(
+            if (SystemBarAppearance.isLightNavigationBars) {
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+            } else {
+                0
+            },
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+        )
+
+        val insets = window.decorView.rootWindowInsets
+        val statusVisible = insets?.isVisible(WindowInsets.Type.statusBars()) ?: true
+        val navigationVisible = insets?.isVisible(WindowInsets.Type.navigationBars()) ?: true
+        when (systemBarTarget()) {
+            SystemBarTarget.HIDE_ALL ->
+                if (statusVisible || navigationVisible) {
+                    controller.hide(WindowInsets.Type.systemBars())
+                }
+            // 仅隐藏状态栏：只把导航栏摆正，不做「先 show 全部再 hide 状态栏」，避免中间可见帧
+            SystemBarTarget.HIDE_STATUS -> {
+                if (!navigationVisible) controller.show(WindowInsets.Type.navigationBars())
+                if (statusVisible) controller.hide(WindowInsets.Type.statusBars())
+            }
+            SystemBarTarget.VISIBLE ->
+                if (!statusVisible || !navigationVisible) {
+                    controller.show(WindowInsets.Type.systemBars())
+                }
         }
     }
 }

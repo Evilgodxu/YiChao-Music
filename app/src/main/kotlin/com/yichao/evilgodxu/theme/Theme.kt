@@ -1,8 +1,6 @@
 package com.yichao.evilgodxu.theme
 
-import android.app.Activity
 import android.graphics.Bitmap
-import android.view.WindowInsetsController
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -53,35 +51,44 @@ val LocalIsDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false
 // 状态栏是否采用浅色外观（深色图标）；默认跟随主题，深色背景页面（如首页）可覆盖为 false 固定白色图标
 val LocalStatusBarLight = androidx.compose.runtime.staticCompositionLocalOf { false }
 
-// Compose 层最近应用的系统栏外观，Activity 在焦点/配置变化时复读，防止被系统重置
+// 界面层声明的系统栏状态：图标外观与沉浸请求。窗口操作由 Activity 统一收敛下发，
+// 界面侧不直接调用 insetsController，避免多处写入互相覆盖、或被窗口切换过程吞掉
 object SystemBarAppearance {
+    // 状态栏图标外观（浅色外观 = 深色图标）
     var isLightStatusBars: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            onChanged?.invoke()
+        }
+
     var isLightNavigationBars: Boolean = false
-    // 首页竖屏沉浸式隐藏状态栏的请求，由首页页面写入，Activity 在配置/焦点变化时复读
+        set(value) {
+            if (field == value) return
+            field = value
+            onChanged?.invoke()
+        }
+
+    // 首页竖屏沉浸请求（仅隐藏状态栏），由首页页面写入、离开时撤销
     var isHomePortraitImmersive: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            onChanged?.invoke()
+        }
+
+    // 声明变化时的即时下发回调，由 Activity 注册
+    var onChanged: (() -> Unit)? = null
 }
 
-// 应用当前页面的系统栏图标外观；各页面入口调用，读取页面级覆盖
+// 声明当前页面所需的系统栏图标外观
 @Composable
 fun StatusBarStyleEffect() {
-    val view = LocalView.current
     val statusBarLight = LocalStatusBarLight.current
     val navigationBarLight = !LocalIsDarkTheme.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            // view.context 可能非 Activity，判空避免崩溃
-            val window = (view.context as? Activity)?.window ?: return@SideEffect
-            SystemBarAppearance.isLightStatusBars = statusBarLight
-            SystemBarAppearance.isLightNavigationBars = navigationBarLight
-            window.insetsController?.setSystemBarsAppearance(
-                if (statusBarLight) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
-                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-            )
-            window.insetsController?.setSystemBarsAppearance(
-                if (navigationBarLight) WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS else 0,
-                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
-            )
-        }
+    SideEffect {
+        SystemBarAppearance.isLightStatusBars = statusBarLight
+        SystemBarAppearance.isLightNavigationBars = navigationBarLight
     }
 }
 
