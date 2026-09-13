@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -17,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,11 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -53,10 +47,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -69,14 +61,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yichao.evilgodxu.data.music.metadata.MetadataEnricher
 import com.yichao.evilgodxu.data.music.model.MusicTrack
-import com.yichao.evilgodxu.data.music.PlaylistRefresher
 import com.yichao.evilgodxu.LocalMetadataEnricher
 import com.yichao.evilgodxu.LocalPlaylistRefresher
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
@@ -85,8 +74,10 @@ import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.ui.icons.AppIcons
+import com.yichao.evilgodxu.ui.component.BottomSearchBarOverlay
 import com.yichao.evilgodxu.ui.component.HeaderIconButton
 import com.yichao.evilgodxu.ui.component.PlaylistRow
+import com.yichao.evilgodxu.ui.component.SEARCH_BAR_REGION_DP
 import com.yichao.evilgodxu.windowsize.rememberWindowLandscape
 import com.yichao.evilgodxu.ui.component.scrollPlaylistTo
 import kotlinx.coroutines.delay
@@ -280,7 +271,7 @@ internal fun PlaylistSheet(
                     val density = LocalDensity.current
                     val dismissOverscrollPx = with(density) { PLAYLIST_DISMISS_OVERSCROLL_DP.toPx() }
                     // 搜索框在列表底部占用的高度：最后一项底缘进入该区域即视为滚到底部
-                    val searchBarRegionPx = with(density) { PLAYLIST_SEARCH_BAR_REGION_DP.toPx() }
+                    val searchBarRegionPx = with(density) { SEARCH_BAR_REGION_DP.toPx() }
                     // 滚到底部判定：最后一项已到达列表底部（底缘进入搜索框遮挡区）；
                     // 列表不足一屏时最后一项不会触底，搜索框保持常驻
                     val atBottom by remember {
@@ -395,8 +386,9 @@ internal fun PlaylistSheet(
                             )
                         }
                         // 底部搜索框：滚到底部或滚动中隐藏，避免遮挡底部曲目；输入中常驻
-                        PlaylistSearchOverlay(
+                        BottomSearchBarOverlay(
                             hidden = searchHidden,
+                            placeholder = stringResource(R.string.playlist_search_placeholder),
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
                             onFocusChanged = { searchFocused = it },
@@ -435,117 +427,6 @@ internal fun PlaylistSheet(
 private const val PLAYLIST_EXPAND_ANIM_MS = 300L
 // 列表顶部继续下拉的收起阈值：累计下拉超过该距离即收起面板
 private val PLAYLIST_DISMISS_OVERSCROLL_DP = 64.dp
-// 搜索框在列表底部占用的区域高度：最后一项底缘进入该区域即判定为滚到底部
-private val PLAYLIST_SEARCH_BAR_REGION_DP = 54.dp
-
-// 播放列表底部搜索框：列表滚到底部或滚动中隐藏，输入/聚焦期间常驻
-@Composable
-private fun BoxScope.PlaylistSearchOverlay(
-    hidden: Boolean,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onFocusChanged: (Boolean) -> Unit,
-) {
-    AnimatedVisibility(
-        visible = !hidden,
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
-        enter = fadeIn(animationSpec = tween(160)) +
-            slideInVertically(animationSpec = tween(160)) { it },
-        exit = fadeOut(animationSpec = tween(160)) +
-            slideOutVertically(animationSpec = tween(160)) { it },
-    ) {
-        PlaylistSearchBar(
-            query = query,
-            onQueryChange = onQueryChange,
-            onFocusChanged = onFocusChanged,
-        )
-    }
-}
-
-// 播放列表内搜索输入框：胶囊描边样式，输入即按标题/歌手过滤列表
-@Composable
-private fun PlaylistSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onFocusChanged: (Boolean) -> Unit,
-) {
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(22.dp),
-            ),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = AppIcons.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp)
-                    .onFocusChanged { onFocusChanged(it.isFocused) },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 13.sp,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = {
-                    // 回车搜索后收起键盘并释放焦点，避免输入框保持聚焦态
-                    keyboardController?.hide()
-                    focusManager.clearFocus()
-                }),
-                decorationBox = { innerTextField ->
-                    Box {
-                        if (query.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.playlist_search_placeholder),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 14.sp,
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-            )
-            if (query.isNotEmpty()) {
-                IconButton(
-                    onClick = { onQueryChange("") },
-                    modifier = Modifier.size(30.dp),
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Close,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-        }
-    }
-}
 
 // 排序对话框：标题右侧小字「逆序/正序」切换方向 + 排序字段列表，选中项高亮
 @Composable

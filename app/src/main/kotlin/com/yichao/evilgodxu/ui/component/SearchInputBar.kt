@@ -1,0 +1,163 @@
+package com.yichao.evilgodxu.ui.component
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yichao.evilgodxu.ui.icons.AppIcons
+
+// 底部搜索框在列表末尾占用的区域高度：最后一项底缘进入该区域即判定为滚到底部
+internal val SEARCH_BAR_REGION_DP = 54.dp
+
+// 悬浮在列表底部的搜索输入框：列表滚动中或滚到底部时隐藏，避免遮挡末尾条目；输入/聚焦期间常驻
+@Composable
+internal fun BoxScope.BottomSearchBarOverlay(
+    hidden: Boolean,
+    placeholder: String,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
+    borderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    hintColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    AnimatedVisibility(
+        visible = !hidden,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+        enter = fadeIn(animationSpec = tween(160)) +
+            slideInVertically(animationSpec = tween(160)) { it },
+        exit = fadeOut(animationSpec = tween(160)) +
+            slideOutVertically(animationSpec = tween(160)) { it },
+    ) {
+        SearchInputBar(
+            placeholder = placeholder,
+            query = query,
+            onQueryChange = onQueryChange,
+            onFocusChanged = onFocusChanged,
+            borderColor = borderColor,
+            textColor = textColor,
+            hintColor = hintColor,
+        )
+    }
+}
+
+// 列表内搜索输入框：胶囊描边样式，输入即回调过滤。
+// 前景配色默认跟随主题；底色为深色沉浸背景的面板需传入白色系，避免深色主题色压在深底上不可辨
+@Composable
+internal fun SearchInputBar(
+    placeholder: String,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    borderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    hintColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .border(
+                width = 1.dp,
+                color = borderColor,
+                shape = RoundedCornerShape(22.dp),
+            ),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = AppIcons.Search,
+                contentDescription = null,
+                tint = hintColor,
+                modifier = Modifier.size(18.dp),
+            )
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp)
+                    .onFocusChanged { onFocusChanged(it.isFocused) },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = textColor,
+                    fontSize = 13.sp,
+                ),
+                cursorBrush = SolidColor(textColor),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    // 回车搜索后收起键盘并释放焦点，避免输入框保持聚焦态
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                color = hintColor,
+                                fontSize = 14.sp,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Close,
+                        contentDescription = null,
+                        tint = hintColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}

@@ -24,7 +24,6 @@ import com.yichao.evilgodxu.theme.LocalThemeTransitionController
 import com.yichao.evilgodxu.theme.StatusBarStyleEffect
 import com.yichao.evilgodxu.windowsize.rememberExpandedForm
 import com.yichao.evilgodxu.update.LocalUpdateViewModel
-import com.yichao.evilgodxu.update.UpdateViewModel
 
 // 页面入口：形态分发 + 跨形态副作用，不承载布局
 @Composable

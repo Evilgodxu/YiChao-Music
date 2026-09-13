@@ -17,7 +17,6 @@ import android.view.MotionEvent
 import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat

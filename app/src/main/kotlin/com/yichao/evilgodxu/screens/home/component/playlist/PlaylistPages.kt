@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -26,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +39,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,7 +51,6 @@ import com.yichao.evilgodxu.data.music.metadata.MusicMetadataWriter
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.data.playlist.Playlist
 import com.yichao.evilgodxu.data.playlist.PlaylistGroup
-import com.yichao.evilgodxu.data.playlist.PlaylistStore
 import com.yichao.evilgodxu.data.playlist.SmartPlaylistType
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
 import com.yichao.evilgodxu.data.music.playback.PlaylistSource
@@ -55,9 +58,11 @@ import com.yichao.evilgodxu.data.music.playback.playTrackAt
 import com.yichao.evilgodxu.data.music.playback.togglePlayPause
 import com.yichao.evilgodxu.R
 import com.yichao.evilgodxu.LocalPlaylistStore
+import com.yichao.evilgodxu.ui.component.BottomSearchBarOverlay
 import com.yichao.evilgodxu.ui.component.DialogCard
 import com.yichao.evilgodxu.ui.icons.AppIcons
 import com.yichao.evilgodxu.ui.component.PlaylistArt
+import com.yichao.evilgodxu.ui.component.SEARCH_BAR_REGION_DP
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -82,72 +87,141 @@ internal fun PlaylistGroupsPage(
     // 行内取封面按 id 查表，避免每行线性扫描全库
     val libraryById = remember(library) { library.associateBy { it.id } }
     val icon: ImageVector = if (type == SmartPlaylistType.ALBUM) AppIcons.Album else AppIcons.Person
+    // 列表内搜索关键词：仅过滤展示，不改变曲库
+    var searchQuery by remember { mutableStateOf("") }
+    // 搜索框聚焦状态：输入期间常驻显示，不随列表滚动隐去
+    var searchFocused by remember { mutableStateOf(false) }
+    // 按条目名称过滤：关键字命中歌手名/专辑名即保留
+    val visibleGroups = remember(groups, searchQuery) {
+        if (searchQuery.isBlank()) {
+            groups
+        } else {
+            groups.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        }
+    }
     if (groups.isEmpty()) {
         EmptyHint(text = stringResource(R.string.playlist_empty))
     } else {
-        LazyColumn(
+        val keyboardController = LocalSoftwareKeyboardController.current
+        val listState = rememberLazyListState()
+        // 列表滚动中隐藏搜索框，滚动停止自动恢复
+        val isScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
+        val density = LocalDensity.current
+        // 搜索框在列表底部占用的高度：最后一项底缘进入该区域即视为滚到底部
+        val searchBarRegionPx = with(density) { SEARCH_BAR_REGION_DP.toPx() }
+        // 滚到底部判定：最后一项已到达列表底部（底缘进入搜索框遮挡区）；
+        // 列表不足一屏时最后一项不会触底，搜索框保持常驻
+        val atBottom by remember {
+            derivedStateOf {
+                val layout = listState.layoutInfo
+                val last = layout.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+                last.index == layout.totalItemsCount - 1 &&
+                    last.offset + last.size >= layout.viewportEndOffset - searchBarRegionPx
+            }
+        }
+        val searchHidden = (isScrolling || atBottom) && !searchFocused
+        // imePadding 收紧页面底部：键盘弹出时压缩列表，搜索框保持在键盘上方
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+                .imePadding()
         ) {
-            items(groups, key = { it.key }) { group ->
-                // 专辑/艺术家歌单封面统一采用该歌单内第一首歌曲的封面
-                val coverTrack = group.trackIds.firstOrNull()?.let { libraryById[it] }
-                Row(
+            if (searchQuery.isNotBlank() && visibleGroups.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(
+                            if (type == SmartPlaylistType.ALBUM) R.string.playlist_search_no_album_results
+                            else R.string.playlist_search_no_artist_results
+                        ),
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onOpenGroup(group) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (coverTrack != null) {
-                            PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
-                        } else {
+                    items(visibleGroups, key = { it.key }) { group ->
+                        // 专辑/艺术家歌单封面统一采用该歌单内第一首歌曲的封面
+                        val coverTrack = group.trackIds.firstOrNull()?.let { libraryById[it] }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    keyboardController?.hide()
+                                    onOpenGroup(group)
+                                }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (coverTrack != null) {
+                                    PlaylistArt(track = coverTrack, modifier = Modifier.fillMaxSize())
+                                } else {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(
+                                    text = group.name,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    lineHeight = 15.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = stringResource(R.string.music_panel_track_count, group.trackIds.size),
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 10.sp,
+                                    lineHeight = 12.sp,
+                                )
+                            }
                             Icon(
-                                imageVector = icon,
+                                imageVector = AppIcons.KeyboardArrowRight,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Text(
-                            text = group.name,
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            lineHeight = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = stringResource(R.string.music_panel_track_count, group.trackIds.size),
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp,
-                        )
-                    }
-                    Icon(
-                        imageVector = AppIcons.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
                 }
             }
+            // 底部搜索框：滚到底部或滚动中隐藏，避免遮挡末尾条目；输入中常驻。
+            // 本面板为深色沉浸背景，前景统一走白色系，与上方条目文字一致
+            BottomSearchBarOverlay(
+                hidden = searchHidden,
+                placeholder = stringResource(
+                    if (type == SmartPlaylistType.ALBUM) R.string.playlist_search_album_placeholder
+                    else R.string.playlist_search_artist_placeholder
+                ),
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                onFocusChanged = { searchFocused = it },
+                borderColor = Color.White.copy(alpha = 0.45f),
+                textColor = Color.White,
+                hintColor = Color.White.copy(alpha = 0.6f),
+            )
         }
     }
 }

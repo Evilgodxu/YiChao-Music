@@ -9,7 +9,6 @@ import com.yichao.evilgodxu.log.CrashLogManager
 import com.yichao.evilgodxu.R
 import java.io.File
 import java.io.FileInputStream
-import java.io.InputStream
 
 // 本地音频格式信息读取：解码头未给出或冷启动未播放时，直接读文件元数据补齐
 internal object TrackAudioInfoReader {

@@ -259,6 +259,10 @@
     <string name="playlist_import_done">Sync done · %1$d added · %2$d existing · %3$d failed</string>
     <string name="playlist_search_placeholder">Search playlist</string>
     <string name="playlist_search_no_results">No matching songs</string>
+    <string name="playlist_search_artist_placeholder">Search artists</string>
+    <string name="playlist_search_album_placeholder">Search albums</string>
+    <string name="playlist_search_no_artist_results">No matching artists</string>
+    <string name="playlist_search_no_album_results">No matching albums</string>
 
     <!-- Library analysis -->
     <string name="library_analysis_title">Library Analysis</string>

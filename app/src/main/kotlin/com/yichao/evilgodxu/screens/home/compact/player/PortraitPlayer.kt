@@ -69,7 +69,6 @@ import com.yichao.evilgodxu.data.music.panel.applyCoverCandidate
 import com.yichao.evilgodxu.data.music.panel.applyLocalLyrics
 import com.yichao.evilgodxu.data.music.panel.applyLyricsCandidate
 import com.yichao.evilgodxu.data.music.panel.applyLyricsLineEdit
-import com.yichao.evilgodxu.data.music.panel.MusicPanelStateHolder
 import com.yichao.evilgodxu.data.music.panel.searchCoverCandidates
 import com.yichao.evilgodxu.data.music.panel.searchLyricsCandidates
 import com.yichao.evilgodxu.data.music.playback.MusicPlaybackState
