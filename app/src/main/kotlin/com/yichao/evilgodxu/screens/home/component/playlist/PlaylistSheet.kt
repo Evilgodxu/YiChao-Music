@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.yichao.evilgodxu.data.music.model.MusicTrack
 import com.yichao.evilgodxu.LocalMetadataEnricher
 import com.yichao.evilgodxu.LocalPlaylistRefresher
@@ -428,7 +428,7 @@ private const val PLAYLIST_EXPAND_ANIM_MS = 300L
 // 列表顶部继续下拉的收起阈值：累计下拉超过该距离即收起面板
 private val PLAYLIST_DISMISS_OVERSCROLL_DP = 64.dp
 
-// 排序对话框：标题右侧小字「逆序/正序」切换方向 + 排序字段列表，选中项高亮
+// 排序对话框：外壳与切换歌单面板一致（全宽圆角、同高），标题居中、右侧小字「逆序/正序」切换方向，字段列表居中高亮
 @Composable
 private fun PlaylistSortDialog(
     visible: Boolean,
@@ -441,14 +441,22 @@ private fun PlaylistSortDialog(
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     // 方向本地态：点击标题右侧文案即时切换生效但不关闭对话框，便于连续调整字段与方向
     var reverse by remember(visible) { mutableStateOf(descending) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.36f)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(R.string.music_panel_sort_title),
-                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 // 标题右侧小字：文案为可切换到的目标方向（当前正序显示「逆序」）
                 Text(
@@ -468,11 +476,10 @@ private fun PlaylistSortDialog(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
-        },
-        text = {
+            Spacer(modifier = Modifier.height(4.dp))
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -506,9 +513,8 @@ private fun PlaylistSortDialog(
                     )
                 }
             }
-        },
-        confirmButton = {},
-    )
+        }
+    }
 }
 
 // 排序字段对应的文案资源

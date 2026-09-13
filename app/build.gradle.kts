@@ -21,8 +21,8 @@ android {
         applicationId = "com.yichao.evilgodxu"
         minSdk = 33
         targetSdk = 37
-        versionCode = 34
-        versionName = "3.3.0"
+        versionCode = 35
+        versionName = "3.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
