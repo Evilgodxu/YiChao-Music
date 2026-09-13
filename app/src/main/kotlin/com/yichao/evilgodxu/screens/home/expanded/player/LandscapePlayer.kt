@@ -72,6 +72,8 @@ fun LandscapePlayer(
     // 播放列表面板显隐：由首页层持有，显示期间禁用上下滑动切歌
     playlistVisible: Boolean,
     onPlaylistVisibilityChange: (Boolean) -> Unit,
+    // 长按上一曲/下一曲唤出调速对话框：弹窗宿主在首页对话框层，位于控制栏显隐子树之外
+    onSpeedLongClick: () -> Unit,
     // 3D 封面轮播显隐：由首页层持有，进入沉浸覆盖层时同步隐藏标题栏与控制栏
     coverCarouselVisible: Boolean,
     onCoverCarouselVisibilityChange: (Boolean) -> Unit,
@@ -183,6 +185,7 @@ fun LandscapePlayer(
                 PlayerControls(
                     playbackState = playbackState,
                     onPlaylistClick = { onPlaylistVisibilityChange(true) },
+                    onSpeedLongClick = onSpeedLongClick,
                 )
             }
         }

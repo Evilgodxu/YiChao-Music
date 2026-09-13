@@ -81,6 +81,7 @@ internal fun CompactAssembly(
                 libraryAnalysis = panelState.libraryAnalysis,
                 playlistVisible = panelState.playlistVisible,
                 onPlaylistVisibilityChange = { panelState.playlistVisible = it },
+                onSpeedLongClick = { panelState.showSpeed = true },
                 // 长按标题/艺术家菜单"在线搜索"：切到在线搜索面板并自动按当前菜单文本搜索
                 onOpenOnlineSearch = { query ->
                     playbackState.setSearchQuery(query)

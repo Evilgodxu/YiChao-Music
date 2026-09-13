@@ -85,6 +85,7 @@ internal fun ExpandedAssembly(
                 onToggleChrome = { chromeVisible = !chromeVisible },
                 playlistVisible = panelState.playlistVisible,
                 onPlaylistVisibilityChange = { panelState.playlistVisible = it },
+                onSpeedLongClick = { panelState.showSpeed = true },
                 coverCarouselVisible = coverCarouselVisible,
                 onCoverCarouselVisibilityChange = { coverCarouselVisible = it },
                 modifier = Modifier.fillMaxSize(),

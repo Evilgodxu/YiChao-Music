@@ -33,6 +33,8 @@ internal class HomePanelState(
         }
     // 定时关闭对话框显隐
     var showTimer by mutableStateOf(false)
+    // 播放速度对话框显隐
+    var showSpeed by mutableStateOf(false)
     // 首页背景代表色：供在线搜索等浮层容器复用，保持与首页底色一致
     var backgroundColor by mutableStateOf(md_theme_dark_surface)
 }

@@ -114,6 +114,8 @@ internal fun PortraitPlayer(
     // 播放列表面板显隐：由首页层持有，显示期间禁用上下滑动切歌
     playlistVisible: Boolean,
     onPlaylistVisibilityChange: (Boolean) -> Unit,
+    // 长按上一曲/下一曲唤出调速对话框：弹窗宿主在首页对话框层
+    onSpeedLongClick: () -> Unit,
     onOpenOnlineSearch: (String) -> Unit = {},
 ) {
     val playbackState = LocalMusicPanelStateHolder.current.state
@@ -517,6 +519,7 @@ internal fun PortraitPlayer(
                 PlayerControls(
                     playbackState = playbackState,
                     onPlaylistClick = { onPlaylistVisibilityChange(!playlistVisible) },
+                    onSpeedLongClick = onSpeedLongClick,
                     onPlaylistLongClick = { libraryAnalysis.open() },
                 )
             }
